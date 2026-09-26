@@ -226,3 +226,14 @@ A canvas layer behind the home hero (decorative, `pointer-events: none`, hidden 
 ## The space crossing
 
 Scrolling to the services section crosses the site into night: the ground eases from ceramic beige to deep space #070C19 over ~950ms (class `space` on `<html>`, tokens swap via CSS variables, `.theme-anim` gates the transition so hovers stay fast), a fixed full-viewport canvas of ~230 twinkling stars (warm white, ~16% gold #D8B183, ~3% brand stars) fades in behind the content, and everything around dissolves: the statement and protocol sections fade to 8% opacity, the section head to 30%, leaving only the sky and the orbit. The services orbit an INVISIBLE planet: the same tilted elliptical revolution (one turn per 22s, eased pause on hover), but nothing is drawn at the center and no ring is drawn on the path — depth is carried entirely by scale (0.58-1.06) and opacity (0.38-1), with the front satellite revealing its description. The visitor senses the planet without ever seeing it. The close and footer live in space; scrolling back above the services returns the day. Reduced motion: the site stays beige, the orbit falls back to the list. White buttons always carry constant espresso #2A2118 text so they hold on both grounds. Debug: `?forcespace` pins space mode.
+
+## Living details
+
+- **The star that lands.** The loader's lead star flies (FLIP, 820ms) from the loading screen to its post beside the hero headline; the hero star skips its rise and simply continues drifting where the traveler landed.
+- **The sky signs its name.** Once per session, ~1.7s after the hyperspace arrival, eight nearby stars gather into the outline of the brand's four-pointed star (upper right of the hero), hold connected by hairlines for ~2s, then release back into drift.
+- **Warp navigation.** Cross-document view transitions: leaving a page blurs and expands 240ms, arriving settles from blur 320ms. Progressive; reduced motion gets instant cuts.
+- **The terminator.** The day/night switch is crossed by a one-time sunset band (gold-to-umber gradient) sweeping down on entering space and up on returning.
+- **Leave a star.** In space, clicking empty ground births a new brand star at the pointer with an expanding ring; it joins the sky for the rest of the session.
+- **Gravity.** Stars within 260px of the final BOOK A CALL drift toward it; primary buttons are magnetic within 150px of the cursor (desktop, fine pointers only).
+- **Tilt.** On phones the hero and space skies parallax with device orientation where the platform exposes it without a permission prompt.
+- **404 flight deck.** The not-found page lives permanently in space: arrow keys (or touch drag) fly a star through the sky with inertial parallax.

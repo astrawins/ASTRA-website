@@ -70,6 +70,15 @@ html.space .statement, html.space .protocol { opacity: 0.08; }
 html.space .services-head { opacity: 0.3; }
 @media (prefers-reduced-motion: reduce) { #spacefield { display: none; } }
 
+/* ---------- Warp page transitions ---------- */
+@view-transition { navigation: auto; }
+@media (prefers-reduced-motion: no-preference) {
+  ::view-transition-old(root) { animation: warp-out 240ms ease-in both; }
+  ::view-transition-new(root) { animation: warp-in 320ms cubic-bezier(0.23, 1, 0.32, 1) both; }
+  @keyframes warp-out { to { opacity: 0; transform: scale(1.035); filter: blur(7px); } }
+  @keyframes warp-in { from { opacity: 0; transform: scale(0.988); filter: blur(9px); } }
+}
+
 /* ---------- Reset & base ---------- */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 html, body { overflow-x: clip; }
@@ -278,6 +287,9 @@ p  { max-width: 58ch; }
   .hero .wrap > *:nth-child(2) { animation-delay: 70ms; }
   .hero .wrap > .star-drift {
     animation: rise 520ms var(--ease-out) 70ms both, drift 7s ease-in-out 590ms infinite alternate;
+  }
+  .hero .wrap > .star-drift.flown {
+    animation: drift 7s ease-in-out 0ms infinite alternate;
   }
   .hero .hero-star.still {
     animation: none;
@@ -612,6 +624,38 @@ html.space .clients { opacity: 0.08; }
   }
 }
 
+/* ---------- Terminator: the sunset line between day and night ---------- */
+.terminator {
+  position: fixed;
+  left: 0; right: 0; top: 0;
+  height: 46vh;
+  z-index: 90;
+  pointer-events: none;
+  opacity: 0;
+  background: linear-gradient(180deg,
+    transparent,
+    rgba(238, 190, 120, 0.30) 32%,
+    rgba(206, 120, 66, 0.42) 54%,
+    rgba(122, 62, 42, 0.26) 76%,
+    transparent);
+}
+@media (prefers-reduced-motion: no-preference) {
+  .terminator.sweep-down { animation: term-down 1050ms ease-in-out both; }
+  .terminator.sweep-up { animation: term-up 1050ms ease-in-out both; }
+  @keyframes term-down {
+    0% { opacity: 0; transform: translateY(-52vh); }
+    18% { opacity: 1; }
+    82% { opacity: 1; }
+    100% { opacity: 0; transform: translateY(108vh); }
+  }
+  @keyframes term-up {
+    0% { opacity: 0; transform: translateY(108vh); }
+    18% { opacity: 1; }
+    82% { opacity: 1; }
+    100% { opacity: 0; transform: translateY(-52vh); }
+  }
+}
+
 /* ---------- Loading screen ---------- */
 .loader { display: none; }
 html.astra-loading .loader {
@@ -666,6 +710,18 @@ html.astra-done .loader { display: none; }
   .loader-stage { transition: transform 420ms var(--ease-out); }
   .loader.leaving .loader-stage { transform: scale(1.1); }
 }
+
+/* ---------- 404 flight deck ---------- */
+.ship {
+  position: fixed;
+  z-index: 20;
+  width: 40px;
+  height: 40px;
+  color: var(--display);
+  filter: drop-shadow(0 6px 14px rgba(0, 0, 0, 0.4));
+  pointer-events: none;
+}
+.fly-hint { margin-top: 1.4rem; color: var(--soft); }
 
 /* ---------- 404 ---------- */
 .notfound { min-height: 62vh; display: grid; align-content: center; }
