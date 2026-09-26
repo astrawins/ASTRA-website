@@ -624,38 +624,6 @@ html.space .clients { opacity: 0.08; }
   }
 }
 
-/* ---------- Terminator: the sunset line between day and night ---------- */
-.terminator {
-  position: fixed;
-  left: 0; right: 0; top: 0;
-  height: 46vh;
-  z-index: 90;
-  pointer-events: none;
-  opacity: 0;
-  background: linear-gradient(180deg,
-    transparent,
-    rgba(238, 190, 120, 0.30) 32%,
-    rgba(206, 120, 66, 0.42) 54%,
-    rgba(122, 62, 42, 0.26) 76%,
-    transparent);
-}
-@media (prefers-reduced-motion: no-preference) {
-  .terminator.sweep-down { animation: term-down 1050ms ease-in-out both; }
-  .terminator.sweep-up { animation: term-up 1050ms ease-in-out both; }
-  @keyframes term-down {
-    0% { opacity: 0; transform: translateY(-52vh); }
-    18% { opacity: 1; }
-    82% { opacity: 1; }
-    100% { opacity: 0; transform: translateY(108vh); }
-  }
-  @keyframes term-up {
-    0% { opacity: 0; transform: translateY(108vh); }
-    18% { opacity: 1; }
-    82% { opacity: 1; }
-    100% { opacity: 0; transform: translateY(-52vh); }
-  }
-}
-
 /* ---------- Loading screen ---------- */
 .loader { display: none; }
 html.astra-loading .loader {

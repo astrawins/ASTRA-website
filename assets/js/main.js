@@ -586,16 +586,9 @@
       if (skyRaf) cancelAnimationFrame(skyRaf);
     }
     var forceSpace = location.search.indexOf('forcespace') !== -1;
-    var term = document.createElement('div');
-    term.className = 'terminator';
-    term.setAttribute('aria-hidden', 'true');
-    document.body.appendChild(term);
     function setSpace(on) {
       if (forceSpace) on = true;
       if (root.classList.contains('space') === on) return;
-      term.classList.remove('sweep-down', 'sweep-up');
-      void term.offsetWidth;
-      term.classList.add(on ? 'sweep-down' : 'sweep-up');
       root.classList.add('theme-anim');
       root.classList.toggle('space', on);
       clearTimeout(themeTimer);
