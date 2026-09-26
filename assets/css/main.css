@@ -327,7 +327,6 @@ html.space .clients { opacity: 0.08; }
 @media (prefers-reduced-motion: no-preference) {
   .marquee-track { animation: marq 46s linear infinite; }
   @keyframes marq { to { transform: translateX(-50%); } }
-  .marquee:hover .marquee-track { animation-play-state: paused; }
 }
 @media (prefers-reduced-motion: reduce) {
   .marquee-set[aria-hidden] { display: none; }
