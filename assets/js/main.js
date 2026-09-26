@@ -63,7 +63,7 @@
   var noMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   if (field && !noMotion && field.getContext) {
     var fx = field.getContext('2d');
-    var dpr = Math.min(window.devicePixelRatio || 1, 2);
+    var dpr = Math.min(window.devicePixelRatio || 1, 1.5);
     var mobileF = window.matchMedia('(max-width: 767px)').matches;
     var COUNT = mobileF ? 70 : 160;
     var WARP = 1100;
@@ -476,7 +476,7 @@
     sky.setAttribute('aria-hidden', 'true');
     document.body.appendChild(sky);
     var kx = sky.getContext('2d');
-    var kdpr = Math.min(window.devicePixelRatio || 1, 2);
+    var kdpr = Math.min(window.devicePixelRatio || 1, 1.5);
     var KW, KH, dust = [];
     var skyLive = false, skyRaf = 0;
     var themeTimer = 0;
@@ -514,13 +514,22 @@
     }
     var shipOX = 0, shipOY = 0;   /* 404 flight parallax */
     var closeBtn = document.querySelector('.close-flood .btn');
+    var cbDoc = null;
+    function cacheCloseBtn() {
+      if (!closeBtn) return;
+      var br = closeBtn.getBoundingClientRect();
+      cbDoc = { x: br.left + br.width / 2 + window.scrollX, y: br.top + br.height / 2 + window.scrollY };
+    }
+    cacheCloseBtn();
+    window.addEventListener('load', cacheCloseBtn);
+    window.addEventListener('resize', function () { setTimeout(cacheCloseBtn, 150); });
     function skyFrame(t) {
       if (!skyLive) return;
       kx.clearRect(0, 0, KW, KH);
       var bc = null;
-      if (closeBtn) {
-        var br = closeBtn.getBoundingClientRect();
-        if (br.top < KH && br.bottom > 0) bc = { x: br.left + br.width / 2, y: br.top + br.height / 2 };
+      if (cbDoc) {
+        var bcy = cbDoc.y - window.scrollY;
+        if (bcy > -80 && bcy < KH + 80) bc = { x: cbDoc.x - window.scrollX, y: bcy };
       }
       for (var i = 0; i < dust.length; i++) {
         var s = dust[i];
@@ -659,29 +668,47 @@
     }
   }
 
-  /* Magnetic primary buttons */
+  /* Magnetic primary buttons (rAF-batched, zero layout reads per mousemove) */
   if (window.matchMedia('(hover: hover) and (pointer: fine)').matches &&
       !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
     var magnets = [].slice.call(document.querySelectorAll('.btn, .btn-ink'));
     if (magnets.length) {
-      window.addEventListener('mousemove', function (e) {
-        for (var i = 0; i < magnets.length; i++) {
-          var b = magnets[i];
+      var magCache = [];
+      var magMX = -9999, magMY = -9999, magRaf = 0;
+      function magMeasure() {
+        magCache = magnets.map(function (b) {
           var r = b.getBoundingClientRect();
-          if (!r.width) continue;
-          var dx = e.clientX - (r.left + r.width / 2);
-          var dy = e.clientY - (r.top + r.height / 2);
+          return { el: b, x: r.left + r.width / 2 + window.scrollX, y: r.top + r.height / 2 + window.scrollY, on: false };
+        });
+      }
+      function magFrame() {
+        magRaf = 0;
+        var vx = magMX + window.scrollX, vy = magMY + window.scrollY;
+        for (var i = 0; i < magCache.length; i++) {
+          var m = magCache[i];
+          var dx = vx - m.x, dy = vy - m.y;
           var d = Math.hypot(dx, dy);
           if (d < 150) {
             var pull = 1 - d / 150;
-            b.style.transform = 'translate(' + (dx * 0.22 * pull).toFixed(1) + 'px,' + (dy * 0.22 * pull).toFixed(1) + 'px)';
-            b.__mag = true;
-          } else if (b.__mag) {
-            b.style.transform = '';
-            b.__mag = false;
+            m.el.style.transform = 'translate(' + (dx * 0.22 * pull).toFixed(1) + 'px,' + (dy * 0.22 * pull).toFixed(1) + 'px)';
+            m.on = true;
+          } else if (m.on) {
+            m.el.style.transform = '';
+            m.on = false;
           }
         }
+      }
+      window.addEventListener('mousemove', function (e) {
+        magMX = e.clientX; magMY = e.clientY;
+        if (!magRaf) magRaf = requestAnimationFrame(magFrame);
       }, { passive: true });
+      var magResize = 0;
+      window.addEventListener('resize', function () {
+        clearTimeout(magResize);
+        magResize = setTimeout(magMeasure, 150);
+      });
+      window.addEventListener('load', magMeasure);
+      magMeasure();
     }
   }
 
