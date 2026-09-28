@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="el" data-theme="light">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
+  <meta name="theme-color" content="#EDDBC4">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Astra — Τα στατιστικά σας</title>
+  <link rel="icon" type="image/png" href="/app/assets/icon-192.png">
+  <link rel="apple-touch-icon" href="/app/assets/apple-touch-icon.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=Spline+Sans+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/app/shared/ui.css">
+  <style>
+    .pwrap { max-width: 980px; margin: 0 auto; padding: 26px 20px 80px; }
+    .phead { display: flex; align-items: center; justify-content: space-between; gap: 14px; flex-wrap: wrap; margin-bottom: 6px; }
+    .phead .brand { display: flex; align-items: baseline; gap: 10px; }
+    .phead .brand img { height: 24px; filter: invert(.82) sepia(.3) saturate(2); }
+    .phead .brand span { font-family: var(--mono); font-size: 11px; letter-spacing: .18em; color: var(--soft); text-transform: uppercase; }
+    .pclinic { font-size: 26px; font-weight: 700; letter-spacing: -.02em; margin: 18px 0 2px; }
+    .pupdated { color: var(--soft); font-size: 12.5px; margin-bottom: 20px; }
+  </style>
+</head>
+<body>
+<div class="pwrap">
+  <div class="phead">
+    <div class="brand"><img alt="astra" src="/app/assets/logo-white.webp"><span>Client Portal</span></div>
+    <button class="btn small" id="btnLogout">Αποσύνδεση</button>
+  </div>
+  <h1 class="pclinic" id="pClinic">…</h1>
+  <div class="pupdated" id="pUpdated"></div>
+  <div class="clsubs" id="pTabs">
+    <button data-ptab="stats" class="on">Στατιστικά</button>
+    <button data-ptab="appts">Ραντεβού <span class="chip epik" id="apptBadge" style="display:none;font-size:10px;padding:0 6px"></span></button>
+    <button data-ptab="journey">Πορεία ενδιαφερομένων</button>
+  </div>
+  <div id="pBody"><div class="card empty">Φόρτωση…</div></div>
+</div>
+<script type="module" src="./portal.js"></script>
+</body>
+</html>

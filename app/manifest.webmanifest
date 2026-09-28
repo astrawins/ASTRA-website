@@ -1,0 +1,16 @@
+{
+  "name": "Astra HQ",
+  "short_name": "Astra HQ",
+  "description": "Εσωτερικό dashboard της Astra Marketing",
+  "start_url": "/portal/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#EDDBC4",
+  "theme_color": "#EDDBC4",
+  "lang": "el",
+  "icons": [
+    { "src": "/app/assets/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/app/assets/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "/app/assets/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

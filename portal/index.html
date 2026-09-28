@@ -1,0 +1,522 @@
+<!DOCTYPE html>
+<html lang="el" data-theme="light">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
+  <meta name="theme-color" content="#EDDBC4">
+  <meta name="description" content="Astra HQ — εσωτερικό dashboard της Astra Marketing.">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Astra HQ</title>
+  <link rel="icon" type="image/png" href="/app/assets/icon-192.png">
+  <link rel="apple-touch-icon" href="/app/assets/apple-touch-icon.png">
+  <link rel="manifest" href="/app/manifest.webmanifest">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800&family=Spline+Sans+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/app/shared/ui.css">
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
+</head>
+<body>
+<header class="mtop">
+  <img alt="astra" src="/app/assets/logo-white.webp" class="mlogo">
+  <b id="mtopTitle">Επισκόπηση</b>
+  <button class="miconbtn" id="btnSearchM" aria-label="Αναζήτηση">
+    <svg width="18" height="18" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="7" cy="7" r="4.6"/><path d="m10.6 10.6 3.4 3.4"/></svg>
+  </button>
+</header>
+<div class="shell">
+  <div class="rail">
+    <div class="brand"><img alt="astra" src="/app/assets/logo-white.webp"><span class="hq">HQ</span></div>
+    <button class="railsearch" id="btnSearch" title="Γρήγορη αναζήτηση (⌘K)">
+      <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="7" cy="7" r="4.6"/><path d="m10.6 10.6 3.4 3.4"/></svg>
+      Αναζήτηση <kbd>⌘K</kbd>
+    </button>
+    <nav id="tabs" aria-label="Κύρια πλοήγηση">
+      <button data-tab="today"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="8" cy="8" r="6.2"/><path d="M8 4.5V8l2.4 1.6"/></svg>Σήμερα <span class="chip plain" id="todayCount" style="display:none"></span></button>
+      <button data-tab="tasks"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="2" y="2.5" width="12" height="11" rx="1.5"/><path d="M5 6.5l1.5 1.5L9.5 5M5 10.5h6"/></svg>Tasks</button>
+      <button data-tab="calendar"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="2" y="3" width="12" height="11" rx="1.5"/><path d="M2 6.5h12M5.5 1.5v3M10.5 1.5v3"/></svg>Ημερολόγιο</button>
+      <button data-tab="overview" class="on"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="1.5" y="1.5" width="5.5" height="5.5" rx="1"/><rect x="9" y="1.5" width="5.5" height="5.5" rx="1"/><rect x="1.5" y="9" width="5.5" height="5.5" rx="1"/><rect x="9" y="9" width="5.5" height="5.5" rx="1"/></svg>Επισκόπηση</button>
+      <button data-tab="clinics"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="2" y="3" width="12" height="11" rx="1.5"/><path d="M8 6.5v4M6 8.5h4"/></svg>Κλινικές</button>
+      <button data-tab="leads"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="5.5" cy="5.5" r="2.5"/><path d="M1.5 14c.5-2.5 2-4 4-4s3.5 1.5 4 4"/><circle cx="11.5" cy="5" r="2"/><path d="M10.5 9.7c1.8.2 3.2 1.5 3.8 3.8"/></svg>Leads</button>
+      <button data-tab="campaigns"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M2 6.5v3l8 3.5V3L2 6.5Z"/><path d="M10 5.5c1.8.6 3 1.4 3 2.5s-1.2 1.9-3 2.5M4.5 10v3"/></svg>Campaigns</button>
+      <button data-tab="finance"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="8" cy="8" r="6.2"/><path d="M10.4 5.8A2.9 2.9 0 0 0 5.4 8a2.9 2.9 0 0 0 5 2.2M4.6 7.1h3.6M4.6 9h3.6"/></svg>Οικονομικά</button>
+      <button data-tab="reports"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 2h6l3 3v9H4z"/><path d="M10 2v3h3M6.5 9h3.5M6.5 11.5h3.5"/></svg>Αναφορές</button>
+      <button data-tab="settings"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="8" cy="8" r="2.2"/><path d="M8 1.8v2M8 12.2v2M1.8 8h2M12.2 8h2M3.6 3.6l1.4 1.4M11 11l1.4 1.4M12.4 3.6 11 5M5 11l-1.4 1.4"/></svg>Ρυθμίσεις</button>
+    </nav>
+    <div class="railfoot">
+      <span id="backendBadge" class="badge-backend local">local</span>
+      <span class="who" id="whoami"></span>
+      <button id="btnLogout" hidden>Αποσύνδεση</button>
+    </div>
+  </div>
+
+  <main>
+    <div id="dbBanner" class="banner" hidden></div>
+
+    <!-- ================= TODAY ================= -->
+    <section id="tab-today" hidden>
+      <div class="pagehead">
+        <div><h2>Σήμερα</h2><div class="sub">Η ουρά της ημέρας: ποιον παίρνεις τηλέφωνο, ποια ραντεβού έρχονται, τι έμεινε πίσω.</div></div>
+        <button class="btn" id="btnTodayRefresh">⟳ Ανανέωση</button>
+      </div>
+      <div id="todayBody"></div>
+    </section>
+
+    <!-- ================= TASKS ================= -->
+    <section id="tab-tasks" hidden>
+      <div class="pagehead">
+        <div><h2>Tasks</h2><div class="sub">Κάθε βράδυ γράφετε τι πρέπει να γίνει αύριο — το πρωί σας περιμένουν και στο «Σήμερα».</div></div>
+      </div>
+      <div class="taskcols" id="taskCols"></div>
+    </section>
+
+    <!-- ================= CALENDAR ================= -->
+    <section id="tab-calendar" hidden>
+      <div class="pagehead">
+        <div><h2>Ημερολόγιο</h2><div class="sub">Το κοινό ημερολόγιο της Astra — meetings, υποχρεώσεις, βιντεοκλήσεις. Συγχρονίζεται ζωντανά με το Google Calendar.</div></div>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+          <button class="btn small" id="calPrev">‹</button>
+          <b id="calTitle" class="mono" style="min-width:110px;text-align:center"></b>
+          <button class="btn small" id="calNext">›</button>
+          <button class="btn small" id="calToday">Σήμερα</button>
+          <button class="btn primary small" id="btnNewEvent">+ Συμβάν</button>
+        </div>
+      </div>
+      <div class="filters"><span class="fhint">Κλικ σε μέρα = νέο συμβάν · κλικ σε συμβάν = επεξεργασία</span>
+        <span class="fhint" id="gcalState" style="margin-left:auto"></span></div>
+      <div class="card" id="calGrid" style="overflow:hidden"></div>
+      <div id="gcalFallback" hidden style="margin-top:14px">
+        <div class="banner">Προσωρινή προβολή μέσω Google embed — για πλήρη ενσωμάτωση (επεξεργασία μέσα από εδώ) βάλε API key &amp; Client ID στις Ρυθμίσεις.</div>
+        <div class="card" style="overflow:hidden;aspect-ratio:4/3;max-height:640px">
+          <iframe src="https://calendar.google.com/calendar/embed?src=c_94979b06394b99c6b2af7a54165ebfb8511bf42bbdcde07247af23cea3cccdd8%40group.calendar.google.com&ctz=Europe%2FAthens" style="border:0;width:100%;height:100%" title="Google Calendar"></iframe>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= OVERVIEW ================= -->
+    <section id="tab-overview">
+      <div class="pagehead"><div><h2>Επισκόπηση</h2><div class="sub" id="ovSub"></div></div>
+        <button class="btn" id="btnRefresh">⟳ Ανανέωση</button></div>
+      <div class="tiles" id="ovTiles"></div>
+      <div class="section" style="margin-top:14px"><div class="pill-row" id="ovFunnel"></div></div>
+      <div class="section" id="ovContracts"></div>
+      <div class="grid2 section">
+        <div class="card">
+          <div class="charthead"><h3>Δαπάνη vs Έσοδα πωλήσεων · 6 μήνες</h3>
+            <div class="legend"><span><i style="background:var(--c1)"></i>Ad spend</span><span><i style="background:var(--c3)"></i>Έσοδα πωλήσεων</span></div></div>
+          <div id="chartSpendRev" style="padding:6px 10px 10px"></div>
+        </div>
+        <div class="card">
+          <div class="charthead"><h3>Νέα leads ανά μήνα</h3></div>
+          <div id="chartLeads" style="padding:6px 10px 10px"></div>
+        </div>
+      </div>
+      <h3 class="sectionhead">Πηγές &amp; ώρες <span class="chip plain">πότε και από πού έρχονται τα leads που κλείνουν</span></h3>
+      <div class="tiles section" id="platformTiles"></div>
+      <div class="grid2 section">
+        <div class="card">
+          <div class="charthead"><h3>Ανά ημέρα εβδομάδας</h3>
+            <div class="legend"><span><i style="background:var(--c2)"></i>Leads</span><span><i style="background:var(--c3)"></i>Πωλήσεις</span></div></div>
+          <div id="chartWeekday" style="padding:6px 10px 10px"></div>
+        </div>
+        <div class="card">
+          <div class="charthead"><h3>Ανά ώρα ημέρας</h3>
+            <div class="legend"><span><i style="background:var(--c2)"></i>Leads</span><span><i style="background:var(--c3)"></i>Πωλήσεις</span></div></div>
+          <div id="chartHours" style="padding:6px 10px 10px"></div>
+        </div>
+      </div>
+      <div class="grid2 section">
+        <div>
+          <h3 style="font-size:15px;margin-bottom:10px">Ειδοποιήσεις</h3>
+          <div class="card" id="ovAlerts"></div>
+        </div>
+        <div>
+          <h3 style="font-size:15px;margin-bottom:10px">Πρόσφατη δραστηριότητα</h3>
+          <div class="card" id="ovFeed"></div>
+        </div>
+      </div>
+      <div class="section">
+        <h3 style="font-size:15px;margin-bottom:10px">Απόδοση ομάδας · τελευταίες 7 ημέρες</h3>
+        <div class="card tablewrap" id="teamTable"></div>
+      </div>
+    </section>
+
+    <!-- ================= CLINICS ================= -->
+    <section id="tab-clinics" hidden>
+      <div class="pagehead">
+        <div><h2>Κλινικές</h2><div class="sub">Πελάτες της Astra — μία καρτέλα ανά κλινική, με αυτόματο import leads από Google Sheets.</div></div>
+        <button class="btn primary" id="btnNewClinic">+ Νέα κλινική</button>
+      </div>
+      <div class="pill-row" id="clinicFilters"></div>
+      <div class="card formpanel" id="clinicForm" hidden>
+        <h3 id="clinicFormTitle">Νέα κλινική</h3>
+        <div class="fgrid">
+          <div class="f"><label for="cf_name">Όνομα κλινικής *</label><input id="cf_name" placeholder="π.χ. Ιατρείο Μυρίλλας"></div>
+          <div class="f"><label for="cf_doctor">Ιατρός / Υπεύθυνος</label><input id="cf_doctor"></div>
+          <div class="f"><label for="cf_spec">Ειδικότητα</label><input id="cf_spec" placeholder="π.χ. Γυναικολόγος"></div>
+          <div class="f"><label for="cf_status">Κατάσταση</label><select id="cf_status"><option value="prospect">Υποψήφιος</option><option value="active" selected>Ενεργός</option><option value="paused">Σε παύση</option><option value="ended">Ολοκληρώθηκε</option></select></div>
+          <div class="f"><label for="cf_nextTouch">Επόμενη επαφή</label><input id="cf_nextTouch" type="date"></div>
+          <div class="f"><label for="cf_tags">Tags (με κόμμα)</label><input id="cf_tags" placeholder="vip, γυναικολογία, αθήνα"></div>
+          <div class="f"><label for="cf_phone">Τηλέφωνο</label><input id="cf_phone"></div>
+          <div class="f"><label for="cf_email">Email</label><input id="cf_email" type="email"></div>
+          <div class="f"><label for="cf_fee">Μηνιαία αμοιβή (€)</label><input id="cf_fee" inputmode="decimal"></div>
+          <div class="f"><label for="cf_dailyBudget">Ημερήσιο budget (€)</label><input id="cf_dailyBudget" inputmode="decimal"></div>
+          <div class="f"><label for="cf_monthlyBudget">Μηνιαίο budget (€)</label><input id="cf_monthlyBudget" inputmode="decimal"></div>
+          <div class="f"><label for="cf_goalLeads">Στόχος leads / μήνα</label><input id="cf_goalLeads" inputmode="numeric"></div>
+          <div class="f"><label for="cf_goalSales">Στόχος πωλήσεων / μήνα</label><input id="cf_goalSales" inputmode="numeric"></div>
+          <div class="f"><label for="cf_contractStart">Έναρξη συμβολαίου</label><input id="cf_contractStart" type="date"></div>
+          <div class="f"><label for="cf_contractEnd">Λήξη συμβολαίου</label><input id="cf_contractEnd" type="date"></div>
+          <div class="f"><label for="cf_portalEmail">Email πελάτη για Client Portal (προαιρετικό)</label><input id="cf_portalEmail" inputmode="email" placeholder="Δημιουργεί λογαριασμό μόνο-προβολής στατιστικών"></div>
+          <div class="f" style="grid-column:1/-1"><label for="cf_sheet">Google Sheet leads (link)</label><input id="cf_sheet" placeholder="https://docs.google.com/spreadsheets/d/..."></div>
+          <div class="f"><label for="cf_metaAd">Meta Ad Account ID</label><input id="cf_metaAd" placeholder="act_1234567890 — για αυτόματο τράβηγμα spend/στατιστικών"></div>
+          <div class="f" style="grid-column:1/-1"><label for="cf_contacts">Επαφές — μία ανά γραμμή: Όνομα | ρόλος | τηλέφωνο | email</label><textarea id="cf_contacts" placeholder="Μαρία Π. | Γραμματεία | 210... | maria@...&#10;Δρ. Χ | Ιατρός | 69... |"></textarea></div>
+          <div class="f" style="grid-column:1/-1"><label for="cf_script">Σενάριο κλήσης (φαίνεται στην καρτέλα κάθε lead)</label><textarea id="cf_script" placeholder="Τι λέμε όταν καλούμε lead αυτής της κλινικής…"></textarea></div>
+          <div class="f" style="grid-column:1/-1"><label for="cf_templates">Templates μηνυμάτων — ένα ανά γραμμή, μορφή «Τίτλος: κείμενο» ({όνομα} = όνομα lead)</label><textarea id="cf_templates" placeholder="1η επαφή: Καλησπέρα {όνομα}, σας καλέσαμε από το ιατρείο..."></textarea></div>
+          <div class="f" style="grid-column:1/-1"><label for="cf_notes">Σημειώσεις</label><textarea id="cf_notes"></textarea></div>
+        </div>
+        <div class="factions">
+          <button class="btn primary" id="btnSaveClinic">Αποθήκευση</button>
+          <button class="btn" id="btnCancelClinic">Άκυρο</button>
+          <span class="fhint">Το sheet πρέπει να είναι «Anyone with the link → Viewer». Νέα leads προστίθενται, τα υπάρχοντα δεν πειράζονται.</span>
+        </div>
+      </div>
+      <div class="clinicgrid" id="clinicList"></div>
+      <input type="file" id="csvFile" accept=".csv,text/csv" hidden>
+    </section>
+
+    <!-- ================= CLINIC DETAIL ================= -->
+    <section id="tab-clinic" hidden>
+      <div id="clinicView"></div>
+      <input type="file" id="clDocFile" hidden accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.zip">
+    </section>
+
+    <!-- ================= LEADS ================= -->
+    <section id="tab-leads" hidden>
+      <div class="pagehead">
+        <div><h2>Leads</h2><div class="sub">Όλα τα ενδιαφερόμενα άτομα ανά κλινική — άλλαξε στάδιο, σημείωσε ποιος αγόρασε και πόσα.</div></div>
+        <div style="display:flex;gap:8px">
+          <button class="btn" id="btnSyncAll">⟳ Συγχρονισμός όλων</button>
+          <button class="btn primary" id="btnNewLead">+ Νέο lead</button>
+        </div>
+      </div>
+      <div class="card formpanel" id="leadForm" hidden>
+        <h3>Νέο lead (χειροκίνητα)</h3>
+        <div class="fgrid">
+          <div class="f"><label for="lf_clinic">Κλινική *</label><select id="lf_clinic"></select></div>
+          <div class="f"><label for="lf_name">Ονοματεπώνυμο *</label><input id="lf_name"></div>
+          <div class="f"><label for="lf_phone">Τηλέφωνο</label><input id="lf_phone"></div>
+          <div class="f"><label for="lf_email">Email</label><input id="lf_email" type="email"></div>
+          <div class="f"><label for="lf_src">Πηγή</label><select id="lf_src"><option>Τηλέφωνο</option><option>Σύσταση</option><option>Instagram DM</option><option>Site</option><option>Άλλο</option></select></div>
+        </div>
+        <div class="factions"><button class="btn primary" id="btnSaveLead">Αποθήκευση</button><button class="btn" id="btnCancelLead">Άκυρο</button></div>
+      </div>
+      <div class="filters">
+        <select id="flClinic"><option value="">Όλες οι κλινικές</option></select>
+        <select id="flStatus"><option value="">Όλα τα στάδια</option><option value="neo">Νέο</option><option value="epik">Επικοινωνία</option><option value="rv">Ραντεβού</option><option value="show">Ήρθε</option><option value="won">Πελάτης</option><option value="lost">Χαμένο</option></select>
+        <input id="flSearch" placeholder="Αναζήτηση ονόματος / τηλεφώνου…" style="min-width:220px">
+        <div class="viewtoggle" role="group" aria-label="Προβολή">
+          <button data-view="list" class="on">Λίστα</button><button data-view="kanban">Kanban</button>
+        </div>
+        <button class="btn small" id="btnLeadsCSV" style="margin-left:auto">⤓ Export CSV</button>
+      </div>
+      <div id="dupBanner" hidden></div>
+      <div class="pill-row" id="leadFunnel"></div>
+      <div class="card tablewrap" id="leadTable"></div>
+      <div class="kanban" id="leadKanban" hidden></div>
+    </section>
+
+    <!-- ================= CAMPAIGNS ================= -->
+    <section id="tab-campaigns" hidden>
+      <div class="pagehead">
+        <div><h2>Campaigns</h2><div class="sub">Δαπάνη, CPL και ROAS ανά καμπάνια — τα leads και οι πωλήσεις αντιστοιχίζονται αυτόματα από το όνομα καμπάνιας.</div></div>
+        <button class="btn primary" id="btnNewCamp">+ Νέα καμπάνια</button>
+      </div>
+      <div class="card formpanel" id="campForm" hidden>
+        <h3>Νέα καμπάνια</h3>
+        <div class="fgrid">
+          <div class="f"><label for="pf_clinic">Κλινική *</label><select id="pf_clinic"></select></div>
+          <div class="f"><label for="pf_name">Όνομα *</label><input id="pf_name" placeholder="π.χ. Myrillas C2 Symptoms"></div>
+          <div class="f"><label for="pf_platform">Πλατφόρμα</label><select id="pf_platform"><option>Meta</option><option>Google</option><option>TikTok</option><option>Άλλο</option></select></div>
+          <div class="f"><label for="pf_month">Μήνας</label><input id="pf_month" type="month"></div>
+          <div class="f"><label for="pf_spend">Δαπάνη (€)</label><input id="pf_spend" inputmode="decimal"></div>
+          <div class="f"><label for="pf_impr">Impressions</label><input id="pf_impr" inputmode="numeric"></div>
+          <div class="f"><label for="pf_clicks">Clicks</label><input id="pf_clicks" inputmode="numeric"></div>
+        </div>
+        <div class="factions"><button class="btn primary" id="btnSaveCamp">Αποθήκευση</button><button class="btn" id="btnCancelCamp">Άκυρο</button>
+          <span class="fhint">Το όνομα πρέπει να ταιριάζει με το campaign_name στο Meta για αυτόματη αντιστοίχιση leads.</span></div>
+      </div>
+      <div class="filters">
+        <select id="fcClinic"><option value="">Όλες οι κλινικές</option></select>
+        <select id="fcMonth"><option value="">Όλοι οι μήνες</option></select>
+        <button class="btn small" id="btnMetaSync" style="margin-left:auto" hidden>⟳ Meta sync</button>
+      </div>
+      <div class="card tablewrap section" id="campTable"></div>
+
+      <h3 class="sectionhead">Δημιουργικά <span class="chip plain">αρχείο creatives ανά κλινική, με αυτόματο μέτρημα leads από το ad_name</span></h3>
+      <div class="card formpanel" id="crForm" hidden>
+        <h3>Νέο δημιουργικό</h3>
+        <div class="fgrid">
+          <div class="f"><label for="cr_clinic">Κλινική *</label><select id="cr_clinic"></select></div>
+          <div class="f"><label for="cr_name">Όνομα *</label><input id="cr_name" placeholder="π.χ. Video μαρτυρία v2"></div>
+          <div class="f"><label for="cr_adname">ad_name στο Meta</label><input id="cr_adname" placeholder="π.χ. ad3"></div>
+          <div class="f"><label for="cr_url">Link (Drive / Meta preview)</label><input id="cr_url" placeholder="https://…"></div>
+          <div class="f" style="grid-column:1/-1"><label for="cr_notes">Σημειώσεις</label><input id="cr_notes" placeholder="τι δουλεύει, τι να δοκιμάσουμε…"></div>
+        </div>
+        <div class="factions"><button class="btn primary" id="btnSaveCr">Αποθήκευση</button><button class="btn" id="btnCancelCr">Άκυρο</button></div>
+      </div>
+      <div class="filters"><button class="btn small" id="btnNewCr">+ Δημιουργικό</button></div>
+      <div class="card tablewrap" id="crTable"></div>
+    </section>
+
+    <!-- ================= FINANCE ================= -->
+    <section id="tab-finance" hidden>
+      <div class="pagehead">
+        <div><h2>Οικονομικά</h2><div class="sub">Έσοδα, έξοδα και ΦΠΑ της Astra.</div></div>
+        <button class="btn primary" id="btnNewFin">+ Νέα εγγραφή</button>
+      </div>
+      <div class="card formpanel" id="finForm" hidden>
+        <h3>Νέα εγγραφή</h3>
+        <div class="fgrid">
+          <div class="f"><label for="ff_kind">Τύπος</label><select id="ff_kind"><option value="income">Έσοδο</option><option value="expense">Έξοδο</option></select></div>
+          <div class="f"><label for="ff_date">Ημερομηνία</label><input id="ff_date" type="date"></div>
+          <div class="f"><label for="ff_cat">Κατηγορία</label><select id="ff_cat"></select></div>
+          <div class="f"><label for="ff_clinic">Κλινική (προαιρετικά)</label><select id="ff_clinic"></select></div>
+          <div class="f"><label for="ff_desc">Περιγραφή</label><input id="ff_desc"></div>
+          <div class="f"><label for="ff_net">Καθαρό ποσό (€) *</label><input id="ff_net" inputmode="decimal"></div>
+          <div class="f"><label for="ff_vat">ΦΠΑ</label><select id="ff_vat"><option value="24">24%</option><option value="13">13%</option><option value="6">6%</option><option value="0">0% / απαλλαγή</option></select></div>
+          <div class="f"><label>Μικτό</label><div class="mono" id="ff_gross" style="padding:8px 2px;font-size:15px">—</div></div>
+        </div>
+        <div class="factions"><button class="btn primary" id="btnSaveFin">Αποθήκευση</button><button class="btn" id="btnCancelFin">Άκυρο</button></div>
+      </div>
+      <div class="filters">
+        <select id="fqQuarter"></select>
+        <select id="ffKindFilter"><option value="">Έσοδα + Έξοδα</option><option value="income">Μόνο έσοδα</option><option value="expense">Μόνο έξοδα</option></select>
+        <button class="btn small" id="btnFinCSV" style="margin-left:auto">⤓ Export CSV</button>
+      </div>
+      <div class="tiles section" id="finTiles"></div>
+
+      <h3 class="sectionhead" style="margin-top:0">Φορολογία — αυτόματη εκτίμηση <span class="chip plain">ενημερώνεται με κάθε νέο deal / έξοδο</span></h3>
+      <div class="tiles section" id="finTaxTiles"></div>
+      <div class="card tablewrap section" id="finTable"></div>
+
+      <h3 class="sectionhead">Πάγιες εγγραφές <span class="chip plain">καταχωρούνται μόνες τους κάθε μήνα</span></h3>
+      <div class="card formpanel" id="recForm" hidden>
+        <h3>Νέα πάγια εγγραφή</h3>
+        <div class="fgrid">
+          <div class="f"><label for="rf_kind">Τύπος</label><select id="rf_kind"><option value="income">Έσοδο</option><option value="expense">Έξοδο</option></select></div>
+          <div class="f"><label for="rf_cat">Κατηγορία</label><select id="rf_cat"></select></div>
+          <div class="f"><label for="rf_clinic">Κλινική (προαιρετικά)</label><select id="rf_clinic"></select></div>
+          <div class="f"><label for="rf_desc">Περιγραφή</label><input id="rf_desc" placeholder="π.χ. Αμοιβή Οκτωβρίου"></div>
+          <div class="f"><label for="rf_net">Καθαρό ποσό (€) *</label><input id="rf_net" inputmode="decimal"></div>
+          <div class="f"><label for="rf_vat">ΦΠΑ</label><select id="rf_vat"><option value="24">24%</option><option value="13">13%</option><option value="6">6%</option><option value="0">0%</option></select></div>
+          <div class="f"><label for="rf_day">Ημέρα μήνα</label><input id="rf_day" inputmode="numeric" value="1"></div>
+        </div>
+        <div class="factions"><button class="btn primary" id="btnSaveRec">Αποθήκευση</button><button class="btn" id="btnCancelRec">Άκυρο</button></div>
+      </div>
+      <div class="filters"><button class="btn small" id="btnNewRec">+ Πάγια εγγραφή</button>
+        <button class="btn small" id="btnFinImport">⇪ Import CSV</button>
+        <input type="file" id="finCsvFile" accept=".csv,text/csv" hidden></div>
+      <div class="card tablewrap section" id="recTable"></div>
+
+      <h3 class="sectionhead">Λογιστής <span class="chip plain">κάθε μήνας με το sheet του — αποστολή με ένα κλικ</span></h3>
+      <div class="card formpanel" style="margin-bottom:14px">
+        <div class="fgrid">
+          <div class="f"><label for="ac_month">Μήνας</label><select id="ac_month"></select></div>
+          <div class="f" style="grid-column:span 2"><label for="ac_sheet">Google Sheet λογιστή (link του μήνα)</label><input id="ac_sheet" placeholder="Επικόλλησε το link που σου έστειλε…"></div>
+          <div class="f"><label>&nbsp;</label><div style="display:flex;gap:8px;flex-wrap:wrap">
+            <button class="btn small" id="acSaveLink">Αποθήκευση link</button>
+            <button class="btn small" id="acOpen" hidden>Άνοιγμα ↗</button>
+          </div></div>
+        </div>
+        <div class="factions" style="margin-top:6px">
+          <button class="btn primary" id="acSend">➤ Αποστολή εξόδων στο sheet</button>
+          <button class="btn" id="acExport">⤓ Export CSV μήνα</button>
+          <span class="fhint" id="acStatus"></span>
+        </div>
+      </div>
+
+      <h3 class="sectionhead">Πρόβλεψη 3 μηνών <span class="chip plain">βάσει πάγιων εγγραφών + αμοιβών κλινικών</span></h3>
+      <div class="tiles section" id="cashflowTiles"></div>
+
+      <h3 class="sectionhead">Κερδοφορία πελατών <span class="chip plain">τρέχον τρίμηνο: τι φέρνει και τι κοστίζει η κάθε κλινική</span></h3>
+      <div class="card tablewrap section" id="profitTable"></div>
+
+      <h3 class="sectionhead">Έξοδα ανά κατηγορία <span class="chip plain">τρέχον τρίμηνο</span></h3>
+      <div class="card" style="max-width:640px"><div id="chartExpenses" style="padding:10px 10px 10px"></div></div>
+    </section>
+
+    <!-- ================= REPORTS ================= -->
+    <section id="tab-reports" hidden>
+      <div class="pagehead">
+        <div><h2>Αναφορές</h2><div class="sub">Μηνιαία αναφορά ανά κλινική — έτοιμη για εκτύπωση ή PDF για τον πελάτη.</div></div>
+        <div style="display:flex;gap:8px"><button class="btn" id="btnCopyReport">Αντιγραφή για μήνυμα</button><button class="btn primary" id="btnPrint">Εκτύπωση / PDF</button></div>
+      </div>
+      <div class="filters">
+        <select id="rpClinic"></select>
+        <select id="rpMonth"></select>
+      </div>
+      <div id="reportBody"></div>
+
+      <h3 class="sectionhead">Μηνιαίο αρχείο <span class="chip plain">κλειδώνει αυτόματα στο κλείσιμο κάθε μήνα, από Οκτ ’26</span></h3>
+      <div class="filters"><select id="rsClinic"><option value="">Σύνολο Astra</option></select></div>
+      <div class="card tablewrap" id="statsTable"></div>
+    </section>
+
+    <!-- ================= SETTINGS ================= -->
+    <section id="tab-settings" hidden>
+      <div class="pagehead">
+        <div><h2>Ρυθμίσεις</h2><div class="sub">Αυτοματισμοί και προαιρετικές συνδέσεις. Όλα δουλεύουν και χωρίς αυτά.</div></div>
+        <button class="btn primary" id="btnSaveSettings">Αποθήκευση</button>
+      </div>
+      <div class="setgrid">
+        <div class="card setcard">
+          <h3>Συγχρονισμός</h3>
+          <div class="desc">Αυτόματο τράβηγμα leads από τα Google Sheets όταν ανοίγει η εφαρμογή (αν πέρασαν 30′ από το τελευταίο sync).</div>
+          <label class="switch"><input type="checkbox" id="st_autoSync" checked> Auto-sync στο άνοιγμα</label>
+        </div>
+        <div class="card setcard">
+          <h3>GDPR — διατήρηση δεδομένων</h3>
+          <div class="desc">Αυτόματη ανωνυμοποίηση leads (όνομα/τηλέφωνο/email) που δεν έγιναν πελάτες, μετά από Χ μήνες. 0 = απενεργοποιημένο. Τα στατιστικά δεν επηρεάζονται.</div>
+          <div class="f"><label for="st_retention">Μήνες διατήρησης</label><input id="st_retention" inputmode="numeric" placeholder="π.χ. 24"></div>
+        </div>
+        <div class="card setcard">
+          <h3>Φορολογία</h3>
+          <div class="desc">Για την αυτόματη εκτίμηση στα Οικονομικά: φόρος 22% στο κέρδος + προκαταβολή επόμενου έτους (55% ατομική επιχείρηση, 80% ΙΚΕ/ΟΕ/ΕΕ).</div>
+          <div class="f"><label for="st_taxPrepay">Ποσοστό προκαταβολής (%)</label><input id="st_taxPrepay" inputmode="numeric" placeholder="55"></div>
+        </div>
+        <div class="card setcard">
+          <h3>Στόχος τριμήνου Astra</h3>
+          <div class="desc">Στόχος καθαρών εσόδων agency ανά τρίμηνο — progress στην Επισκόπηση.</div>
+          <div class="f"><label for="st_goalQ">Στόχος εσόδων τριμήνου (€)</label><input id="st_goalQ" inputmode="decimal"></div>
+        </div>
+        <div class="card setcard">
+          <h3>Αντίγραφο ασφαλείας</h3>
+          <div class="desc">Κατέβασμα όλης της βάσης (κλινικές, leads, campaigns, οικονομικά, tasks, αρχείο) σε ένα αρχείο JSON. Τα CSV exports υπάρχουν στα tabs Leads &amp; Οικονομικά.</div>
+          <button class="btn small" id="btnBackup">⤓ Backup JSON</button>
+        </div>
+        <div class="card setcard">
+          <h3>Κάδος</h3>
+          <div class="desc">Ό,τι διαγράφεται μένει εδώ 30 μέρες και επαναφέρεται με ένα κλικ.</div>
+          <div id="trashList"></div>
+        </div>
+        <div class="card setcard">
+          <h3>Ρόλοι ομάδας</h3>
+          <div class="desc">Emails (χωρισμένα με κόμμα) που βλέπουν μόνο «Σήμερα» και «Leads» — π.χ. συνεργάτες που κάνουν κλήσεις. Ισχύει σε cloud mode.</div>
+          <div class="f"><label for="st_callers">Emails καλούντων</label><input id="st_callers" placeholder="caller@astramarketing.gr, ..."></div>
+          <div class="f"><label for="st_taskOwners">Στήλες tasks (με κόμμα)</label><input id="st_taskOwners" placeholder="Apo, Marga"></div>
+        </div>
+        <div class="card setcard">
+          <h3>Google Calendar</h3>
+          <div class="desc">Το κοινό ημερολόγιο της ομάδας μέσα στο tab «Ημερολόγιο». API key (Google Cloud → Credentials) για προβολή· OAuth Client ID για δημιουργία/αλλαγή/διαγραφή συμβάντων από εδώ.</div>
+          <div class="f"><label for="st_gcalKey">API key</label><input id="st_gcalKey" type="password" autocomplete="off"></div>
+          <div class="f"><label for="st_gcalClient">OAuth Client ID</label><input id="st_gcalClient" placeholder="xxxx.apps.googleusercontent.com"></div>
+          <div class="f"><label for="st_gcalId">Calendar ID</label><input id="st_gcalId" placeholder="προεπιλογή: το κοινό ημερολόγιο Astra"></div>
+          <button class="btn small" id="btnGcalReconnect">Επανασύνδεση Google (πλήρη δικαιώματα)</button>
+          <div class="fhint" style="margin-top:6px">Μία φορά για όλη την ομάδα — ημερολόγιο, Sheets λογιστή, email, αρχεία.</div>
+        </div>
+        <div class="card setcard">
+          <h3>Meta Ads</h3>
+          <div class="desc">Αυτόματο τράβηγμα δαπάνης/impressions/clicks για τις καμπάνιες του τρέχοντος μήνα. Θέλει access token με ads_read και το ID του ad account.</div>
+          <div class="f"><label for="st_metaToken">Access token</label><input id="st_metaToken" type="password" autocomplete="off"></div>
+          <div class="f"><label for="st_metaAccount">Ad account (act_…)</label><input id="st_metaAccount" placeholder="act_1234567890"></div>
+        </div>
+        <div class="card setcard">
+          <h3>Ειδοποιήσεις browser</h3>
+          <div class="desc">Ειδοποίηση στη συσκευή όταν το sync φέρνει νέα leads — ισχύει ανά συσκευή, όσο το app είναι ανοιχτό (και σε background tab).</div>
+          <button class="btn small" id="btnNotifEnable">Ενεργοποίηση σε αυτή τη συσκευή</button>
+          <div class="fhint" id="notifState" style="margin-top:8px"></div>
+        </div>
+        <div class="card setcard">
+          <h3>Ειδοποιήσεις Telegram</h3>
+          <div class="desc">Μήνυμα στο Telegram όταν το sync φέρνει νέα leads. Φτιάξε bot στο @BotFather και βάλε το chat id της ομάδας.</div>
+          <div class="f"><label for="st_tgToken">Bot token</label><input id="st_tgToken" type="password" autocomplete="off"></div>
+          <div class="f"><label for="st_tgChat">Chat ID</label><input id="st_tgChat" placeholder="-100123456789"></div>
+          <button class="btn small" id="btnTgTest">Δοκιμαστικό μήνυμα</button>
+        </div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<nav class="mtabbar" id="mtabbar" aria-label="Πλοήγηση">
+  <button data-tab="today" aria-label="Σήμερα"><svg width="22" height="22" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3"><circle cx="8" cy="8" r="6.2"/><path d="M8 4.5V8l2.4 1.6"/></svg><span>Σήμερα</span><i class="mbadge" id="mtabBadge" hidden></i></button>
+  <button data-tab="leads" aria-label="Leads"><svg width="22" height="22" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3"><circle cx="5.5" cy="5.5" r="2.5"/><path d="M1.5 14c.5-2.5 2-4 4-4s3.5 1.5 4 4"/><circle cx="11.5" cy="5" r="2"/><path d="M10.5 9.7c1.8.2 3.2 1.5 3.8 3.8"/></svg><span>Leads</span></button>
+  <button id="btnMore" class="mcenter"><span>ΜΕΝΟΥ</span></button>
+  <button data-tab="calendar" aria-label="Ημερολόγιο"><svg width="22" height="22" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3"><rect x="2" y="3" width="12" height="11" rx="1.5"/><path d="M2 6.5h12M5.5 1.5v3M10.5 1.5v3"/></svg><span>Ημερολ.</span></button>
+  <button data-tab="tasks" aria-label="Tasks"><svg width="22" height="22" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3"><rect x="2" y="2.5" width="12" height="11" rx="1.5"/><path d="M5 6.5l1.5 1.5L9.5 5M5 10.5h6"/></svg><span>Tasks</span></button>
+</nav>
+<div class="modalback sheetback" id="moreSheet" hidden><div class="sheet" id="moreSheetBody"></div></div>
+
+<!-- Γρήγορη αναζήτηση (⌘K) -->
+<div class="modalback searchback" id="searchModal" hidden>
+  <div class="searchbox" role="dialog" aria-modal="true" aria-label="Αναζήτηση">
+    <input id="searchInput" placeholder="Όνομα, τηλέφωνο, email, κλινική…" autocomplete="off">
+    <div id="searchResults"></div>
+  </div>
+</div>
+
+<!-- Event modal (Google Calendar) -->
+<div class="modalback" id="evModal" hidden>
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="evTitle" style="max-width:480px">
+    <div class="mhead"><h3 id="evTitle">Νέο συμβάν</h3><button class="x" id="evClose" aria-label="Κλείσιμο">✕</button></div>
+    <div class="f" style="margin-bottom:10px"><label for="ev_title">Τίτλος *</label><input id="ev_title" placeholder="π.χ. Meeting Μυρίλλας — αναφορά μήνα"></div>
+    <div class="mgrid">
+      <div class="f"><label for="ev_date">Ημερομηνία</label><input id="ev_date" type="date"></div>
+      <div class="f"><label for="ev_start">Έναρξη</label><select id="ev_start"></select></div>
+      <div class="f"><label for="ev_end">Λήξη</label><select id="ev_end"></select></div>
+    </div>
+    <div class="mgrid">
+      <div class="f"><label for="ev_email">Email καλεσμένων (προαιρετικό, με κόμμα)</label><input id="ev_email" inputmode="email" autocomplete="off" placeholder="π.χ. maria@gmail.com — θα λάβει πρόσκληση"></div>
+      <div class="f"><label for="ev_phone">Τηλέφωνο (προαιρετικό)</label><input id="ev_phone" inputmode="tel" autocomplete="off"></div>
+    </div>
+    <label class="switch" style="margin-bottom:10px"><input type="checkbox" id="ev_meet"> Google Meet βιντεοκλήση</label>
+    <div class="fhint" id="evMeetLink" hidden style="margin-bottom:10px"></div>
+    <div class="f"><label for="ev_desc">Σημειώσεις</label><textarea id="ev_desc"></textarea></div>
+    <div class="factions">
+      <button class="btn primary" id="evSave">Αποθήκευση</button>
+      <button class="btn danger" id="evDelete" hidden>Διαγραφή</button>
+      <span class="fhint">Χωρίς ώρες = ολοήμερο. Αποθηκεύεται κατευθείαν στο Google Calendar.</span>
+    </div>
+  </div>
+</div>
+
+<!-- Onboarding modal κλινικής -->
+<div class="modalback" id="obModal" hidden>
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="obName" style="max-width:520px">
+    <div class="mhead"><h3 id="obName"></h3><button class="x" id="obClose" aria-label="Κλείσιμο">✕</button></div>
+    <div class="mmeta">Onboarding checklist — να μην ξεχνιέται τίποτα στο ξεκίνημα.</div>
+    <div id="obSteps"></div>
+  </div>
+</div>
+
+<!-- Lead modal: καρτέλα + timeline -->
+<div class="modalback" id="leadModal" hidden>
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="lmName">
+    <div class="mhead"><h3 id="lmName"></h3><button class="x" id="lmClose" aria-label="Κλείσιμο">✕</button></div>
+    <div class="mmeta" id="lmMeta"></div>
+    <div class="scriptbox" id="lmScript" hidden></div>
+    <div class="tmplrow" id="lmTemplates" hidden></div>
+    <div class="mgrid">
+      <div class="f"><label for="lm_status">Στάδιο</label><select id="lm_status"></select></div>
+      <div class="f"><label for="lm_next">Επόμενη ενέργεια / ραντεβού</label><input id="lm_next" type="date"></div>
+      <div class="f"><label for="lm_amount">Ποσό αγοράς (€)</label><input id="lm_amount" inputmode="decimal"></div>
+    </div>
+    <div class="f"><label for="lm_notes">Σημείωση καρτέλας</label><textarea id="lm_notes"></textarea></div>
+    <div class="timeline">
+      <h4>Ιστορικό</h4>
+      <div id="lmTimeline"></div>
+      <div class="addnote"><input id="lm_comment" placeholder="Γράψε σχόλιο (π.χ. «κάλεσα, δεν το σήκωσε»)…"><button class="btn small primary" id="lm_addComment">Προσθήκη</button></div>
+    </div>
+    <div class="factions" style="margin-top:16px;border-top:1px solid var(--hair2);padding-top:12px">
+      <button class="btn small danger" id="lm_gdpr">Οριστική διαγραφή (GDPR)</button>
+      <span class="fhint">Σβήνει lead και ιστορικό οριστικά — χωρίς κάδο. Για αιτήματα διαγραφής δεδομένων.</span>
+    </div>
+  </div>
+</div>
+<div class="tooltip" id="tooltip"></div>
+<script type="module" src="./dashboard.js"></script>
+<script>
+  if ('serviceWorker' in navigator) { navigator.serviceWorker.register('/app/sw.js', { scope: '/' }).catch(function () {}); }
+</script>
+</body>
+</html>

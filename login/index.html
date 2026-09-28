@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="el" data-theme="light">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
+  <meta name="theme-color" content="#EDDBC4">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Astra HQ — Σύνδεση</title>
+  <link rel="icon" type="image/png" href="/app/assets/icon-192.png">
+  <link rel="apple-touch-icon" href="/app/assets/apple-touch-icon.png">
+  <link rel="manifest" href="/app/manifest.webmanifest">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=Spline+Sans+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/app/shared/ui.css">
+</head>
+<body>
+<div class="login-wrap">
+  <form class="login-card" id="loginForm">
+    <div class="brand"><img alt="astra" src="/app/assets/logo-white.webp"><span class="hq">HQ</span></div>
+    <h1>Σύνδεση</h1>
+    <p>Εσωτερικό dashboard της Astra Marketing.</p>
+    <div class="f"><label for="email">Email</label><input id="email" type="email" autocomplete="username" required></div>
+    <div class="f"><label for="password">Κωδικός</label><input id="password" type="password" autocomplete="current-password" required></div>
+    <button class="btn primary" id="btnLogin" type="submit">Είσοδος</button>
+    <div class="login-err" id="err" hidden></div>
+  </form>
+</div>
+<script type="module" src="./login.js"></script>
+</body>
+</html>
