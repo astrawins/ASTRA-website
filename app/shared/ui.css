@@ -702,3 +702,6 @@ input, textarea { user-select: text; -webkit-user-select: text; }
 .callgroup.open .cghead { border-bottom: 1px solid var(--hair2); }
 .cgbody .taskday { padding: 10px 16px 4px; }
 @media (max-width: 900px) { .cgchips { margin-left: 22px; width: 100%; } }
+
+/* ---------- Κλείδωμα zoom στο κινητό ---------- */
+html, body { touch-action: manipulation; }  /* zoom lock */

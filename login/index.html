@@ -2,7 +2,7 @@
 <html lang="el" data-theme="light">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover, interactive-widget=resizes-content">
   <meta name="theme-color" content="#EDDBC4">
   <meta name="robots" content="noindex, nofollow">
   <title>Astra HQ — Σύνδεση</title>
@@ -13,6 +13,14 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=Spline+Sans+Mono:wght@400;500&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/app/shared/ui.css">
+<script>
+  /* Κλείδωμα zoom (ζήτηση χρήστη): pinch & double-tap απενεργοποιημένα — το iOS αγνοεί το user-scalable=no. */
+  document.addEventListener('gesturestart', function (e) { e.preventDefault(); }, { passive: false });
+  document.addEventListener('gesturechange', function (e) { e.preventDefault(); }, { passive: false });
+  document.addEventListener('touchmove', function (e) { if (e.scale !== undefined && e.scale !== 1) e.preventDefault(); }, { passive: false });
+  var __lt = 0;
+  document.addEventListener('touchend', function (e) { var n = Date.now(); if (n - __lt < 300 && !e.target.closest('input,textarea,select')) e.preventDefault(); __lt = n; }, { passive: false });
+</script>
 </head>
 <body>
 <div class="login-wrap">
