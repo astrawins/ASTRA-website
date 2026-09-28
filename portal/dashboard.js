@@ -520,27 +520,71 @@ function renderToday() {
       const mine = tdue.filter((t) => t.owner === o).sort((a, b) => String(a.date).localeCompare(String(b.date)));
       return `<div class="taskcol"><h3>${esc(o)}</h3><div class="card">${mine.length ? mine.map(taskRow).join('') : '<div class="empty" style="padding:16px">Όλα έτοιμα ✓</div>'}</div></div>`;
     }).join('')}</div>`;
-  $('todayBody').innerHTML =
-    touchBlock +
-    taskBlock +
-    sec('Για σήμερα', due.length ? 'lost' : 'plain', due, 'due', 'Τίποτα προγραμματισμένο για σήμερα.') +
-    sec('Νέα χωρίς επικοινωνία (48ω+)', fresh.length ? 'epik' : 'plain', fresh, 'fresh', 'Όλα τα νέα leads έχουν πάρει απάντηση.') +
-    sec('Επερχόμενα ραντεβού', 'plain', upcoming.slice(0, 15), 'up', 'Κανένα προγραμματισμένο ραντεβού.') +
-    (stale.length ? `<h3 class="sectionhead">Ξεχασμένα · 21+ μέρες χωρίς ενέργεια <span class="chip lost">${stale.length}</span></h3>
-      <div class="card">${stale.slice(0, 20).map((l) => {
-        const c = clinicById(l.clinicId);
-        return `<div class="todayrow" data-id="${l.id}">
-          <div class="who"><b data-act="open">${esc(l.name)}</b><div class="sub">${esc(c ? c.name : '—')}</div></div>
-          <span class="chip ${l.status}">${STATUS[l.status]}</span>
-          <span class="mono" style="font-size:12.5px">${esc(l.phone || '')}</span>
-          <div class="acts">
-            <button class="btn small" data-act="p3">Ξαναπάρε +3μ</button>
-            <button class="btn small danger" data-act="marklost">Κλείσε ως χαμένο</button>
-          </div></div>`;
-      }).join('')}</div>` : '');
+  $('todayBody').innerHTML = touchBlock + taskBlock + clinicCallsBlock(due, fresh, upcoming, stale);
+}
+/* Κλήσεις ημέρας ομαδοποιημένες ανά κλινική — κλειστές κάρτες με σύνοψη, ανοίγουν με κλικ. */
+let openCallGroups = new Set();
+try { openCallGroups = new Set(JSON.parse(localStorage.getItem('astra-today-open') || '[]')); } catch { /* ok */ }
+function clinicCallsBlock(due, fresh, upcoming, stale) {
+  const groups = new Map();
+  const add = (l, kind) => {
+    const k = l.clinicId || '_none';
+    if (!groups.has(k)) groups.set(k, { due: [], fresh: [], up: [], stale: [] });
+    groups.get(k)[kind].push(l);
+  };
+  due.forEach((l) => add(l, 'due'));
+  fresh.forEach((l) => add(l, 'fresh'));
+  upcoming.forEach((l) => add(l, 'up'));
+  stale.forEach((l) => add(l, 'stale'));
+  if (!groups.size) return `<h3 class="sectionhead">Κλήσεις ανά κλινική</h3><div class="card"><div class="empty">Καμία κλήση για σήμερα. 🎉</div></div>`;
+  const rows = [...groups.entries()].map(([cid, g]) => {
+    const calls = g.due.length + g.fresh.length + g.stale.length;
+    return { cid, g, calls, c: clinicById(cid) };
+  }).sort((a, b) => b.calls - a.calls || b.g.up.length - a.g.up.length);
+  const totalCalls = rows.reduce((s, r) => s + r.calls, 0);
+  const staleRow = (l) => `<div class="todayrow" data-id="${l.id}">
+      <div class="who"><b data-act="open">${esc(l.name)}</b><div class="sub">${esc(l.phone || '')}</div></div>
+      <span class="chip ${l.status}">${STATUS[l.status]}</span>
+      <div class="acts">
+        <button class="btn small" data-act="p3">Ξαναπάρε +3μ</button>
+        <button class="btn small danger" data-act="marklost">Κλείσε ως χαμένο</button>
+      </div></div>`;
+  const sub = (title, chip, arr, render) => arr.length
+    ? `<div class="taskday" style="display:flex;gap:6px;align-items:center">${title} <span class="chip ${chip}" style="font-size:10px">${arr.length}</span></div>${arr.map(render).join('')}` : '';
+  return `<h3 class="sectionhead">Κλήσεις ανά κλινική <span class="chip ${totalCalls ? 'epik' : 'plain'}">${totalCalls} τηλέφωνα</span></h3>
+    <div class="callgroups">${rows.map(({ cid, g, calls, c }) => {
+      const open = openCallGroups.has(cid);
+      const parts = [];
+      if (g.due.length) parts.push(`<span class="chip lost">${g.due.length} για σήμερα</span>`);
+      if (g.fresh.length) parts.push(`<span class="chip epik">${g.fresh.length} νέα</span>`);
+      if (g.stale.length) parts.push(`<span class="chip plain">${g.stale.length} ξεχασμένα</span>`);
+      if (g.up.length) parts.push(`<span class="chip rv">${g.up.length} ραντεβού</span>`);
+      return `<div class="card callgroup${open ? ' open' : ''}">
+        <button class="cghead" data-cgrp="${cid}" aria-expanded="${open}">
+          <span class="cgchev">${open ? '▾' : '▸'}</span>
+          <b>${esc(c ? c.name : 'Χωρίς κλινική')}</b>
+          <span class="cgcount">${calls} τηλέφωνα</span>
+          <span class="cgchips">${parts.join('')}</span>
+        </button>
+        ${open ? `<div class="cgbody">
+          ${sub('Για σήμερα', 'lost', g.due, (l) => todayRow(l, 'due'))}
+          ${sub('Νέα χωρίς επικοινωνία (48ω+)', 'epik', g.fresh, (l) => todayRow(l, 'fresh'))}
+          ${sub('Ξεχασμένα · 21+ μέρες', 'plain', g.stale, staleRow)}
+          ${sub('Επερχόμενα ραντεβού', 'rv', g.up.slice(0, 15), (l) => todayRow(l, 'up'))}
+        </div>` : ''}
+      </div>`;
+    }).join('')}</div>`;
 }
 $('btnTodayRefresh').onclick = refresh;
 $('todayBody').addEventListener('click', async (e) => {
+  const tg = e.target.closest('[data-cgrp]');
+  if (tg) {
+    const k = tg.dataset.cgrp;
+    if (openCallGroups.has(k)) openCallGroups.delete(k); else openCallGroups.add(k);
+    try { localStorage.setItem('astra-today-open', JSON.stringify([...openCallGroups])); } catch { /* ok */ }
+    renderToday();
+    return;
+  }
   const t2 = e.target.closest('[data-tact2]');
   if (t2) {
     const row = t2.closest('[data-clinic]'); const cid = row && row.dataset.clinic;
