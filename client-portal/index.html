@@ -35,8 +35,16 @@
     <button data-ptab="stats" class="on">Στατιστικά</button>
     <button data-ptab="appts">Ραντεβού <span class="chip epik" id="apptBadge" style="display:none;font-size:10px;padding:0 6px"></span></button>
     <button data-ptab="journey">Πορεία ενδιαφερομένων</button>
+    <button data-ptab="account">Λογαριασμός</button>
   </div>
   <div id="pBody"><div class="card empty">Φόρτωση…</div></div>
+  <div id="pAccount" hidden style="max-width:420px"><div class="card setcard" id="pwCard">
+          <h3>Αλλαγή κωδικού</h3>
+          <div class="desc">Τουλάχιστον 10 χαρακτήρες, με γράμματα και αριθμούς.</div>
+          <div class="f"><label for="pw1">Νέος κωδικός</label><input id="pw1" type="password" autocomplete="new-password"></div>
+          <div class="f"><label for="pw2">Επανάληψη</label><input id="pw2" type="password" autocomplete="new-password"></div>
+          <button class="btn small primary" id="pwSave">Αλλαγή κωδικού</button>
+        </div></div>
 </div>
 <script type="module" src="./portal.js"></script>
 </body>

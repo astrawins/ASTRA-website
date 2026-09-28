@@ -44,6 +44,18 @@ async function ensureFresh() {
   }
 }
 
+/* Αλλαγή κωδικού του συνδεδεμένου χρήστη. */
+export async function updatePassword(newPassword) {
+  await ensureFresh();
+  const r = await fetch(`${CONFIG.supabaseUrl}/auth/v1/user`, {
+    method: 'PUT',
+    headers: { apikey: CONFIG.supabaseKey, Authorization: `Bearer ${session.access_token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ password: newPassword }),
+  });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(j.msg || j.error_description || j.message || 'Η αλλαγή κωδικού απέτυχε');
+}
+
 /* Κλήση Supabase Edge Function με τα δικαιώματα του συνδεδεμένου χρήστη. */
 export async function callFunction(name, body) {
   await ensureFresh();

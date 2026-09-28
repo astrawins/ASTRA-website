@@ -1,7 +1,7 @@
 // portal/portal.js — προβολή στατιστικών ΜΟΝΟ της κλινικής του συνδεδεμένου πελάτη.
 // Η βάση (RLS) εγγυάται ότι βλέπει αποκλειστικά τα δικά του monthly_stats & campaigns.
 import { currentSession, sessionRole, logout } from '/app/shared/auth.js';
-import { rest } from '/app/shared/supabase.js';
+import { rest, updatePassword } from '/app/shared/supabase.js';
 import { esc, eur, num, mLabel, nowMonth } from '/app/shared/util.js';
 
 if (!currentSession()) location.replace('/login/');
@@ -233,9 +233,22 @@ function renderJourney() {
 }
 
 function renderRoot() {
+  document.getElementById('pAccount').hidden = pTab !== 'account';
+  document.getElementById('pBody').hidden = pTab === 'account';
+  if (pTab === 'account') return;
   if (pTab === 'appts') return renderAppts();
   if (pTab === 'journey') return renderJourney();
   return render();
 }
 document.getElementById('pTabs').addEventListener('click', () => {}); // (κρατά τη σειρά των listeners)
 load();
+
+/* ---- Αλλαγή κωδικού ---- */
+document.getElementById('pwSave').addEventListener('click', async () => {
+  const a = document.getElementById('pw1').value, b = document.getElementById('pw2').value;
+  const say = (m) => { const t = document.createElement('div'); t.className = 'toast'; t.textContent = m; document.body.appendChild(t); setTimeout(() => t.remove(), 4200); };
+  if (a.length < 10 || !/[A-Za-zΑ-Ωα-ω]/.test(a) || !/\d/.test(a)) { say('Ο κωδικός θέλει τουλάχιστον 10 χαρακτήρες, με γράμματα και αριθμούς.'); return; }
+  if (a !== b) { say('Οι δύο κωδικοί δεν ταιριάζουν.'); return; }
+  try { await updatePassword(a); document.getElementById('pw1').value = ''; document.getElementById('pw2').value = ''; say('Ο κωδικός άλλαξε ✓'); }
+  catch (e) { say(e.message); }
+});

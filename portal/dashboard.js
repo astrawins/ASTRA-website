@@ -1,7 +1,7 @@
 // dashboard/dashboard.js — Astra HQ: state, router, views.
 import { CONFIG } from '/app/shared/config.js';
 import { currentSession, logout, sessionRole } from '/app/shared/auth.js';
-import { storageUpload, storageDownload, storageDelete, callFunction } from '/app/shared/supabase.js';
+import { storageUpload, storageDownload, storageDelete, callFunction, updatePassword } from '/app/shared/supabase.js';
 import * as data from '/app/shared/data.js';
 import { sheetIdFrom, gidFrom, fetchSheetCSV, parseCSV, mapLeads } from '/app/shared/sheets.js';
 import { spreadsheetIdFrom, writeToSheet, readSheetValues } from '/app/shared/gsheets.js';
@@ -2965,3 +2965,13 @@ if (CONFIG.backend === 'supabase') setInterval(refresh, 60_000);
 initTab();
 renderAll();
 refresh();
+
+/* ---- Αλλαγή κωδικού ---- */
+document.getElementById('pwSave').addEventListener('click', async () => {
+  const a = document.getElementById('pw1').value, b = document.getElementById('pw2').value;
+  const say = (m) => { const t = document.createElement('div'); t.className = 'toast'; t.textContent = m; document.body.appendChild(t); setTimeout(() => t.remove(), 4200); };
+  if (a.length < 10 || !/[A-Za-zΑ-Ωα-ω]/.test(a) || !/\d/.test(a)) { say('Ο κωδικός θέλει τουλάχιστον 10 χαρακτήρες, με γράμματα και αριθμούς.'); return; }
+  if (a !== b) { say('Οι δύο κωδικοί δεν ταιριάζουν.'); return; }
+  try { await updatePassword(a); document.getElementById('pw1').value = ''; document.getElementById('pw2').value = ''; say('Ο κωδικός άλλαξε ✓'); }
+  catch (e) { say(e.message); }
+});

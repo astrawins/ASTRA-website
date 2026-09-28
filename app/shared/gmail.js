@@ -52,7 +52,7 @@ export function welcomeEmail({ clinicName, email, password, portalUrl }) {
         <a href="${portalUrl}" style="display:inline-block;padding:12px 28px;color:#FDFBF7;font-size:14px;font-weight:bold;text-decoration:none;">Είσοδος στον χώρο σας</a>
       </td></tr></table>
       <p style="font-size:12.5px;line-height:1.6;color:#5A4936;margin:0;">
-        Τα στοιχεία είναι προσωπικά — μη τα κοινοποιείτε. Για οποιαδήποτε απορία, απαντήστε σε αυτό το email
+        Τα στοιχεία είναι προσωπικά — μη τα κοινοποιείτε. Με την πρώτη σύνδεση, αλλάξτε τον κωδικό σας από την καρτέλα «Λογαριασμός». Για οποιαδήποτε απορία, απαντήστε σε αυτό το email
         ή καλέστε μας. Με εκτίμηση,<br><b style="color:#2A2118;">Η ομάδα της Astra Marketing</b> · astramarketing.gr
       </p>
     </div>
