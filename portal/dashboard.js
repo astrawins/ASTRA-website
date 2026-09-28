@@ -1861,6 +1861,10 @@ async function materializeRecurring() {
 }
 
 /* ---- Φορολογία: ΦΠΑ μήνα + φόρος 22% έτους + προκαταβολή ---- */
+/* Μοντέλο εσόδων Astra: 50€ (ρυθμιζόμενο) ανά πληρωμένο ραντεβού — υπολογίζεται
+   αυτόματα από τα leads που έφτασαν σε ραντεβού (rv/show/won), όχι από χειροκίνητες εγγραφές. */
+const apptFee = () => +SET().appointmentFee || 50;
+const isBooked = (l) => ['rv', 'show', 'won'].includes(l.status);
 function taxEstimate() {
   const mk = nowMonth();
   const year = mk.slice(0, 4);
@@ -1871,20 +1875,30 @@ function taxEstimate() {
   const expM = S.fin.filter((f) => f.kind === 'expense' && inMonth(f));
   const incY = S.fin.filter((f) => f.kind === 'income' && inYear(f));
   const expY = S.fin.filter((f) => f.kind === 'expense' && inYear(f));
-  const vatMonth = sum(incM, 'vat') - sum(expM, 'vat');
-  const profitY = sum(incY, 'net') - sum(expY, 'net');
+  // Πληρωμένα ραντεβού από leads που ήρθαν τον μήνα / τη χρονιά
+  const apptM = S.leads.filter((l) => isBooked(l) && monthKey(l.createdTime) === mk).length;
+  const apptY = S.leads.filter((l) => isBooked(l) && String(l.createdTime || '').startsWith(year)).length;
+  const revM = apptM * apptFee() + sum(incM, 'net');      // τζίρος μήνα
+  const revY = apptY * apptFee() + sum(incY, 'net');
+  const expMn = sum(expM, 'net'), expYn = sum(expY, 'net');
+  const profitM = revM - expMn;                            // ξεκινά αρνητικό από τα πάγια
+  const profitY = revY - expYn;
+  // ΦΠΑ: 24% πάνω στα τιμολόγια ραντεβού + χειροκίνητα έσοδα − εισροές
+  const vatMonth = apptM * apptFee() * 0.24 + sum(incM, 'vat') - sum(expM, 'vat');
   const tax = Math.max(0, profitY) * 0.22;
-  const prepayPct = +SET().taxPrepayPct || 55;
+  const prepayPct = +SET().taxPrepayPct || 80;             // ΙΚΕ: 80%
   const prepay = tax * prepayPct / 100;
-  return { mk, year, vatMonth, profitY, incY: sum(incY, 'net'), expY: sum(expY, 'net'), tax, prepay, prepayPct, total: tax + prepay };
+  return { mk, year, apptM, apptY, revM, revY, expMn, profitM, vatMonth, profitY, incY: revY, expY: expYn, tax, prepay, prepayPct, total: tax + prepay };
 }
 function renderTaxTiles() {
   const t = taxEstimate();
   $('finTaxTiles').innerHTML = `
+    <div class="tile"><div class="lb">Τζίρος ${mLabel(t.mk)}</div><div class="v">${eur(t.revM)}</div><div class="d">${t.apptM} ραντεβού × ${eur(apptFee())}</div></div>
+    <div class="tile"><div class="lb">Κέρδος ${mLabel(t.mk)}</div><div class="v ${t.profitM >= 0 ? 'pos' : 'neg'}">${eur(t.profitM)}</div><div class="d">τζίρος − έξοδα ${eur(t.expMn)}</div></div>
     <div class="tile"><div class="lb">ΦΠΑ ${mLabel(t.mk)}</div><div class="v ${t.vatMonth > 0 ? 'neg' : 'pos'}">${eur(t.vatMonth)}</div><div class="d">${t.vatMonth > 0 ? 'για απόδοση στο τέλος του μήνα' : 'πιστωτικό υπόλοιπο'}</div></div>
-    <div class="tile"><div class="lb">Κέρδος ${t.year}</div><div class="v ${t.profitY >= 0 ? '' : 'neg'}">${eur(t.profitY)}</div><div class="d">έσοδα ${eur(t.incY)} − έξοδα ${eur(t.expY)}</div></div>
-    <div class="tile"><div class="lb">Φόρος 22% · τέλος ${t.year}</div><div class="v">${eur(t.tax)}</div><div class="d">εκτίμηση στο τρέχον κέρδος</div></div>
-    <div class="tile"><div class="lb">Προκαταβολή ${+t.year + 1}</div><div class="v">${eur(t.prepay)}</div><div class="d">${t.prepayPct}% του φόρου (Ρυθμίσεις)</div></div>
+    <div class="tile"><div class="lb">Κέρδος ${t.year}</div><div class="v ${t.profitY >= 0 ? '' : 'neg'}">${eur(t.profitY)}</div><div class="d">${t.apptY} ραντεβού έτους · έξοδα ${eur(t.expY)}</div></div>
+    <div class="tile"><div class="lb">Φόρος 22% (ΙΚΕ) · τέλος ${t.year}</div><div class="v">${eur(t.tax)}</div><div class="d">22% στο κέρδος έτους</div></div>
+    <div class="tile"><div class="lb">Προκαταβολή ${+t.year + 1}</div><div class="v">${eur(t.prepay)}</div><div class="d">${t.prepayPct}% του φόρου (ΙΚΕ)</div></div>
     <div class="tile"><div class="lb">Σύνολο εκκαθάρισης</div><div class="v neg">${eur(t.total)}</div><div class="d">βάλε στην άκρη ~${eur(t.total / Math.max(1, +t.mk.slice(5, 7)))} / μήνα</div></div>`;
 }
 
@@ -2245,7 +2259,8 @@ function renderSettings() {
   $('st_gcalId').value = s.gcalCalendarId || '';
   $('st_goalQ').value = s.goalQuarterRevenue || '';
   $('st_retention').value = s.retentionMonths || '';
-  $('st_taxPrepay').value = s.taxPrepayPct ?? 55;
+  $('st_taxPrepay').value = s.taxPrepayPct ?? 80;
+  $('st_apptFee').value = s.appointmentFee ?? 50;
   renderTrash();
   $('st_metaToken').value = s.metaToken || '';
   $('st_metaAccount').value = s.metaAccount || '';
@@ -2262,7 +2277,8 @@ $('btnSaveSettings').onclick = async () => {
     gcalCalendarId: $('st_gcalId').value.trim(),
     goalQuarterRevenue: parseNum($('st_goalQ').value),
     retentionMonths: Math.round(parseNum($('st_retention').value)),
-    taxPrepayPct: parseNum($('st_taxPrepay').value) || 55,
+    taxPrepayPct: parseNum($('st_taxPrepay').value) || 80,
+    appointmentFee: parseNum($('st_apptFee').value) || 50,
     metaToken: $('st_metaToken').value.trim(),
     metaAccount: $('st_metaAccount').value.trim(),
     tgToken: $('st_tgToken').value.trim(),
@@ -2352,7 +2368,7 @@ function renderOverview() {
     <div class="tile"><div class="lb">Ad spend · ${mLabel(mk)}</div><div class="v">${eur(spendM)}</div><div class="d">από ${S.camps.filter((c) => c.month === mk).length} καμπάνιες</div></div>
     <div class="tile"><div class="lb">Έσοδα πωλήσεων πελατών</div><div class="v">${eur(revM)}</div><div class="d">${salesM.length} πωλήσεις τον μήνα</div></div>
     <div class="tile"><div class="lb">ROAS μήνα</div><div class="v ${spendM > 0 ? (roas >= 2 ? 'pos' : roas < 1 ? 'neg' : '') : ''}">${spendM > 0 ? roas.toFixed(2) + '×' : '—'}</div><div class="d">έσοδα ÷ δαπάνη</div></div>
-    <div class="tile"><div class="lb">Αποτέλεσμα Astra · ${mLabel(mk)}</div><div class="v ${incM - expM >= 0 ? 'pos' : 'neg'}">${eur(incM - expM)}</div><div class="d">έσοδα ${eur(incM)} − έξοδα ${eur(expM)}</div></div>
+    ${(() => { const t = taxEstimate(); return `<div class="tile"><div class="lb">Κέρδος Astra · ${mLabel(mk)}</div><div class="v ${t.profitM >= 0 ? 'pos' : 'neg'}">${eur(t.profitM)}</div><div class="d">τζίρος ${eur(t.revM)} (${t.apptM} ραντεβού × ${eur(apptFee())}) − έξοδα ${eur(t.expMn)}</div></div>`; })()}
     <div class="tile"><div class="lb">Ενεργές κλινικές</div><div class="v">${S.clinics.length}</div><div class="d">${S.clinics.filter((c) => c.sheetId).length} με συνδεδεμένο sheet</div></div>
     ${(() => {
       const t = taxEstimate();
