@@ -1689,7 +1689,8 @@ async function metaSyncAll(silent) {
         }
       }
     }
-    await refresh();
+  }
+  await refresh();
   return { created, updated, errs };
 }
 $('btnMetaSync').onclick = async () => {
