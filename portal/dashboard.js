@@ -13,9 +13,10 @@ import {
   STATUS, CATS, uid, toast, quarterOf, addDays, downloadCSV,
 } from '/app/shared/util.js';
 
-/* ---- auth guard (και στα δύο modes)· οι πελάτες πάνε στο portal ---- */
-if (!currentSession()) location.href = '/login/';
-else if (sessionRole().role === 'client') location.href = '/client-portal/';
+/* ---- auth guard: η σελίδα μένει αόρατη μέχρι να επιβεβαιωθεί η σύνδεση ---- */
+if (!currentSession()) location.replace('/login/');
+else if (sessionRole().role === 'client') location.replace('/client-portal/');
+else document.documentElement.classList.add('authed');
 
 /* ============ state ============ */
 const S = { clinics: [], leads: [], camps: [], fin: [], rec: [], act: [], tasks: [], cr: [], stats: [], trash: [], acct: [], clog: [], settings: null };

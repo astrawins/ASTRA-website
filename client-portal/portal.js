@@ -4,9 +4,10 @@ import { currentSession, sessionRole, logout } from '/app/shared/auth.js';
 import { rest } from '/app/shared/supabase.js';
 import { esc, eur, num, mLabel, nowMonth } from '/app/shared/util.js';
 
-if (!currentSession()) location.href = '/login/';
+if (!currentSession()) location.replace('/login/');
 const role = sessionRole();
-if (role.role !== 'client') location.href = '/portal/';
+if (role.role !== 'client') location.replace('/portal/');
+else document.documentElement.classList.add('authed');
 
 document.getElementById('btnLogout').onclick = () => { logout(); location.href = '/login/'; };
 document.getElementById('pClinic').textContent = role.clinicName || 'Η κλινική σας';
