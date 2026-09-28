@@ -319,6 +319,10 @@
         <input type="file" id="finCsvFile" accept=".csv,text/csv" hidden></div>
       <div class="card tablewrap section" id="recTable"></div>
 
+      <h3 class="sectionhead">Εκκαθάριση πελατών <span class="chip plain">ραντεβού × αμοιβή, ανά κλινική — με email χρέωσης</span></h3>
+      <div class="filters"><select id="bl_month"></select></div>
+      <div class="card tablewrap section" id="billingTable"></div>
+
       <h3 class="sectionhead">Λογιστής <span class="chip plain">κάθε μήνας με το sheet του — αποστολή με ένα κλικ</span></h3>
       <div class="card formpanel" style="margin-bottom:14px">
         <div class="fgrid">
@@ -350,7 +354,7 @@
     <section id="tab-reports" hidden>
       <div class="pagehead">
         <div><h2>Αναφορές</h2><div class="sub">Μηνιαία αναφορά ανά κλινική — έτοιμη για εκτύπωση ή PDF για τον πελάτη.</div></div>
-        <div style="display:flex;gap:8px"><button class="btn" id="btnCopyReport">Αντιγραφή για μήνυμα</button><button class="btn primary" id="btnPrint">Εκτύπωση / PDF</button></div>
+        <div style="display:flex;gap:8px"><button class="btn" id="btnEmailReport">📧 Email στον πελάτη</button><button class="btn" id="btnCopyReport">Αντιγραφή για μήνυμα</button><button class="btn primary" id="btnPrint">Εκτύπωση / PDF</button></div>
       </div>
       <div class="filters">
         <select id="rpClinic"></select>
@@ -373,7 +377,8 @@
         <div class="card setcard">
           <h3>Συγχρονισμός</h3>
           <div class="desc">Αυτόματο τράβηγμα leads από τα Google Sheets όταν ανοίγει η εφαρμογή (αν πέρασαν 30′ από το τελευταίο sync).</div>
-          <label class="switch"><input type="checkbox" id="st_autoSync" checked> Auto-sync στο άνοιγμα</label>
+          <label class="switch"><input type="checkbox" id="st_autoSync" checked> Auto-sync leads στο άνοιγμα</label>
+          <label class="switch" style="margin-top:8px"><input type="checkbox" id="st_autoReport"> Αυτόματο email αναφοράς στους πελάτες (1η του μήνα)</label>
         </div>
         <div class="card setcard">
           <h3>GDPR — διατήρηση δεδομένων</h3>

@@ -21,6 +21,7 @@ const QUERY = {
   trash: 'trash?select=*&order=deleted_at.desc&limit=200',
   accountant: 'accountant?select=*&order=id.desc&limit=36',
   client_log: 'client_log?select=*&order=at.desc&limit=500',
+  billing: 'billing?select=*&order=month.desc&limit=200',
 };
 
 export async function loadAll() {

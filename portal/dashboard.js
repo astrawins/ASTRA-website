@@ -4,8 +4,9 @@ import { currentSession, logout, sessionRole } from '/app/shared/auth.js';
 import { storageUpload, storageDownload, storageDelete, callFunction } from '/app/shared/supabase.js';
 import * as data from '/app/shared/data.js';
 import { sheetIdFrom, gidFrom, fetchSheetCSV, parseCSV, mapLeads } from '/app/shared/sheets.js';
-import { spreadsheetIdFrom, writeToSheet } from '/app/shared/gsheets.js';
-import { sendEmail, welcomeEmail } from '/app/shared/gmail.js';
+import { spreadsheetIdFrom, writeToSheet, readSheetValues } from '/app/shared/gsheets.js';
+import { uploadJsonToDrive } from '/app/shared/gdrive.js';
+import { sendEmail, welcomeEmail, billingEmail, reportEmail } from '/app/shared/gmail.js';
 import { metaInsights, sendTelegram } from '/app/shared/integrations.js';
 import * as gcal from '/app/shared/gcal.js';
 import {
@@ -19,7 +20,7 @@ else if (sessionRole().role === 'client') location.replace('/client-portal/');
 else document.documentElement.classList.add('authed');
 
 /* ============ state ============ */
-const S = { clinics: [], leads: [], camps: [], fin: [], rec: [], act: [], tasks: [], cr: [], stats: [], trash: [], acct: [], clog: [], settings: null };
+const S = { clinics: [], leads: [], camps: [], fin: [], rec: [], act: [], tasks: [], cr: [], stats: [], trash: [], acct: [], clog: [], billing: [], settings: null };
 let activeTab = 'overview';
 const $ = (id) => document.getElementById(id);
 const clinicById = (id) => S.clinics.find((c) => c.id === id);
@@ -34,7 +35,7 @@ async function refresh() {
     const all = await data.loadAll();
     S.clinics = all.clinics; S.leads = all.leads; S.camps = all.campaigns; S.fin = all.finance;
     S.rec = all.recurring || []; S.act = all.activity || []; S.tasks = all.tasks || []; S.cr = all.creatives || [];
-    S.stats = all.monthly_stats || []; S.trash = all.trash || []; S.acct = all.accountant || []; S.clog = all.client_log || [];
+    S.stats = all.monthly_stats || []; S.trash = all.trash || []; S.acct = all.accountant || []; S.clog = all.client_log || []; S.billing = all.billing || [];
     notifyRemoteLeads();
     S.settings = (all.settings && all.settings[0]) || null;
     $('dbBanner').hidden = true;
@@ -56,6 +57,63 @@ async function onFirstLoad() {
   maybeWeeklySummary();
   maybeDailyDigest();
   if (SET().autoSync !== false) autoSyncAll();
+  maybeDailyMetaSync();
+  maybeWeeklyDriveBackup();
+  maybeMonthlyReportEmails();
+}
+/* 4) Ημερήσιο αυτόματο Meta sync */
+async function maybeDailyMetaSync() {
+  const s = SET();
+  if (!s.metaToken) return;
+  if (!s.metaAccount && !S.clinics.some((c) => c.metaAdAccount)) return;
+  const today = todayISO();
+  if (s.lastMetaSync === today) return;
+  try {
+    await saveSetting({ lastMetaSync: today });
+    const r = await metaSyncAll(true);
+    if (r.created || r.updated) toast(`Meta auto-sync: ${r.created} νέες, ${r.updated} ενημερωμένες καμπάνιες.`);
+  } catch { /* αύριο πάλι */ }
+}
+/* 5) Εβδομαδιαίο backup στο Drive */
+async function maybeWeeklyDriveBackup() {
+  const s = SET();
+  if (!gcalClient()) return;
+  const now = new Date();
+  const monday = new Date(now); monday.setDate(now.getDate() - ((now.getDay() + 6) % 7));
+  const wk = 'w' + monday.toISOString().slice(0, 10);
+  if (s.lastDriveBackup === wk) return;
+  try {
+    const all = await data.loadAll();
+    await uploadJsonToDrive(gcalClient(), 'astra-backup-' + todayISO() + '.json', { exportedAt: new Date().toISOString(), ...all });
+    await saveSetting({ lastDriveBackup: wk });
+    toast('Εβδομαδιαίο backup ανέβηκε στο Drive ✓');
+  } catch { /* π.χ. δεν έχει γίνει ακόμα σύνδεση Google — την επόμενη */ }
+}
+/* 3) Αυτόματο email αναφοράς προηγούμενου μήνα (αν ενεργοποιηθεί στις Ρυθμίσεις) */
+async function maybeMonthlyReportEmails() {
+  const s = SET();
+  if (!s.autoReport) return;
+  const pm = lastMonths(2)[0];
+  if (s.lastReportSent === pm) return;
+  const targets = S.clinics.filter((c) => (c.status || 'active') === 'active' && c.email);
+  if (!targets.length) return;
+  let sent = 0;
+  for (const c of targets) {
+    const st = computeStats(pm, c);
+    if (!st.leads && !st.spend) continue;
+    try {
+      await sendEmail(gcalClient(), { to: c.email, ...reportEmail({ clinicName: c.name, monthLabel: mLabel(pm), s: st, fee: apptFee(), portalUrl: location.origin + '/client-portal/' }) });
+      sent++;
+    } catch { break; }
+  }
+  if (sent) { await saveSetting({ lastReportSent: pm }); toast(`Στάλθηκαν ${sent} μηνιαίες αναφορές (${mLabel(pm)}) στους πελάτες ✓`); }
+}
+async function saveSetting(patch) {
+  try {
+    if (S.settings) await data.update('settings', 'main', patch);
+    else await data.create('settings', patch, 'main');
+    Object.assign(S.settings = S.settings || {}, patch);
+  } catch { /* δευτερεύον */ }
 }
 /* GDPR retention: ανωνυμοποίηση παλιών leads που δεν έγιναν πελάτες. */
 async function applyRetention() {
@@ -262,6 +320,17 @@ function notifyRemoteLeads() {
 }
 async function syncClinic(clinic, silent) {
   if (!clinic.sheetId) { if (!silent) toast('Η κλινική δεν έχει Google Sheet link.'); return 0; }
+  // Πρώτα ιδιωτική ανάγνωση μέσω Sheets API (δεν χρειάζεται «Anyone with link»)
+  if (gcalClient()) {
+    try {
+      const rows = await readSheetValues(gcalClient(), clinic.sheetId);
+      return importRows(rows, clinic, 'sheet');
+    } catch (e) {
+      if (e.code !== 'connect_needed' && !silent) toast(e.message);
+      if (e.code !== 'connect_needed') return 0;
+      // χωρίς σύνδεση Google ακόμα → δοκίμασε το δημόσιο CSV
+    }
+  }
   let csv;
   try { csv = await fetchSheetCSV(clinic.sheetId, gidFrom(clinic.sheetUrl)); }
   catch (e) { if (!silent) toast(e.message); return 0; }
@@ -1132,6 +1201,7 @@ function renderClinicView() {
         <div class="tile"><div class="lb">Πωλήσεις</div><div class="v">${sNow.sales}</div><div class="d">${won.length} συνολικά</div></div>
         <div class="tile"><div class="lb">Έσοδα μήνα</div><div class="v">${eur(sNow.revenue)}</div><div class="d">${eur(revAll)} συνολικά</div></div>
         <div class="tile"><div class="lb">Ad spend</div><div class="v ${+c.monthlyBudget && sNow.spend > +c.monthlyBudget ? 'neg' : ''}">${eur(sNow.spend)}</div><div class="d">${+c.monthlyBudget ? Math.round(100 * sNow.spend / +c.monthlyBudget) + '% του budget ' + eur(+c.monthlyBudget) : (sNow.cpl ? 'CPL ' + eur(sNow.cpl) : '—')}</div></div>
+        ${(() => { const sp = speedToLead(c.id); return sp ? `<div class="tile"><div class="lb">1η ενέργεια (μ.ό.)</div><div class="v ${sp.avg <= 30 ? 'pos' : sp.avg > 240 ? 'neg' : ''}">${fmtMins(sp.avg)}</div><div class="d">${sp.n} leads · 30 ημέρες</div></div>` : ''; })()}
         <div class="tile"><div class="lb">Κόστος / Lead</div><div class="v">${sNow.cpl ? eur(sNow.cpl) : '—'}</div><div class="d">δαπάνη ÷ ενδιαφερόμενοι</div></div>
         <div class="tile"><div class="lb">Κόστος / Ραντεβού</div><div class="v">${sNow.rv && sNow.spend ? eur(sNow.spend / sNow.rv) : '—'}</div><div class="d">δαπάνη ÷ ραντεβού</div></div>
         <div class="tile"><div class="lb">ROAS</div><div class="v ${sNow.spend > 0 ? (sNow.roas >= 2 ? 'pos' : sNow.roas < 1 ? 'neg' : '') : ''}">${sNow.spend > 0 ? sNow.roas.toFixed(2) + '×' : '—'}</div><div class="d">έσοδα ÷ δαπάνη</div></div>
@@ -1590,16 +1660,14 @@ $('campTable').addEventListener('click', async (e) => {
   try { await trashRemove('campaigns', id); toast('Η καμπάνια μπήκε στον κάδο.'); await refresh(); }
   catch (err) { toast('Αποτυχία: ' + err.message); }
 });
-$('btnMetaSync').onclick = async () => {
+async function metaSyncAll(silent) {
   const s = SET();
-  const b = $('btnMetaSync');
-  b.disabled = true; b.textContent = 'Meta sync…';
   const mk = nowMonth();
   let updated = 0, created = 0, errs = [];
   // Ανά κλινική με δικό της ad account· fallback στο γενικό account των Ρυθμίσεων
   const targets = S.clinics.filter((c) => c.metaAdAccount).map((c) => ({ account: c.metaAdAccount, clinicId: c.id, name: c.name }));
   if (!targets.length && s.metaAccount) targets.push({ account: s.metaAccount, clinicId: null, name: 'γενικό' });
-  try {
+  {
     for (const t of targets) {
       let ins;
       try { ins = await metaInsights(s.metaToken, t.account); }
@@ -1622,11 +1690,17 @@ $('btnMetaSync').onclick = async () => {
       }
     }
     await refresh();
+  return { created, updated, errs };
+}
+$('btnMetaSync').onclick = async () => {
+  const b = $('btnMetaSync');
+  b.disabled = true; b.textContent = 'Meta sync…';
+  try {
+    const r = await metaSyncAll(false);
     const parts = [];
-    if (created) parts.push(created + ' νέες καμπάνιες από το Meta');
-    if (updated) parts.push(updated + ' ενημερώθηκαν');
-    toast(parts.length ? parts.join(' · ') + ' ✓' : (errs[0] || 'Τίποτα προς συγχρονισμό — βάλε Meta Ad Account στις κλινικές.'));
-    if (errs.length && parts.length) toast('Προσοχή: ' + errs[0]);
+    if (r.created) parts.push(r.created + ' νέες καμπάνιες από το Meta');
+    if (r.updated) parts.push(r.updated + ' ενημερώθηκαν');
+    toast(parts.length ? parts.join(' · ') + ' ✓' : (r.errs[0] || 'Τίποτα προς συγχρονισμό — βάλε Meta Ad Account στις κλινικές.'));
   } catch (e) { toast(e.message); }
   b.disabled = false; b.textContent = '⟳ Meta sync';
 };
@@ -1761,6 +1835,7 @@ function renderFin() {
       }).join('') + '</tbody></table>';
   }
   renderTaxTiles();
+  renderBilling();
   renderRecurring();
   renderAccountant();
   renderCashflow();
@@ -1871,9 +1946,10 @@ function taxEstimate() {
   const inYear = (f) => String(f.date || '').startsWith(year);
   const inMonth = (f) => monthKey(f.date) === mk;
   const sum = (rows, k) => rows.reduce((s, f) => s + (+f[k] || 0), 0);
-  const incM = S.fin.filter((f) => f.kind === 'income' && inMonth(f));
+  const notBilling = (f) => f.category !== 'Χρέωση ραντεβού';
+  const incM = S.fin.filter((f) => f.kind === 'income' && inMonth(f) && notBilling(f));
   const expM = S.fin.filter((f) => f.kind === 'expense' && inMonth(f));
-  const incY = S.fin.filter((f) => f.kind === 'income' && inYear(f));
+  const incY = S.fin.filter((f) => f.kind === 'income' && inYear(f) && notBilling(f));
   const expY = S.fin.filter((f) => f.kind === 'expense' && inYear(f));
   // Πληρωμένα ραντεβού από leads που ήρθαν τον μήνα / τη χρονιά
   const apptM = S.leads.filter((l) => isBooked(l) && monthKey(l.createdTime) === mk).length;
@@ -1894,13 +1970,107 @@ function renderTaxTiles() {
   const t = taxEstimate();
   $('finTaxTiles').innerHTML = `
     <div class="tile"><div class="lb">Τζίρος ${mLabel(t.mk)}</div><div class="v">${eur(t.revM)}</div><div class="d">${t.apptM} ραντεβού × ${eur(apptFee())}</div></div>
-    <div class="tile"><div class="lb">Κέρδος ${mLabel(t.mk)}</div><div class="v ${t.profitM >= 0 ? 'pos' : 'neg'}">${eur(t.profitM)}</div><div class="d">τζίρος − έξοδα ${eur(t.expMn)}</div></div>
+    ${(() => {
+      const be = Math.ceil(t.expMn / apptFee());
+      const day = new Date().getDate();
+      const dim = new Date(+t.year, +t.mk.slice(5, 7), 0).getDate();
+      const proj = Math.round(t.apptM / Math.max(1, day) * dim);
+      const projProfit = proj * apptFee() + (t.revM - t.apptM * apptFee()) - t.expMn;
+      return `<div class="tile"><div class="lb">Κέρδος ${mLabel(t.mk)}</div><div class="v ${t.profitM >= 0 ? 'pos' : 'neg'}">${eur(t.profitM)}</div><div class="d">${t.apptM >= be ? 'πάνω από το νεκρό σημείο (' + be + ' ραντ.)' : 'νεκρό σημείο ' + be + ' ραντ. — λείπουν ' + (be - t.apptM)} · πρόβλεψη μήνα ~${proj} ραντ. / ${eur(projProfit)}</div></div>`;
+    })()}
     <div class="tile"><div class="lb">ΦΠΑ ${mLabel(t.mk)}</div><div class="v ${t.vatMonth > 0 ? 'neg' : 'pos'}">${eur(t.vatMonth)}</div><div class="d">${t.vatMonth > 0 ? 'για απόδοση στο τέλος του μήνα' : 'πιστωτικό υπόλοιπο'}</div></div>
     <div class="tile"><div class="lb">Κέρδος ${t.year}</div><div class="v ${t.profitY >= 0 ? '' : 'neg'}">${eur(t.profitY)}</div><div class="d">${t.apptY} ραντεβού έτους · έξοδα ${eur(t.expY)}</div></div>
     <div class="tile"><div class="lb">Φόρος 22% (ΙΚΕ) · τέλος ${t.year}</div><div class="v">${eur(t.tax)}</div><div class="d">22% στο κέρδος έτους</div></div>
     <div class="tile"><div class="lb">Προκαταβολή ${+t.year + 1}</div><div class="v">${eur(t.prepay)}</div><div class="d">${t.prepayPct}% του φόρου (ΙΚΕ)</div></div>
     <div class="tile"><div class="lb">Σύνολο εκκαθάρισης</div><div class="v neg">${eur(t.total)}</div><div class="d">βάλε στην άκρη ~${eur(t.total / Math.max(1, +t.mk.slice(5, 7)))} / μήνα</div></div>`;
 }
+
+/* ---- Εκκαθάριση πελατών: ραντεβού × αμοιβή, email χρέωσης, καταχώρηση εσόδου ---- */
+function billableLeads(clinicId, m) {
+  return S.leads.filter((l) => l.clinicId === clinicId && isBooked(l) && monthKey(l.createdTime) === m)
+    .sort((a, b) => String(a.createdTime).localeCompare(String(b.createdTime)));
+}
+function renderBilling() {
+  const sel = $('bl_month'); const cur = sel.value;
+  const months = acctMonths();
+  sel.innerHTML = months.map((m) => `<option value="${m}">${mLabel(m)}</option>`).join('');
+  sel.value = cur && months.includes(cur) ? cur : months[0];
+  const m = sel.value;
+  const fee = apptFee();
+  const rows = S.clinics
+    .filter((c) => (c.status || 'active') !== 'prospect')
+    .map((c) => ({ c, ls: billableLeads(c.id, m) }))
+    .filter((r) => r.ls.length);
+  const el = $('billingTable');
+  if (!rows.length) { el.innerHTML = '<div class="empty">Κανένα χρεώσιμο ραντεβού τον ' + mLabel(m) + '.</div>'; return; }
+  let T = 0;
+  el.innerHTML = '<table><thead><tr><th>Κλινική</th><th class="num">Ραντεβού</th><th class="num">Ποσό</th><th class="num">ΦΠΑ 24%</th><th class="num">Σύνολο</th><th>Κατάσταση</th><th></th></tr></thead><tbody>'
+    + rows.map(({ c, ls }) => {
+      const total = ls.length * fee, vat = +(total * 0.24).toFixed(2);
+      T += total;
+      const b = S.billing.find((x) => x.id === m + '_' + c.id);
+      return `<tr data-clinic="${c.id}" data-month="${m}">
+        <td><b>${esc(c.name)}</b></td>
+        <td class="num">${ls.length}</td>
+        <td class="num">${eur(total)}</td>
+        <td class="num">${eur(vat)}</td>
+        <td class="num"><b>${eur(total + vat)}</b></td>
+        <td>${b ? `<span class="chip won">Καταχωρήθηκε${b.emailedAt ? ' · 📧' : ''}</span>` : '<span class="chip epik">Εκκρεμεί</span>'}</td>
+        <td style="white-space:nowrap">
+          <button class="btn small" data-bact="list">Λίστα</button>
+          ${b ? '' : '<button class="btn small primary" data-bact="final">Καταχώρηση</button>'}
+          ${c.email ? `<button class="btn small" data-bact="email">📧 Χρέωση</button>` : ''}
+        </td></tr>`;
+    }).join('')
+    + `</tbody><tfoot><tr><td>Σύνολο</td><td></td><td class="num">${eur(T)}</td><td class="num">${eur(T * 0.24)}</td><td class="num">${eur(T * 1.24)}</td><td colspan="2"></td></tr></tfoot></table>`;
+}
+$('bl_month').addEventListener('input', renderBilling);
+$('billingTable').addEventListener('click', async (e) => {
+  const btn = e.target.closest('[data-bact]'); if (!btn) return;
+  const tr = btn.closest('tr'); const cid = tr.dataset.clinic; const m = tr.dataset.month;
+  const c = clinicById(cid); if (!c) return;
+  const ls = billableLeads(cid, m);
+  const fee = apptFee(); const total = ls.length * fee; const vat = +(total * 0.24).toFixed(2);
+  const act = btn.dataset.bact;
+  if (act === 'list') {
+    const txt = `Χρεώσιμα ραντεβού ${mLabel(m)} — ${c.name} (${ls.length} × ${fee}€):\n` +
+      ls.map((l, i) => `${i + 1}. ${l.name} — ${new Date(l.createdTime).toLocaleDateString('el-GR')}`).join('\n');
+    try { await navigator.clipboard.writeText(txt); toast('Η λίστα (' + ls.length + ' ραντεβού) αντιγράφηκε.'); } catch { toast(txt.slice(0, 300)); }
+    return;
+  }
+  if (act === 'final') {
+    btn.disabled = true;
+    try {
+      await data.create('billing', {
+        month: m, clinicId: cid, clinicName: c.name, appts: ls.length, fee,
+        total, vat, gross: +(total + vat).toFixed(2),
+        leadIds: ls.map((l) => l.id), status: 'final', createdAt: new Date().toISOString(),
+      }, m + '_' + cid);
+      const [y, mo] = m.split('-').map(Number);
+      const lastDay = new Date(y, mo, 0).getDate();
+      await data.create('finance', {
+        kind: 'income', date: `${m}-${lastDay}`, category: 'Χρέωση ραντεβού', clinicId: cid,
+        description: `Χρέωση ${mLabel(m)}: ${ls.length} ραντεβού × ${fee}€`,
+        net: total, vatRate: 24, vat, gross: +(total + vat).toFixed(2), month: m,
+      });
+      await refresh();
+      toast(`Καταχωρήθηκε: ${c.name} — ${eur(total)} (+ΦΠΑ). Μπήκε στα Οικονομικά & στον Λογιστή.`);
+    } catch (err) { toast('Αποτυχία: ' + err.message); btn.disabled = false; }
+    return;
+  }
+  if (act === 'email') {
+    btn.disabled = true; btn.textContent = '…';
+    try {
+      const names = ls.map((l) => ({ name: l.name, date: new Date(l.createdTime).toLocaleDateString('el-GR') }));
+      await sendEmail(gcalClient(), { to: c.email, ...billingEmail({ clinicName: c.name, monthLabel: mLabel(m), appts: ls.length, fee, total, vat, gross: total + vat, names, portalUrl: location.origin + '/client-portal/' }) });
+      const b = S.billing.find((x) => x.id === m + '_' + cid);
+      if (b) await data.update('billing', b.id, { emailedAt: new Date().toISOString() });
+      await refresh();
+      toast('Η χρέωση στάλθηκε στο ' + c.email + ' ✓');
+    } catch (err) { toast(err.message); }
+    btn.disabled = false; btn.textContent = '📧 Χρέωση';
+  }
+});
 
 /* ---- Λογιστής: sheet ανά μήνα + αποστολή εξόδων ---- */
 const acctRow = (m) => S.acct.find((a) => a.id === m);
@@ -2066,6 +2236,19 @@ $('finCsvFile').addEventListener('change', async (e) => {
 /* ============ REPORTS ============ */
 ['rpClinic', 'rpMonth'].forEach((i) => $(i).addEventListener('input', renderReport));
 $('btnPrint').onclick = () => window.print();
+$('btnEmailReport').onclick = async () => {
+  const c = clinicById($('rpClinic').value) || S.clinics[0];
+  if (!c) { toast('Καμία κλινική.'); return; }
+  if (!c.email) { toast('Η κλινική δεν έχει email — βάλ’ το στην Επεξεργασία.'); return; }
+  const mk = $('rpMonth').value || nowMonth();
+  const b = $('btnEmailReport'); b.disabled = true; b.textContent = 'Αποστολή…';
+  try {
+    const st = computeStats(mk, c);
+    await sendEmail(gcalClient(), { to: c.email, ...reportEmail({ clinicName: c.name, monthLabel: mLabel(mk), s: st, fee: apptFee(), portalUrl: location.origin + '/client-portal/' }) });
+    toast('Η αναφορά ' + mLabel(mk) + ' στάλθηκε στο ' + c.email + ' ✓');
+  } catch (e) { toast(e.message); }
+  b.disabled = false; b.textContent = '📧 Email στον πελάτη';
+};
 $('btnCopyReport').onclick = () => {
   const c = clinicById($('rpClinic').value) || S.clinics[0];
   if (!c) { toast('Καμία κλινική.'); return; }
@@ -2261,6 +2444,7 @@ function renderSettings() {
   $('st_retention').value = s.retentionMonths || '';
   $('st_taxPrepay').value = s.taxPrepayPct ?? 80;
   $('st_apptFee').value = s.appointmentFee ?? 50;
+  $('st_autoReport').checked = !!s.autoReport;
   renderTrash();
   $('st_metaToken').value = s.metaToken || '';
   $('st_metaAccount').value = s.metaAccount || '';
@@ -2279,6 +2463,7 @@ $('btnSaveSettings').onclick = async () => {
     retentionMonths: Math.round(parseNum($('st_retention').value)),
     taxPrepayPct: parseNum($('st_taxPrepay').value) || 80,
     appointmentFee: parseNum($('st_apptFee').value) || 50,
+    autoReport: $('st_autoReport').checked,
     metaToken: $('st_metaToken').value.trim(),
     metaAccount: $('st_metaAccount').value.trim(),
     tgToken: $('st_tgToken').value.trim(),
@@ -2464,17 +2649,43 @@ function renderFeed() {
     return `<div class="feedrow"><span class="at">${d.toLocaleDateString('el-GR', { day: '2-digit', month: '2-digit' })} ${d.toLocaleTimeString('el-GR', { hour: '2-digit', minute: '2-digit' })}</span><span>${a.by ? '<b>' + esc(a.by.split('@')[0]) + '</b> · ' : ''}${l ? esc(l.name) + ': ' : ''}${esc(a.body)}</span></div>`;
   }).join('') : '<div class="empty" style="padding:20px">Καμία καταγεγραμμένη ενέργεια ακόμα.</div>';
 }
+function speedToLead(clinicId) {
+  const cut = Date.now() - 30 * 86400000;
+  const firstAct = {};
+  for (const a of S.act) {
+    if (['import', 'create'].includes(a.type)) continue;
+    const t = new Date(a.at).getTime();
+    if (!firstAct[a.leadId] || t < firstAct[a.leadId]) firstAct[a.leadId] = t;
+  }
+  const diffs = [];
+  for (const l of S.leads) {
+    if (clinicId && l.clinicId !== clinicId) continue;
+    const born = new Date(l.importedAt || l.createdTime || 0).getTime();
+    if (!born || born < cut) continue;
+    const f = firstAct[l.id];
+    if (f && f > born) diffs.push((f - born) / 60000);
+  }
+  if (!diffs.length) return null;
+  const avg = diffs.reduce((s, x) => s + x, 0) / diffs.length;
+  return { avg, n: diffs.length };
+}
+const fmtMins = (m) => m >= 60 ? Math.floor(m / 60) + 'ω ' + Math.round(m % 60) + '′' : Math.round(m) + '′';
 function renderTeam() {
+  const sp = speedToLead(null);
+  const spHtml = sp
+    ? `<div class="alertrow ${sp.avg <= 30 ? 'ok' : sp.avg <= 240 ? 'warn' : 'crit'}"><span class="ic">⚡</span><span><b>Ταχύτητα 1ης ενέργειας: ${fmtMins(sp.avg)}</b> κατά μέσο όρο (${sp.n} leads, 30 ημέρες). ${sp.avg <= 30 ? 'Εξαιρετικά — κάτω από 30′.' : 'Στόχος: κάτω από 30′ — τα γρήγορα leads κλείνουν ραντεβού.'}</span></div>`
+    : '';
+  if (spHtml) { /* μπαίνει πάνω από τον πίνακα ομάδας */ }
   const cut = Date.now() - 7 * 24 * 3600 * 1000;
   const acts = S.act.filter((a) => new Date(a.at).getTime() > cut);
   const by = {};
   acts.forEach((a) => { const k = a.by || '—'; by[k] = by[k] || { total: 0, status: 0, note: 0, next: 0 }; by[k].total++; if (by[k][a.type] !== undefined) by[k][a.type]++; });
   const keys = Object.keys(by).sort((a, b) => by[b].total - by[a].total);
-  $('teamTable').innerHTML = keys.length
+  $('teamTable').innerHTML = spHtml + (keys.length
     ? '<table><thead><tr><th>Μέλος</th><th class="num">Ενέργειες</th><th class="num">Αλλαγές σταδίου</th><th class="num">Σχόλια</th><th class="num">Follow-ups</th></tr></thead><tbody>'
       + keys.map((k) => `<tr><td><b>${esc(k === '—' ? 'Χωρίς όνομα' : k.split('@')[0])}</b></td><td class="num">${by[k].total}</td><td class="num">${by[k].status}</td><td class="num">${by[k].note}</td><td class="num">${by[k].next}</td></tr>`).join('')
       + '</tbody></table>'
-    : '<div class="empty" style="padding:20px">Καμία δραστηριότητα τις τελευταίες 7 ημέρες.</div>';
+    : '<div class="empty" style="padding:20px">Καμία δραστηριότητα τις τελευταίες 7 ημέρες.</div>');
 }
 function renderContractsPanel() {
   const soon = S.clinics.map((c) => [c, contractDays(c)]).filter(([, d]) => d !== null && d <= 45).sort((a, b) => a[1] - b[1]);

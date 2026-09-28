@@ -59,3 +59,48 @@ export function welcomeEmail({ clinicName, email, password, portalUrl }) {
   </div></body></html>`;
   return { subject, html };
 }
+
+/* Email μηνιαίας χρέωσης: ραντεβού × αμοιβή, με λίστα ονομάτων (απόδειξη). */
+export function billingEmail({ clinicName, monthLabel, appts, fee, total, vat, gross, names, portalUrl }) {
+  const subject = `Astra Marketing — Εκκαθάριση ${monthLabel}: ${appts} ραντεβού`;
+  const rows = names.map((n, i) => `<tr><td style="padding:4px 10px;font-size:12.5px;color:#5A4936;">${i + 1}.</td><td style="padding:4px 10px;font-size:12.5px;">${n.name}</td><td style="padding:4px 10px;font-size:12.5px;color:#5A4936;">${n.date}</td></tr>`).join('');
+  const html = `<!DOCTYPE html><html lang="el"><body style="margin:0;padding:0;background:#EDDBC4;font-family:Arial,Helvetica,sans-serif;">
+  <div style="max-width:560px;margin:0 auto;padding:32px 16px;">
+    <div style="background:#221A12;border-radius:14px 14px 0 0;padding:22px 28px;"><span style="color:#FDFBF7;font-size:22px;font-weight:bold;">astra</span><span style="color:#BCAC90;font-size:11px;letter-spacing:3px;margin-left:8px;">ΕΚΚΑΘΑΡΙΣΗ</span></div>
+    <div style="background:#FDFBF7;border-radius:0 0 14px 14px;padding:30px 28px;color:#2A2118;">
+      <p style="font-size:16px;font-weight:bold;margin:0 0 4px;">${clinicName} — ${monthLabel}</p>
+      <p style="font-size:13.5px;color:#5A4936;margin:0 0 18px;">Συνοπτικά τα ραντεβού που κλείστηκαν μέσω των καμπανιών μας:</p>
+      <div style="background:#F4E9D4;border-radius:10px;padding:16px 20px;margin:0 0 18px;">
+        <p style="margin:0;font-size:15px;"><b>${appts} ραντεβού × ${fee}€ = ${total.toFixed(2)}€</b></p>
+        <p style="margin:6px 0 0;font-size:13px;color:#5A4936;">ΦΠΑ 24%: ${vat.toFixed(2)}€ &nbsp;·&nbsp; Σύνολο: <b>${gross.toFixed(2)}€</b></p>
+      </div>
+      <table cellpadding="0" cellspacing="0" style="width:100%;border-collapse:collapse;margin:0 0 20px;">${rows}</table>
+      <p style="font-size:12.5px;color:#5A4936;margin:0;">Αναλυτικά στοιχεία στον χώρο σας: <a href="${portalUrl}" style="color:#6B4526;">${portalUrl}</a><br>Με εκτίμηση, <b style="color:#2A2118;">Astra Marketing</b></p>
+    </div></div></body></html>`;
+  return { subject, html };
+}
+
+/* Email μηνιαίας αναφοράς προς τον γιατρό. */
+export function reportEmail({ clinicName, monthLabel, s, fee, portalUrl }) {
+  const subject = `Astra Marketing — Αναφορά ${monthLabel} · ${clinicName}`;
+  const row = (a, b) => `<tr><td style="padding:7px 12px;font-size:13.5px;color:#5A4936;border-bottom:1px solid #EDE2CF;">${a}</td><td style="padding:7px 12px;font-size:14px;font-weight:bold;text-align:right;border-bottom:1px solid #EDE2CF;">${b}</td></tr>`;
+  const html = `<!DOCTYPE html><html lang="el"><body style="margin:0;padding:0;background:#EDDBC4;font-family:Arial,Helvetica,sans-serif;">
+  <div style="max-width:560px;margin:0 auto;padding:32px 16px;">
+    <div style="background:#221A12;border-radius:14px 14px 0 0;padding:22px 28px;"><span style="color:#FDFBF7;font-size:22px;font-weight:bold;">astra</span><span style="color:#BCAC90;font-size:11px;letter-spacing:3px;margin-left:8px;">ΜΗΝΙΑΙΑ ΑΝΑΦΟΡΑ</span></div>
+    <div style="background:#FDFBF7;border-radius:0 0 14px 14px;padding:30px 28px;color:#2A2118;">
+      <p style="font-size:16px;font-weight:bold;margin:0 0 14px;">${clinicName} — ${monthLabel}</p>
+      <table cellpadding="0" cellspacing="0" style="width:100%;border-collapse:collapse;margin:0 0 20px;">
+        ${row('Νέα ενδιαφερόμενα άτομα', s.leads)}
+        ${row('Πληρωμένα ραντεβού', s.rv)}
+        ${row('Ήρθαν στο ιατρείο', s.shows)}
+        ${row('Νέοι ασθενείς', s.sales)}
+        ${row('Έσοδα από νέους ασθενείς', s.revenue.toFixed(0) + '€')}
+        ${row('Διαφημιστική δαπάνη', s.spend.toFixed(0) + '€')}
+        ${s.spend > 0 ? row('Απόδοση (ROAS)', s.roas.toFixed(2) + '×') : ''}
+      </table>
+      <table cellpadding="0" cellspacing="0"><tr><td style="background:#6B4526;border-radius:99px;">
+        <a href="${portalUrl}" style="display:inline-block;padding:12px 26px;color:#FDFBF7;font-size:14px;font-weight:bold;text-decoration:none;">Δείτε αναλυτικά</a></td></tr></table>
+      <p style="font-size:12.5px;color:#5A4936;margin:18px 0 0;">Με εκτίμηση, <b style="color:#2A2118;">Η ομάδα της Astra Marketing</b> · astramarketing.gr</p>
+    </div></div></body></html>`;
+  return { subject, html };
+}
