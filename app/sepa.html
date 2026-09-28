@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="el" data-theme="light">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#EDDBC4">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Astra Marketing — Πάγια εντολή</title>
+  <link rel="icon" type="image/png" href="/app/assets/icon-192.png">
+  <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/app/shared/ui.css">
+</head>
+<body>
+<div class="login-wrap">
+  <div class="login-card" style="text-align:center">
+    <div class="brand" style="justify-content:center"><img alt="astra" src="/app/assets/logo-white.webp"></div>
+    <h1 id="t">Η πάγια εντολή ενεργοποιήθηκε ✓</h1>
+    <p id="d">Ευχαριστούμε! Από εδώ και πέρα η εξόφληση των ραντεβού γίνεται αυτόματα κάθε Δευτέρα — θα λαμβάνετε πάντα πρώτα την ανάλυση της εβδομάδας.</p>
+    <a class="btn primary" href="/client-portal/" style="display:inline-block;text-decoration:none">Στον χώρο σας</a>
+  </div>
+</div>
+<script>
+  if (new URLSearchParams(location.search).get('ok') === '0') {
+    document.getElementById('t').textContent = 'Η διαδικασία ακυρώθηκε';
+    document.getElementById('d').textContent = 'Δεν έγινε καμία αλλαγή. Μπορείτε να χρησιμοποιήσετε ξανά τον σύνδεσμο που σας στείλαμε όποτε θέλετε.';
+  }
+</script>
+</body>
+</html>

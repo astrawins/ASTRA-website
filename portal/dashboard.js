@@ -60,6 +60,19 @@ async function onFirstLoad() {
   maybeDailyMetaSync();
   maybeWeeklyDriveBackup();
   maybeMonthlyReportEmails();
+  maybeMondayCharges();
+}
+/* Κάθε Δευτέρα (ή πρώτο άνοιγμα της εβδομάδας): κλείνει & χρεώνει την προηγούμενη εβδομάδα. */
+async function maybeMondayCharges() {
+  const s = SET();
+  if (!s.autoCharge) return;
+  const w = lastWeeks(1)[0];
+  if (s.lastAutoChargeWeek === w) return;
+  try {
+    await saveSetting({ lastAutoChargeWeek: w });
+    const r = await runWeeklyCharges(w);
+    if (r.closed || r.charged) toast(`Δευτέρα: έκλεισαν ${r.closed} εβδομάδες, στάλθηκαν ${r.charged} χρεώσεις SEPA${r.failed ? ', ' + r.failed + ' αποτυχίες' : ''}.`);
+  } catch { /* επόμενο άνοιγμα */ }
 }
 /* 4) Ημερήσιο αυτόματο Meta sync */
 async function maybeDailyMetaSync() {
@@ -1186,6 +1199,7 @@ function renderClinicView() {
       <div class="acts">
         ${c.sheetId ? '<button class="btn small" data-act="clsync">⟳ Συγχρονισμός</button>' : ''}
         <button class="btn small" data-act="clnewlead">+ Lead</button>
+        <button class="btn small" data-act="clsepa">${c.sepaStatus === 'active' ? 'SEPA ✓' : 'Σύνδεσμος SEPA'}</button>
         <button class="btn small" data-act="clsetup">Setup</button>
         <button class="btn small" data-act="cledit">Επεξεργασία</button>
       </div>
@@ -1344,6 +1358,13 @@ $('clinicView').addEventListener('click', async (e) => {
   if (!c) return;
   if (a === 'clsync') { act.disabled = true; const n = await syncClinic(c, false); act.disabled = false; toast(n ? `Συγχρονίστηκαν ${n} νέα leads.` : 'Κανένα νέο lead.'); }
   if (a === 'cledit') openClinicEdit(c.id);
+  if (a === 'clsepa') {
+    if (c.sepaStatus === 'active') { toast('Η πάγια εντολή SEPA είναι ενεργή — οι χρεώσεις γίνονται αυτόματα.'); return; }
+    act.disabled = true;
+    try { toast(await sendMandateLink(c)); await refresh(); }
+    catch (err) { const m = String(err.message || ''); toast(m.includes('STRIPE') || m.includes('missing_stripe') ? 'Το Stripe δεν έχει συνδεθεί ακόμα — λείπουν τα κλειδιά.' : m); }
+    act.disabled = false;
+  }
   if (a === 'clsetup') openObModal(c.id);
   if (a === 'clnewlead') { showTab('leads'); $('leadForm').hidden = false; fillClinicSelect($('lf_clinic')); $('lf_clinic').value = c.id; $('lf_name').focus(); }
   if (a === 'clreport') { showTab('reports'); fillClinicSelect($('rpClinic')); $('rpClinic').value = c.id; renderReport(); }
@@ -1836,6 +1857,7 @@ function renderFin() {
       }).join('') + '</tbody></table>';
   }
   renderTaxTiles();
+  renderWeeks();
   renderBilling();
   renderRecurring();
   renderAccountant();
@@ -1986,6 +2008,148 @@ function renderTaxTiles() {
     <div class="tile"><div class="lb">Σύνολο εκκαθάρισης</div><div class="v neg">${eur(t.total)}</div><div class="d">βάλε στην άκρη ~${eur(t.total / Math.max(1, +t.mk.slice(5, 7)))} / μήνα</div></div>`;
 }
 
+/* ---- Εβδομαδιαίες χρεώσεις SEPA (Δευτέρα–Κυριακή) ---- */
+function isoDate(d) { return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
+function weekStartOf(d) { const x = new Date(d); x.setHours(12, 0, 0, 0); x.setDate(x.getDate() - ((x.getDay() + 6) % 7)); return x; }
+function weekRange(startIso) { const s = new Date(startIso + 'T12:00:00'); const e = new Date(s); e.setDate(s.getDate() + 6); return { start: startIso, end: isoDate(e) }; }
+function lastWeeks(n) { const out = []; const s = weekStartOf(new Date()); s.setDate(s.getDate() - 7); for (let i = 0; i < n; i++) { out.push(isoDate(s)); s.setDate(s.getDate() - 7); } return out; }
+const wkLabel = (startIso) => { const r = weekRange(startIso); const f = (x) => new Date(x + 'T12:00:00').toLocaleDateString('el-GR', { day: 'numeric', month: 'short' }); return f(r.start) + ' – ' + f(r.end); };
+function weekLeads(clinicId, startIso) {
+  const r = weekRange(startIso);
+  return S.leads.filter((l) => l.clinicId === clinicId && isBooked(l) && l.createdTime && String(l.createdTime).slice(0, 10) >= r.start && String(l.createdTime).slice(0, 10) <= r.end)
+    .sort((a, b) => String(a.createdTime).localeCompare(String(b.createdTime)));
+}
+const SEPA_CHIP = { active: ['Εντολή ενεργή', 'won'], pending: ['Αναμονή υπογραφής', 'epik'], '': ['Χωρίς εντολή', 'plain'] };
+const PAY_CHIP = { pending: ['Προς χρέωση', 'epik'], processing: ['Σε επεξεργασία', 'rv'], paid: ['Πληρώθηκε ✓', 'won'], failed: ['Απέτυχε', 'lost'] };
+async function closeWeek(clinicId, startIso) {
+  const c = clinicById(clinicId); const r = weekRange(startIso);
+  const ls = weekLeads(clinicId, startIso); if (!ls.length) return null;
+  const fee = apptFee(); const total = ls.length * fee; const vat = +(total * 0.24).toFixed(2);
+  const id = 'W' + startIso + '_' + clinicId;
+  if (S.billing.some((x) => x.id === id)) return id;
+  await data.create('billing', {
+    month: startIso.slice(0, 7), clinicId, clinicName: c.name, appts: ls.length, fee, total, vat,
+    gross: +(total + vat).toFixed(2), leadIds: ls.map((l) => l.id), status: 'final',
+    period: 'week', periodStart: r.start, periodEnd: r.end, payStatus: 'pending', createdAt: new Date().toISOString(),
+  }, id);
+  await data.create('finance', {
+    kind: 'income', date: r.end, category: 'Χρέωση ραντεβού', clinicId,
+    description: `Εβδομάδα ${wkLabel(startIso)}: ${ls.length} ραντεβού × ${fee}€`,
+    net: total, vatRate: 24, vat, gross: +(total + vat).toFixed(2), month: r.end.slice(0, 7),
+  });
+  return id;
+}
+async function chargeBilling(id) {
+  const res = await callFunction('stripe-billing', { action: 'charge', billingId: id });
+  return res.status;
+}
+function renderWeeks() {
+  const sel = $('wk_select'); const cur = sel.value;
+  const weeks = lastWeeks(8);
+  sel.innerHTML = weeks.map((w) => `<option value="${w}">Εβδ. ${wkLabel(w)}</option>`).join('');
+  sel.value = cur && weeks.includes(cur) ? cur : weeks[0];
+  const w = sel.value;
+  const fee = apptFee();
+  const rows = S.clinics.map((c) => ({ c, ls: weekLeads(c.id, w), b: S.billing.find((x) => x.id === 'W' + w + '_' + c.id) }))
+    .filter((r) => r.ls.length || r.b);
+  $('wkHint').textContent = SET().autoCharge ? 'Αυτόματη χρέωση: ΕΝΕΡΓΗ (κάθε Δευτέρα)' : 'Αυτόματη χρέωση: ανενεργή (Ρυθμίσεις)';
+  const el = $('weekTable');
+  if (!rows.length) { el.innerHTML = '<div class="empty">Κανένα χρεώσιμο ραντεβού την εβδομάδα ' + wkLabel(w) + '.</div>'; return; }
+  let T = 0;
+  el.innerHTML = '<table><thead><tr><th>Κλινική</th><th class="num">Ραντεβού</th><th class="num">Σύνολο (με ΦΠΑ)</th><th>Εντολή SEPA</th><th>Πληρωμή</th><th></th></tr></thead><tbody>'
+    + rows.map(({ c, ls, b }) => {
+      const appts = b ? b.appts : ls.length;
+      const gross = b ? +b.gross : +(ls.length * fee * 1.24).toFixed(2);
+      T += gross;
+      const sp = SEPA_CHIP[c.sepaStatus || ''] || SEPA_CHIP[''];
+      const pc = b ? (PAY_CHIP[b.payStatus || 'pending'] || PAY_CHIP.pending) : null;
+      return `<tr data-clinic="${c.id}" data-week="${w}">
+        <td><b>${esc(c.name)}</b></td>
+        <td class="num">${appts}</td>
+        <td class="num"><b>${eur(gross)}</b></td>
+        <td><span class="chip ${sp[1]}">${sp[0]}</span></td>
+        <td>${pc ? `<span class="chip ${pc[1]}" title="${esc(b.failReason || '')}">${pc[0]}</span>` : '<span class="chip plain">Ανοιχτή</span>'}</td>
+        <td style="white-space:nowrap">
+          ${!b ? '<button class="btn small" data-wact="close">Κλείσιμο</button>' : ''}
+          ${b && ['pending', 'failed'].includes(b.payStatus || 'pending') && c.sepaStatus === 'active' ? '<button class="btn small primary" data-wact="charge">Χρέωση SEPA</button>' : ''}
+          ${c.sepaStatus !== 'active' ? '<button class="btn small" data-wact="mandate">Σύνδεσμος εντολής</button>' : ''}
+          ${b && c.email ? '<button class="btn small" data-wact="email">📧</button>' : ''}
+        </td></tr>`;
+    }).join('')
+    + `</tbody><tfoot><tr><td>Σύνολο</td><td></td><td class="num">${eur(T)}</td><td colspan="3"></td></tr></tfoot></table>`;
+}
+$('wk_select').addEventListener('input', renderWeeks);
+async function sendMandateLink(c) {
+  const res = await callFunction('stripe-billing', { action: 'setup_link', clinicId: c.id, origin: location.origin });
+  try { await navigator.clipboard.writeText(res.url); } catch { /* ok */ }
+  if (c.email) {
+    const html = `<!DOCTYPE html><html lang="el"><body style="margin:0;background:#EDDBC4;font-family:Arial,sans-serif;"><div style="max-width:560px;margin:0 auto;padding:32px 16px;">
+      <div style="background:#221A12;border-radius:14px 14px 0 0;padding:22px 28px;"><span style="color:#FDFBF7;font-size:22px;font-weight:bold;">astra</span><span style="color:#BCAC90;font-size:11px;letter-spacing:3px;margin-left:8px;">ΠΛΗΡΩΜΕΣ</span></div>
+      <div style="background:#FDFBF7;border-radius:0 0 14px 14px;padding:30px 28px;color:#2A2118;">
+      <p style="font-size:16px;font-weight:bold;margin:0 0 8px;">${esc(c.name)} — αυτόματη εβδομαδιαία εξόφληση</p>
+      <p style="font-size:14px;line-height:1.6;color:#5A4936;margin:0 0 20px;">Για να μην ασχολείστε με πληρωμές, η εξόφληση των ραντεβού κάθε εβδομάδας γίνεται αυτόματα με πάγια εντολή SEPA από τον λογαριασμό σας, κάθε Δευτέρα. Θα λαμβάνετε πάντα πρώτα την ανάλυση των ραντεβού. Η υπογραφή γίνεται μία φορά, με ασφάλεια μέσω Stripe:</p>
+      <table cellpadding="0" cellspacing="0"><tr><td style="background:#6B4526;border-radius:99px;"><a href="${res.url}" style="display:inline-block;padding:12px 26px;color:#FDFBF7;font-size:14px;font-weight:bold;text-decoration:none;">Ενεργοποίηση πάγιας εντολής</a></td></tr></table>
+      <p style="font-size:12.5px;color:#5A4936;margin:18px 0 0;">Με εκτίμηση, <b style="color:#2A2118;">Astra Marketing</b></p></div></div></body></html>`;
+    await sendEmail(gcalClient(), { to: c.email, subject: 'Astra Marketing — Ενεργοποίηση αυτόματης εξόφλησης', html });
+    return 'Στάλθηκε email με τον σύνδεσμο εντολής στο ' + c.email + ' (και αντιγράφηκε).';
+  }
+  return 'Ο σύνδεσμος εντολής αντιγράφηκε — στείλ’ τον στον γιατρό.';
+}
+$('weekTable').addEventListener('click', async (e) => {
+  const btn = e.target.closest('[data-wact]'); if (!btn) return;
+  const tr = btn.closest('tr'); const cid = tr.dataset.clinic; const w = tr.dataset.week;
+  const c = clinicById(cid); if (!c) return;
+  const act = btn.dataset.wact;
+  btn.disabled = true;
+  try {
+    if (act === 'close') { await closeWeek(cid, w); await refresh(); toast('Η εβδομάδα έκλεισε — έτοιμη για χρέωση.'); }
+    if (act === 'charge') {
+      if (btn.textContent !== 'Σίγουρα;') { btn.textContent = 'Σίγουρα;'; btn.disabled = false; setTimeout(() => { btn.textContent = 'Χρέωση SEPA'; }, 3000); return; }
+      const st = await chargeBilling('W' + w + '_' + cid); await refresh();
+      toast(st === 'paid' ? 'Πληρώθηκε ✓' : st === 'processing' ? 'Η χρέωση SEPA στάλθηκε — ολοκληρώνεται σε λίγες εργάσιμες.' : 'Η χρέωση απέτυχε.');
+    }
+    if (act === 'mandate') { toast(await sendMandateLink(c)); await refresh(); }
+    if (act === 'email') {
+      const b = S.billing.find((x) => x.id === 'W' + w + '_' + cid);
+      const ls = S.leads.filter((l) => (b.leadIds || []).includes(l.id));
+      await sendEmail(gcalClient(), { to: c.email, ...billingEmail({ clinicName: c.name, monthLabel: 'εβδομάδα ' + wkLabel(w), appts: b.appts, fee: +b.fee, total: +b.total, vat: +b.vat, gross: +b.gross,
+        names: ls.map((l) => ({ name: l.name, date: new Date(l.createdTime).toLocaleDateString('el-GR') })), portalUrl: location.origin + '/client-portal/' }) });
+      await data.update('billing', b.id, { emailedAt: new Date().toISOString() });
+      toast('Η ανάλυση εβδομάδας στάλθηκε στο ' + c.email + ' ✓');
+    }
+  } catch (err) {
+    const m = String(err.message || '');
+    toast(m.includes('missing_stripe_key') || m.includes('STRIPE_SECRET_KEY') ? 'Το Stripe δεν έχει συνδεθεί ακόμα — λείπουν τα κλειδιά.' : m);
+  }
+  btn.disabled = false;
+});
+$('wkChargeAll').onclick = async () => {
+  const b = $('wkChargeAll');
+  if (b.textContent !== 'Σίγουρα; Χρέωση όλων') { b.textContent = 'Σίγουρα; Χρέωση όλων'; setTimeout(() => { b.textContent = 'Χρέωση όλων με εντολή SEPA'; }, 3000); return; }
+  b.disabled = true;
+  const r = await runWeeklyCharges($('wk_select').value);
+  toast(`Κλείσιμο ${r.closed} · χρεώσεις ${r.charged} · αποτυχίες ${r.failed}${r.err ? ' — ' + r.err : ''}`);
+  b.disabled = false; b.textContent = 'Χρέωση όλων με εντολή SEPA';
+};
+/* Κλείνει όλες τις κλινικές μιας εβδομάδας και χρεώνει όσες έχουν ενεργή εντολή. */
+async function runWeeklyCharges(w) {
+  let closed = 0, charged = 0, failed = 0, err = '';
+  for (const c of S.clinics) {
+    const ls = weekLeads(c.id, w);
+    const id = 'W' + w + '_' + c.id;
+    if (!ls.length && !S.billing.some((x) => x.id === id)) continue;
+    try { if (!S.billing.some((x) => x.id === id)) { await closeWeek(c.id, w); closed++; } } catch (e) { err = e.message; continue; }
+  }
+  await refresh();
+  for (const c of S.clinics.filter((x) => x.sepaStatus === 'active')) {
+    const b = S.billing.find((x) => x.id === 'W' + w + '_' + c.id);
+    if (!b || !['pending', 'failed'].includes(b.payStatus || 'pending')) continue;
+    try { const st = await chargeBilling(b.id); if (st === 'failed') failed++; else charged++; } catch (e) { failed++; err = e.message; }
+  }
+  await refresh();
+  return { closed, charged, failed, err };
+}
+
 /* ---- Εκκαθάριση πελατών: ραντεβού × αμοιβή, email χρέωσης, καταχώρηση εσόδου ---- */
 function billableLeads(clinicId, m) {
   return S.leads.filter((l) => l.clinicId === clinicId && isBooked(l) && monthKey(l.createdTime) === m)
@@ -2016,10 +2180,9 @@ function renderBilling() {
         <td class="num">${eur(total)}</td>
         <td class="num">${eur(vat)}</td>
         <td class="num"><b>${eur(total + vat)}</b></td>
-        <td>${b ? `<span class="chip won">Καταχωρήθηκε${b.emailedAt ? ' · 📧' : ''}</span>` : '<span class="chip epik">Εκκρεμεί</span>'}</td>
+        <td>${(() => { const wk = S.billing.filter((x) => x.period === 'week' && x.clinicId === c.id && monthKey(x.periodStart) === m); const paid = wk.filter((x) => x.payStatus === 'paid').reduce((s, x) => s + (+x.gross || 0), 0); return wk.length ? `<span class="chip ${paid ? 'won' : 'epik'}">${wk.length} εβδ. · πληρώθηκαν ${eur(paid)}</span>` : '<span class="chip plain">—</span>'; })()}</td>
         <td style="white-space:nowrap">
           <button class="btn small" data-bact="list">Λίστα</button>
-          ${b ? '' : '<button class="btn small primary" data-bact="final">Καταχώρηση</button>'}
           ${c.email ? `<button class="btn small" data-bact="email">📧 Χρέωση</button>` : ''}
         </td></tr>`;
     }).join('')
@@ -2446,6 +2609,7 @@ function renderSettings() {
   $('st_taxPrepay').value = s.taxPrepayPct ?? 80;
   $('st_apptFee').value = s.appointmentFee ?? 50;
   $('st_autoReport').checked = !!s.autoReport;
+  $('st_autoCharge').checked = !!s.autoCharge;
   renderTrash();
   $('st_metaToken').value = s.metaToken || '';
   $('st_metaAccount').value = s.metaAccount || '';
@@ -2465,6 +2629,7 @@ $('btnSaveSettings').onclick = async () => {
     taxPrepayPct: parseNum($('st_taxPrepay').value) || 80,
     appointmentFee: parseNum($('st_apptFee').value) || 50,
     autoReport: $('st_autoReport').checked,
+    autoCharge: $('st_autoCharge').checked,
     metaToken: $('st_metaToken').value.trim(),
     metaAccount: $('st_metaAccount').value.trim(),
     tgToken: $('st_tgToken').value.trim(),
@@ -2607,6 +2772,10 @@ function renderOverview() {
       alerts.push({ cls: 'warn', ic: '!', txt: `Τα έξοδα ${mLabel(pm)} δεν έχουν σταλεί στον λογιστή — Οικονομικά → Λογιστής.` });
     }
   }
+  const failedPays = S.billing.filter((x) => x.period === 'week' && x.payStatus === 'failed');
+  if (failedPays.length) alerts.push({ cls: 'crit', ic: '▼', txt: `${failedPays.length} αποτυχημένες χρεώσεις SEPA (${failedPays.map((x) => x.clinicName).join(', ')}) — Οικονομικά → Εβδομαδιαίες χρεώσεις.` });
+  const noMandate = S.clinics.filter((c) => (c.status || 'active') === 'active' && c.sepaStatus !== 'active');
+  if (noMandate.length && S.billing.some((x) => x.period === 'week')) alerts.push({ cls: 'warn', ic: '!', txt: `${noMandate.length} ενεργοί πελάτες χωρίς πάγια εντολή SEPA — στείλε σύνδεσμο εντολής.` });
   if (dupGroups().length) alerts.push({ cls: 'warn', ic: '!', txt: `${dupGroups().length} πιθανά διπλά leads — δες το banner στο tab Leads.` });
   const noSheet = S.clinics.filter((c) => !c.sheetId);
   if (noSheet.length && S.clinics.length) alerts.push({ cls: 'warn', ic: '!', txt: `${noSheet.length === 1 ? 'Η κλινική ' + noSheet[0].name + ' δεν έχει' : noSheet.length + ' κλινικές δεν έχουν'} συνδεδεμένο Google Sheet leads.` });

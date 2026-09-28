@@ -319,7 +319,15 @@
         <input type="file" id="finCsvFile" accept=".csv,text/csv" hidden></div>
       <div class="card tablewrap section" id="recTable"></div>
 
-      <h3 class="sectionhead">Εκκαθάριση πελατών <span class="chip plain">ραντεβού × αμοιβή, ανά κλινική — με email χρέωσης</span></h3>
+      <h3 class="sectionhead">Εβδομαδιαίες χρεώσεις (SEPA) <span class="chip plain">Δευτέρα–Κυριακή · ραντεβού × αμοιβή + ΦΠΑ · αυτόματη πάγια εντολή</span></h3>
+      <div class="filters">
+        <select id="wk_select"></select>
+        <button class="btn small primary" id="wkChargeAll">Χρέωση όλων με εντολή SEPA</button>
+        <span class="fhint" id="wkHint"></span>
+      </div>
+      <div class="card tablewrap section" id="weekTable"></div>
+
+      <h3 class="sectionhead">Μηνιαία σύνοψη χρεώσεων <span class="chip plain">ανάλυση ανά μήνα & email στον πελάτη</span></h3>
       <div class="filters"><select id="bl_month"></select></div>
       <div class="card tablewrap section" id="billingTable"></div>
 
@@ -379,6 +387,7 @@
           <div class="desc">Αυτόματο τράβηγμα leads από τα Google Sheets όταν ανοίγει η εφαρμογή (αν πέρασαν 30′ από το τελευταίο sync).</div>
           <label class="switch"><input type="checkbox" id="st_autoSync" checked> Auto-sync leads στο άνοιγμα</label>
           <label class="switch" style="margin-top:8px"><input type="checkbox" id="st_autoReport"> Αυτόματο email αναφοράς στους πελάτες (1η του μήνα)</label>
+          <label class="switch" style="margin-top:8px"><input type="checkbox" id="st_autoCharge"> Αυτόματη χρέωση SEPA κάθε Δευτέρα (κλείσιμο + χρέωση προηγούμενης εβδομάδας)</label>
         </div>
         <div class="card setcard">
           <h3>GDPR — διατήρηση δεδομένων</h3>
