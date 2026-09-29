@@ -6,14 +6,16 @@ export const eur = (n) => new Intl.NumberFormat('el-GR', { style: 'currency', cu
 export const num = (n) => new Intl.NumberFormat('el-GR').format(n || 0);
 export const parseNum = (v) => { const n = parseFloat(String(v ?? '').replace(',', '.').replace(/[^\d.-]/g, '')); return isNaN(n) ? 0 : n; };
 
-export const todayISO = () => new Date().toISOString().slice(0, 10);
+/* Τοπική ημερομηνία συσκευής (Ελλάδα) — ΟΧΙ toISOString(), που είναι UTC και «γυρίζει» μέρα 00:00–03:00. */
+export const localISO = (d) => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+export const todayISO = () => localISO(new Date());
 export const monthKey = (d) => String(d || '').slice(0, 7);
-export const nowMonth = () => new Date().toISOString().slice(0, 7);
+export const nowMonth = () => localISO(new Date()).slice(0, 7);
 export const GR_MONTHS = ['Ιαν', 'Φεβ', 'Μάρ', 'Απρ', 'Μάι', 'Ιούν', 'Ιούλ', 'Αύγ', 'Σεπ', 'Οκτ', 'Νοέ', 'Δεκ'];
 export const mLabel = (k) => { const [y, m] = String(k).split('-'); return GR_MONTHS[+m - 1] + ' ’' + String(y).slice(2); };
 export function lastMonths(n) {
   const out = []; const d = new Date(); d.setDate(1);
-  for (let i = n - 1; i >= 0; i--) { const x = new Date(d.getFullYear(), d.getMonth() - i, 1); out.push(x.toISOString().slice(0, 7)); }
+  for (let i = n - 1; i >= 0; i--) { const x = new Date(d.getFullYear(), d.getMonth() - i, 1); out.push(localISO(x).slice(0, 7)); }
   return out;
 }
 
@@ -41,7 +43,7 @@ export function inQuarter(dateStr, qk) { return quarterOf(dateStr) === qk; }
 
 export function addDays(days) {
   const d = new Date(); d.setDate(d.getDate() + days);
-  return d.toISOString().slice(0, 10);
+  return localISO(d);
 }
 
 /* Κατέβασμα CSV με BOM ώστε το Excel να διαβάζει σωστά τα ελληνικά. */

@@ -20,7 +20,7 @@ async function authCall(path, body) {
     body: JSON.stringify(body),
   });
   const j = await r.json().catch(() => ({}));
-  if (!r.ok) throw new Error(j.error_description || j.msg || j.message || 'Auth error');
+  if (!r.ok) { const e = new Error(j.error_description || j.msg || j.message || 'Auth error'); e.status = r.status; throw e; }
   return j;
 }
 
@@ -32,16 +32,30 @@ export async function signIn(email, password) {
 
 export function signOut() { storeSession(null); }
 
-async function ensureFresh() {
-  if (!session) throw new Error('no-session');
-  if (session.expires_at && session.expires_at * 1000 - Date.now() > 60_000) return;
-  try {
-    const j = await authCall('token?grant_type=refresh_token', { refresh_token: session.refresh_token });
-    storeSession({ access_token: j.access_token, refresh_token: j.refresh_token, expires_at: j.expires_at, email: j.user && j.user.email });
-  } catch (e) {
-    storeSession(null);
-    throw new Error('session-expired');
+/* Μία ανανέωση τη φορά για όλες τις παράλληλες κλήσεις (ο Supabase δέχεται κάθε refresh token μία φορά).
+   Αποσύνδεση μόνο όταν το Supabase απορρίψει ρητά το token — ποτέ σε σφάλμα δικτύου (π.χ. κινητό που μόλις ξύπνησε). */
+let refreshing = null;
+async function doRefresh() {
+  try { const fresh = JSON.parse(localStorage.getItem(KEY)); if (fresh && fresh.expires_at * 1000 - Date.now() > 60_000) { session = fresh; return; } } catch { /* ok */ }
+  let lastErr;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      const j = await authCall('token?grant_type=refresh_token', { refresh_token: session.refresh_token });
+      storeSession({ access_token: j.access_token, refresh_token: j.refresh_token, expires_at: j.expires_at, email: (j.user && j.user.email) || session.email });
+      return;
+    } catch (e) {
+      lastErr = e;
+      if (e.status === 400 || e.status === 401) { storeSession(null); throw new Error('session-expired'); }
+      await new Promise((r) => setTimeout(r, 800 * (attempt + 1))); // δίκτυο: ξαναδοκίμασε
+    }
   }
+  throw new Error('Πρόβλημα δικτύου — δοκίμασε ξανά σε λίγο. (' + (lastErr && lastErr.message) + ')');
+}
+async function ensureFresh(force) {
+  if (!session) throw new Error('no-session');
+  if (!force && session.expires_at && session.expires_at * 1000 - Date.now() > 60_000) return;
+  if (!refreshing) refreshing = doRefresh().finally(() => { refreshing = null; });
+  return refreshing;
 }
 
 /* Αλλαγή κωδικού του συνδεδεμένου χρήστη. */
@@ -106,8 +120,14 @@ export async function rest(path, { method = 'GET', body, prefer } = {}) {
     Prefer: prefer || (method === 'GET' ? '' : 'return=representation'),
   };
   if (!headers.Prefer) delete headers.Prefer;
-  const r = await fetch(`${CONFIG.supabaseUrl}/rest/v1/${path}`, { method, headers, body: body ? JSON.stringify(body) : undefined });
-  if (r.status === 401) { storeSession(null); throw new Error('session-expired'); }
+  let r = await fetch(`${CONFIG.supabaseUrl}/rest/v1/${path}`, { method, headers, body: body ? JSON.stringify(body) : undefined });
+  if (r.status === 401) {
+    // ληγμένο token (π.χ. ρολόι κινητού) → μία αναγκαστική ανανέωση και ξανά, πριν σκεφτούμε αποσύνδεση
+    await ensureFresh(true);
+    headers.Authorization = `Bearer ${session.access_token}`;
+    r = await fetch(`${CONFIG.supabaseUrl}/rest/v1/${path}`, { method, headers, body: body ? JSON.stringify(body) : undefined });
+    if (r.status === 401) { storeSession(null); throw new Error('session-expired'); }
+  }
   if (!r.ok) { const t = await r.text().catch(() => ''); throw new Error(`Supabase ${r.status}: ${t.slice(0, 200)}`); }
   if (r.status === 204) return null;
   return r.json();

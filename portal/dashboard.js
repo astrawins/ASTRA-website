@@ -93,7 +93,7 @@ async function maybeWeeklyDriveBackup() {
   if (!gcalClient()) return;
   const now = new Date();
   const monday = new Date(now); monday.setDate(now.getDate() - ((now.getDay() + 6) % 7));
-  const wk = 'w' + monday.toISOString().slice(0, 10);
+  const wk = 'w' + isoDate(monday);
   if (s.lastDriveBackup === wk) return;
   try {
     const all = await data.loadAll();
@@ -167,7 +167,7 @@ async function maybeWeeklySummary() {
   if (!s.tgToken || !s.tgChat) return;
   const now = new Date();
   const monday = new Date(now); monday.setDate(now.getDate() - ((now.getDay() + 6) % 7)); monday.setHours(0, 0, 0, 0);
-  const wk = 'w' + monday.toISOString().slice(0, 10);
+  const wk = 'w' + isoDate(monday);
   if (s.lastWeeklySent === wk) return;
   const prevMon = new Date(monday); prevMon.setDate(monday.getDate() - 7);
   const inPrev = (d) => { const t = new Date(d).getTime(); return t >= prevMon.getTime() && t < monday.getTime(); };
@@ -515,10 +515,15 @@ function renderToday() {
         <button class="btn small" data-tact2="tdone">✓ Έγινε</button>
       </div></div>`).join('')}</div>` : '';
   const tdue = undoneTasksDue();
-  const taskBlock = `<h3 class="sectionhead">Tasks ημέρας <span class="chip ${tdue.length ? 'epik' : 'plain'}">${tdue.length}</span></h3>
+  const tnext = S.tasks.filter((t) => !t.done && t.date > todayISO()).sort((a, b) => String(a.date).localeCompare(String(b.date)));
+  const taskBlock = `<h3 class="sectionhead">Tasks <span class="chip ${tdue.length ? 'epik' : 'plain'}">${tdue.length} για σήμερα</span>${tnext.length ? ` <span class="chip plain">${tnext.length} επόμενα</span>` : ''}</h3>
     <div class="taskcols">${taskOwners().map((o) => {
       const mine = tdue.filter((t) => t.owner === o).sort((a, b) => String(a.date).localeCompare(String(b.date)));
-      return `<div class="taskcol"><h3>${esc(o)}</h3><div class="card">${mine.length ? mine.map(taskRow).join('') : '<div class="empty" style="padding:16px">Όλα έτοιμα ✓</div>'}</div></div>`;
+      const later = tnext.filter((t) => t.owner === o);
+      return `<div class="taskcol"><h3>${esc(o)}</h3><div class="card">`
+        + (mine.length ? mine.map(taskRow).join('') : '<div class="empty" style="padding:14px">Τίποτα για σήμερα ✓</div>')
+        + (later.length ? `<div class="taskday">Επόμενα</div>${later.map(taskRow).join('')}` : '')
+        + '</div></div>';
     }).join('')}</div>`;
   $('todayBody').innerHTML = touchBlock + taskBlock + clinicCallsBlock(due, fresh, upcoming, stale);
 }
@@ -1176,7 +1181,7 @@ $('clinicList').addEventListener('click', async (e) => {
   if (act === 'renew') {
     const base = c.contractEnd && new Date(c.contractEnd) > new Date() ? new Date(c.contractEnd) : new Date();
     base.setFullYear(base.getFullYear() + 1);
-    try { await data.update('clinics', id, { contractEnd: base.toISOString().slice(0, 10) }); toast('Το συμβόλαιο ανανεώθηκε έως ' + base.toLocaleDateString('el-GR')); await refresh(); }
+    try { await data.update('clinics', id, { contractEnd: isoDate(base) }); toast('Το συμβόλαιο ανανεώθηκε έως ' + base.toLocaleDateString('el-GR')); await refresh(); }
     catch (err) { toast('Αποτυχία: ' + err.message); }
   }
   if (act === 'view') { showClinic(id); return; }

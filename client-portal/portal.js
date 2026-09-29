@@ -173,7 +173,7 @@ function render() {
 /* ---- Tab «Ραντεβού»: επιβεβαίωση ποιος ήρθε ---- */
 function renderAppts() {
   const body = document.getElementById('pBody');
-  const today = new Date().toISOString().slice(0, 10);
+  const _n = new Date(); const today = _n.getFullYear() + '-' + String(_n.getMonth() + 1).padStart(2, '0') + '-' + String(_n.getDate()).padStart(2, '0');
   const rv = D.leads.filter((l) => l.status === 'rv').sort((a, b) => String(a.nextAction || '9999').localeCompare(String(b.nextAction || '9999')));
   const shown = D.leads.filter((l) => l.status === 'show').sort((a, b) => String(b.createdTime).localeCompare(String(a.createdTime))).slice(0, 15);
   const row = (l) => `<div class="todayrow" data-id="${l.id}">
