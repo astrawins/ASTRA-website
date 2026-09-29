@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="el">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>astra | Κλείστε στρατηγική κλήση</title>
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#EDDBC4">
+<link rel="icon" type="image/png" sizes="32x32" href="assets/img/favicon-32.png">
+<style>
+  @font-face { font-family: 'Archivo'; src: url('assets/fonts/archivo.woff2') format('woff2'); font-weight: 100 900; font-stretch: 62% 125%; font-display: swap; }
+  @font-face { font-family: 'Spline Sans Mono'; src: url('assets/fonts/spline-sans-mono.woff2') format('woff2'); font-weight: 300 700; font-display: swap; }
+  @font-face { font-family: 'Roboto Flex'; src: url('assets/fonts/robotoflex-greek-var.woff2') format('woff2'); font-weight: 100 1000; font-stretch: 25% 151%; font-display: swap; unicode-range: U+0370-03FF; }
+  @font-face { font-family: 'JetBrains Mono'; src: url('assets/fonts/jbmono-greek-var.woff2') format('woff2'); font-weight: 100 800; font-display: swap; unicode-range: U+0370-03FF; }
+  :root { --bg: #EDDBC4; --white: #FDFBF7; --display: #FEFEFE; --ink: #2A2118; --soft: #5A4936; --bronze-text: #6B4526; --hair: rgba(42,33,24,.24);
+    --sans: 'Archivo', 'Roboto Flex', 'Helvetica Neue', Arial, sans-serif; --mono: 'Spline Sans Mono', 'JetBrains Mono', Menlo, monospace;
+    --lift: 0 10px 28px rgba(107,69,38,.32), 0 3px 8px rgba(107,69,38,.18); }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { background: var(--bg); }
+  body { font-family: var(--sans); color: var(--ink); -webkit-font-smoothing: antialiased; }
+  .top { display: flex; align-items: center; justify-content: space-between; padding: 18px clamp(20px, 5vw, 48px); }
+  .top img { width: 84px; filter: drop-shadow(0 3px 4px rgba(107,69,38,.18)) drop-shadow(0 10px 14px rgba(107,69,38,.32)); }
+  .top a.back { font-family: var(--mono); font-size: .6875rem; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; color: var(--soft); text-decoration: none; }
+  main { max-width: 1060px; margin: 0 auto; padding: clamp(12px, 3vh, 32px) clamp(20px, 5vw, 48px) 60px; text-align: center; }
+  .kicker-unused { font-family: var(--mono); font-size: .6875rem; font-weight: 500; letter-spacing: .14em; text-transform: uppercase; color: var(--bronze-text); }
+  h1 { margin-top: 14px; font-weight: 600; font-stretch: 115%; font-variation-settings: "opsz" 36; letter-spacing: -.03em; line-height: 1.05; font-size: clamp(1.5rem, 3.6vw, 2.6rem); text-transform: uppercase; color: var(--ink); text-wrap: balance; max-width: 24ch; margin-left: auto; margin-right: auto; }
+  .hint { margin-top: 14px; color: var(--soft); font-size: 1.0625rem; }
+  .cal .calendly-inline-widget { width: 100%; }
+  @media (max-width: 600px) { main { padding-left: 0; padding-right: 0; } h1 { padding: 0 20px; } .cal { box-shadow: none; } }
+  .cal { margin-top: clamp(20px, 3vh, 32px); background: var(--white); box-shadow: var(--lift); min-height: 700px; display: grid; place-items: center; }
+  .cal iframe { width: 100%; height: 720px; border: 0; display: block; }
+  .placeholder { padding: 40px 24px; color: var(--soft); line-height: 1.6; max-width: 46ch; }
+  .placeholder b { color: var(--ink); }
+</style>
+</head>
+<body>
+<header class="top">
+  <a href="index.html" aria-label="astra"><img src="assets/img/astra-wordmark-white.svg" alt="astra"></a>
+  <a class="back" href="index.html">← Πίσω</a>
+</header>
+<main>
+  <h1>Διάλεξε μια ώρα και μέρα που σε βολεύει να συζητήσουμε</h1>
+  <div class="cal" id="cal">
+    <p class="placeholder"><b>Εδώ μπαίνει το Calendly.</b><br>Ορίστε το CALENDLY_URL στο booking.html.</p>
+  </div>
+</main>
+<script src="assets/funnel.js"></script>
+<script src="assets/pixel.js"></script>
+<script>
+(() => {
+  const CALENDLY_URL = 'https://calendly.com/astramarketing-info/30min?hide_event_type_details=1&hide_gdpr_banner=1&primary_color=d9d7bf';
+  const qs = new URLSearchParams(location.search);
+
+  if (CALENDLY_URL) {
+    const u = new URL(CALENDLY_URL);
+    // Pre-fill the first custom question in Calendly with the website / clinic name
+    if (qs.get('website')) u.searchParams.set('a1', qs.get('website'));
+    // Passed back by Calendly with the booking, so the sheet can match it to the form answers
+    u.searchParams.set('salesforce_uuid', Funnel.sid);
+    ['utm_source', 'utm_medium', 'utm_campaign', 'utm_content'].forEach(k => {
+      try { const v = JSON.parse(sessionStorage.getItem('astra_utm') || '{}')[k]; if (v) u.searchParams.set(k, v); } catch (e) {}
+    });
+    const cal = document.getElementById('cal');
+    cal.innerHTML = '<div class="calendly-inline-widget" data-url="' + u + '" style="min-width:320px;height:700px"></div>';
+    const sc = document.createElement('script');
+    sc.src = 'https://assets.calendly.com/assets/external/widget.js'; sc.async = true;
+    document.body.appendChild(sc);
+  }
+
+  // Calendly tells the page when a call is actually booked
+  addEventListener('message', e => {
+    if (e.origin === 'https://calendly.com' && e.data && e.data.event === 'calendly.event_scheduled') {
+      const p = e.data.payload || {};
+      const invitee = p.invitee && p.invitee.uri;
+      Funnel.booked({ invitee_uri: invitee, event_uri: p.event && p.event.uri });
+      // Go to the thank-you page, which fires the Meta Pixel "Schedule" event once for this booking
+      try { sessionStorage.setItem('astra_booked', (invitee || Funnel.sid).split('/').pop()); } catch (err) {}
+      setTimeout(() => { location.href = 'thank-you.html'; }, 400);
+    }
+  });
+
+  Funnel.track('booking_view', { label: 'Είδαν τη σελίδα κράτησης' });
+})();
+</script>
+</body>
+</html>
