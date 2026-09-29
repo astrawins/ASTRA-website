@@ -1,6 +1,6 @@
 /* Meta Pixel. Paste your Pixel ID below; until then nothing loads. */
 (() => {
-  const PIXEL_ID = ''; // e.g. 123456789012345
+  const PIXEL_ID = '1959039078120264'; // e.g. 123456789012345
 
   window.astraPixel = () => {};
   // Same rule as funnel.js: no pixel on your own visits (?me=1) or on local copies
