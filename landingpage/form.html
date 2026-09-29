@@ -1,0 +1,186 @@
+<!doctype html>
+<html lang="el">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>astra | Δείτε αν η κλινική σας ταιριάζει</title>
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#EDDBC4">
+<link rel="icon" type="image/png" sizes="32x32" href="assets/img/favicon-32.png">
+<style>
+  @font-face { font-family: 'Archivo'; src: url('assets/fonts/archivo.woff2') format('woff2'); font-weight: 100 900; font-stretch: 62% 125%; font-display: swap; }
+  @font-face { font-family: 'Spline Sans Mono'; src: url('assets/fonts/spline-sans-mono.woff2') format('woff2'); font-weight: 300 700; font-display: swap; }
+  @font-face { font-family: 'Roboto Flex'; src: url('assets/fonts/robotoflex-greek-var.woff2') format('woff2'); font-weight: 100 1000; font-stretch: 25% 151%; font-display: swap; unicode-range: U+0370-03FF; }
+  @font-face { font-family: 'JetBrains Mono'; src: url('assets/fonts/jbmono-greek-var.woff2') format('woff2'); font-weight: 100 800; font-display: swap; unicode-range: U+0370-03FF; }
+  :root {
+    --bg: #EDDBC4; --ceramic: #E6CDB2; --white: #FDFBF7; --display: #FEFEFE;
+    --ink: #2A2118; --soft: #5A4936; --bronze: #9C6B3F; --bronze-text: #6B4526;
+    --hair: rgba(42, 33, 24, 0.24);
+    --sans: 'Archivo', 'Roboto Flex', 'Helvetica Neue', Arial, sans-serif;
+    --mono: 'Spline Sans Mono', 'JetBrains Mono', 'SF Mono', Menlo, monospace;
+    --lift: 0 10px 28px rgba(107, 69, 38, 0.32), 0 3px 8px rgba(107, 69, 38, 0.18);
+    --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html { background: var(--bg); }
+  body { font-family: var(--sans); color: var(--ink); -webkit-font-smoothing: antialiased; min-height: 100svh; display: flex; flex-direction: column; }
+  :focus-visible { outline: 2px solid var(--bronze); outline-offset: 3px; }
+  button, input { font: inherit; color: inherit; }
+
+  .top { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 18px clamp(20px, 5vw, 48px); }
+  .top img { width: 84px; filter: drop-shadow(0 3px 4px rgba(107,69,38,.18)) drop-shadow(0 10px 14px rgba(107,69,38,.32)); }
+  .step-count { font-family: var(--mono); font-size: 0.6875rem; font-weight: 500; letter-spacing: 0.14em; text-transform: uppercase; color: var(--soft); }
+  .bar { height: 3px; background: rgba(42, 33, 24, 0.12); }
+  .bar i { display: block; height: 100%; width: 0; background: var(--bronze-text); transition: width 400ms var(--ease-out); }
+
+  main { flex: 1; display: grid; place-items: start center; padding: clamp(28px, 7vh, 72px) clamp(20px, 5vw, 48px) 48px; }
+  .panel { width: 100%; max-width: 640px; }
+  .step { display: none; }
+  .step.active { display: block; }
+  @media (prefers-reduced-motion: no-preference) {
+    .step.active { animation: in 420ms var(--ease-out); }
+    @keyframes in { from { opacity: 0; transform: translateY(14px); } }
+  }
+  .kicker { font-family: var(--mono); font-size: 0.6875rem; font-weight: 500; letter-spacing: 0.14em; text-transform: uppercase; color: var(--bronze-text); }
+  h1 { margin-top: 14px; font-weight: 600; font-stretch: 112%; font-variation-settings: "opsz" 36; letter-spacing: -0.02em; line-height: 1.1; font-size: clamp(1.7rem, 4.4vw, 2.6rem); text-wrap: balance; }
+  h1:focus { outline: none; }
+  .hint { margin-top: 12px; color: var(--soft); font-size: 1rem; line-height: 1.55; }
+
+  .options { display: grid; gap: 12px; margin-top: 28px; }
+  .opt { display: flex; align-items: center; justify-content: space-between; gap: 16px; width: 100%; text-align: left; padding: 18px 20px; background: var(--white); border: 1.5px solid transparent; cursor: pointer; font-size: 1.0625rem; font-weight: 600; font-stretch: 105%; line-height: 1.3; box-shadow: 0 2px 0 rgba(107,69,38,.08); transition: border-color 160ms var(--ease-out), background 160ms var(--ease-out), transform 140ms var(--ease-out); }
+  .opt::after { content: ""; flex: none; width: 18px; height: 18px; border: 1.5px solid var(--hair); border-radius: 50%; transition: background 160ms var(--ease-out), border-color 160ms var(--ease-out); }
+  .opt:active { transform: scale(0.985); }
+  @media (hover: hover) and (pointer: fine) { .opt:hover { border-color: var(--bronze); } }
+  .opt[aria-checked="true"] { border-color: var(--bronze-text); }
+  .opt[aria-checked="true"]::after { background: var(--bronze-text); border-color: var(--bronze-text); box-shadow: inset 0 0 0 3px var(--white); }
+
+  .fields { display: grid; gap: 14px; margin-top: 26px; }
+  .fields .two { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  @media (max-width: 560px) { .fields .two { grid-template-columns: 1fr; } }
+  label.f { display: grid; gap: 6px; font-size: 0.875rem; font-weight: 600; color: var(--soft); }
+  label.f input { width: 100%; padding: 15px 16px; background: var(--white); border: 1.5px solid transparent; font-size: 1.0625rem; font-weight: 500; color: var(--ink); transition: border-color 160ms var(--ease-out); }
+  label.f input:focus { outline: none; border-color: var(--bronze-text); }
+  label.f input[aria-invalid="true"] { border-color: #a33a2a; }
+  .consent { display: flex; gap: 12px; align-items: flex-start; font-size: 0.875rem; line-height: 1.5; color: var(--soft); margin-top: 4px; cursor: pointer; }
+  .consent input { margin-top: 3px; width: 18px; height: 18px; accent-color: var(--bronze-text); flex: none; }
+  .consent a { color: var(--ink); }
+  .err { min-height: 1.4em; margin-top: 12px; color: #a33a2a; font-size: 0.9375rem; font-weight: 600; }
+
+  .nav { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-top: 22px; }
+  .back { background: none; border: 0; cursor: pointer; font-family: var(--mono); font-size: 0.6875rem; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; color: var(--soft); padding: 10px 0; }
+  .back:hover { color: var(--ink); }
+  .back[hidden] { visibility: hidden; display: block; }
+  .btn { display: inline-flex; align-items: center; gap: 18px; padding: 18px 26px 18px 32px; background: var(--ink); color: var(--white); border: 0; cursor: pointer; font-family: var(--sans); font-size: 1rem; font-weight: 700; font-stretch: 110%; letter-spacing: 0.02em; text-transform: uppercase; box-shadow: var(--lift); transition: background 180ms var(--ease-out), transform 160ms var(--ease-out); }
+  .btn svg { width: 16px; height: 16px; }
+  .btn:active { transform: scale(0.97); }
+  .btn[disabled] { opacity: .6; cursor: progress; }
+  @media (hover: hover) and (pointer: fine) { .btn:hover { background: var(--bronze-text); } }
+  /* Inside the landing-page pop-up */
+  html.embed .top a { display: none; }
+  html.embed .top { padding-right: 64px; justify-content: flex-start; min-height: 64px; }
+  html.embed main { padding-top: clamp(20px, 5vh, 48px); }
+  .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  .foot { text-align: center; padding: 0 20px 28px; font-size: 0.8125rem; color: var(--soft); }
+</style>
+</head>
+<body>
+<header class="top">
+  <a href="index.html" aria-label="astra"><img src="assets/img/astra-wordmark-white.svg" alt="astra"></a>
+  <span class="step-count" id="count" aria-live="polite"></span>
+</header>
+<div class="bar" aria-hidden="true"><i id="bar"></i></div>
+
+<main>
+  <form class="panel" id="form" novalidate>
+    <div id="steps"></div>
+    <p class="err" id="err" role="alert"></p>
+    <div class="nav">
+      <button type="button" class="back" id="back">← Πίσω</button>
+      <button type="submit" class="btn" id="next">Συνέχεια
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M4 12 12 4M6 4h6v6"/></svg></button>
+    </div>
+  </form>
+</main>
+<p class="foot">Οι απαντήσεις σας μένουν μεταξύ μας και μας βοηθούν να προετοιμάσουμε την κλήση.</p>
+
+<script src="assets/funnel.js"></script>
+<script>
+(() => {
+  const EMBED = new URLSearchParams(location.search).has('embed') && window.top !== window;
+  if (EMBED) {
+    document.documentElement.classList.add('embed');
+    // Esc inside the pop-up closes it on the landing page
+    addEventListener('keydown', e => { if (e.key === 'Escape') parent.postMessage('astra:close-form', location.origin); });
+  }
+
+  // Questions. "stage" must match the stage keys in the Google Sheet script.
+  const QUESTIONS = [
+    { stage: 'q1', type: 'choice', title: 'Τι είδους επιχείρηση έχετε;', options: ['Αισθητική κλινική', 'Ινστιτούτο αισθητικής', 'Ιατρείο (δερματολογικό / πλαστικής)'] },
+    { stage: 'q2', type: 'choice', title: 'Πόσα άτομα απασχολεί η επιχείρησή σας;', options: ['1–5', '5–10', '10+'] },
+    { stage: 'q3', type: 'text', title: 'Link της ιστοσελίδας σας', hint: 'Αν δεν έχετε ιστοσελίδα, γράψτε το όνομα της κλινικής.', placeholder: 'π.χ. www.clinic.gr', name: 'website' },
+  ];
+  const BOOKING_URL = 'booking.html';
+
+  const $ = id => document.getElementById(id);
+  $('steps').innerHTML = QUESTIONS.map((q, i) => `
+    <section class="step" data-stage="${q.stage}" aria-labelledby="h-${q.stage}">
+      <span class="kicker">Ερώτηση ${i + 1} από ${QUESTIONS.length}</span>
+      <h1 id="h-${q.stage}">${q.title}</h1>
+      ${q.hint ? `<p class="hint">${q.hint}</p>` : ''}
+      ${q.type === 'choice'
+        ? `<div class="options" role="radiogroup" aria-labelledby="h-${q.stage}">${q.options.map(o => `<button type="button" class="opt" role="radio" aria-checked="false" data-value="${o}">${o}</button>`).join('')}</div>`
+        : `<div class="fields"><label class="f"><span class="sr">${q.title}</span><input name="${q.name}" placeholder="${q.placeholder || ''}" autocomplete="url" autocapitalize="off" spellcheck="false" required></label></div>`}
+    </section>`).join('');
+
+  const steps = [...document.querySelectorAll('.step')];
+  const total = steps.length;
+  const answers = {};
+  let idx = 0;
+
+  function show(i) {
+    steps.forEach((s, k) => s.classList.toggle('active', k === i));
+    idx = i;
+    $('count').textContent = `Βήμα ${i + 1} από ${total}`;
+    $('bar').style.width = `${(i / total) * 100}%`;
+    $('back').hidden = i === 0;
+    $('next').style.display = QUESTIONS[i].type === 'choice' ? 'none' : '';
+    $('err').textContent = '';
+    const input = steps[i].querySelector('input');
+    const h = steps[i].querySelector('h1');
+    h.setAttribute('tabindex', '-1');
+    (input && matchMedia('(pointer: fine)').matches ? input : h).focus({ preventScroll: true });
+  }
+
+  // Choice: select, record the stage, advance
+  $('steps').addEventListener('click', e => {
+    const b = e.target.closest('.opt'); if (!b) return;
+    const step = b.closest('.step'), stage = step.dataset.stage;
+    step.querySelectorAll('.opt').forEach(o => o.setAttribute('aria-checked', o === b));
+    answers[stage] = b.dataset.value;
+    Funnel.track(stage, { answer: b.dataset.value, label: step.querySelector('h1').textContent });
+    setTimeout(() => show(Math.min(idx + 1, total - 1)), 220);
+  });
+
+  $('back').addEventListener('click', () => show(Math.max(0, idx - 1)));
+
+  // Last step (website / clinic name) → booking page
+  $('form').addEventListener('submit', e => {
+    e.preventDefault();
+    const q = QUESTIONS[idx]; if (q.type !== 'text') return;
+    const el = $('form').elements[q.name], val = el.value.trim();
+    el.setAttribute('aria-invalid', val.length < 2);
+    if (val.length < 2) { $('err').textContent = 'Γράψτε το link ή το όνομα της κλινικής σας.'; el.focus(); return; }
+    answers[q.stage] = val;
+    $('next').disabled = true;
+    Funnel.track(q.stage, { answer: val, label: q.title });
+    Funnel.lead({ answers: QUESTIONS.map(x => answers[x.stage] || '') });
+    const qs = new URLSearchParams({ sid: Funnel.sid, website: val });
+    setTimeout(() => { (EMBED ? window.top : window).location.href = `${BOOKING_URL}?${qs}`; }, 350);
+  });
+
+  Funnel.track('form_open', { label: 'Άνοιξαν τη φόρμα' });
+  show(0);
+})();
+</script>
+</body>
+</html>
