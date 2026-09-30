@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="el">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>astra | Πριν την κλήση μας</title>
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#EDDBC4">
+<link rel="icon" type="image/png" sizes="32x32" href="assets/img/favicon-32.png">
+<style>
+  @font-face { font-family: 'Archivo'; src: url('assets/fonts/archivo.woff2') format('woff2'); font-weight: 100 900; font-stretch: 62% 125%; font-display: swap; }
+  @font-face { font-family: 'Spline Sans Mono'; src: url('assets/fonts/spline-sans-mono.woff2') format('woff2'); font-weight: 300 700; font-display: swap; }
+  @font-face { font-family: 'Roboto Flex'; src: url('assets/fonts/robotoflex-greek-var.woff2') format('woff2'); font-weight: 100 1000; font-stretch: 25% 151%; font-display: swap; unicode-range: U+0370-03FF; }
+  @font-face { font-family: 'JetBrains Mono'; src: url('assets/fonts/jbmono-greek-var.woff2') format('woff2'); font-weight: 100 800; font-display: swap; unicode-range: U+0370-03FF; }
+  :root { --bg: #EDDBC4; --white: #FDFBF7; --display: #FEFEFE; --ink: #2A2118; --soft: #5A4936; --bronze: #9C6B3F; --bronze-text: #6B4526; --hair: rgba(42,33,24,.24);
+    --sans: 'Archivo', 'Roboto Flex', 'Helvetica Neue', Arial, sans-serif; --mono: 'Spline Sans Mono', 'JetBrains Mono', Menlo, monospace;
+    --lift: 0 10px 28px rgba(107,69,38,.32), 0 3px 8px rgba(107,69,38,.18); --ease-out: cubic-bezier(0.23, 1, 0.32, 1); }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { background: var(--bg); }
+  body { font-family: var(--sans); color: var(--ink); -webkit-font-smoothing: antialiased; min-height: 100svh; display: flex; flex-direction: column; }
+  .top { padding: 18px clamp(20px, 5vw, 48px); }
+  .top img { width: 84px; filter: drop-shadow(0 3px 4px rgba(107,69,38,.18)) drop-shadow(0 10px 14px rgba(107,69,38,.32)); }
+  main { flex: 1; display: grid; place-items: center; padding: 24px clamp(20px, 5vw, 48px) 64px; text-align: center; }
+  .wrap { max-width: 720px; }
+  .check { width: 64px; height: 64px; margin: 0 auto; display: grid; place-items: center; background: var(--white); color: var(--bronze-text); box-shadow: var(--lift); }
+  .check svg { width: 28px; height: 28px; }
+  .kicker { display: block; margin-top: 28px; font-family: var(--mono); font-size: .6875rem; font-weight: 500; letter-spacing: .14em; text-transform: uppercase; color: var(--bronze-text); }
+  h1 { margin-top: 14px; font-weight: 600; font-stretch: 115%; font-variation-settings: "opsz" 36; letter-spacing: -.03em; line-height: 1.05; font-size: clamp(2.2rem, 6vw, 4rem); color: var(--display); text-shadow: var(--lift); text-wrap: balance; }
+  .lede { margin: 18px auto 0; max-width: 46ch; color: var(--soft); font-size: clamp(1.05rem, 1.6vw, 1.2rem); line-height: 1.6; }
+  ol { list-style: none; counter-reset: s; margin: 36px auto 0; max-width: 560px; text-align: left; border-top: 1px solid var(--hair); }
+  li { counter-increment: s; display: grid; grid-template-columns: 44px 1fr; gap: 8px; padding: 18px 0; border-bottom: 1px solid var(--hair); line-height: 1.5; }
+  li::before { content: "0" counter(s); font-family: var(--mono); font-size: .75rem; font-weight: 600; letter-spacing: .1em; color: var(--bronze-text); padding-top: 3px; }
+  li b { display: block; font-weight: 600; }
+  li span { color: var(--soft); font-size: .95rem; }
+  main { place-items: start center; padding-top: clamp(8px, 3vh, 32px); }
+  .wrap { max-width: 880px; width: 100%; }
+  .kicker { margin-top: 0; }
+  .video { margin-top: clamp(24px, 4vh, 40px); background: #000; box-shadow: var(--lift); }
+  .video video { display: block; width: 100%; height: auto; aspect-ratio: 16 / 9; }
+  .lede { margin-top: 24px; }
+  @media (max-width: 600px) { main { padding-left: 0; padding-right: 0; } .kicker, h1, .lede { padding: 0 20px; } }
+</style>
+</head>
+<body>
+<header class="top"><a href="index.html" aria-label="astra"><img src="assets/img/astra-wordmark-white.svg" alt="astra"></a></header>
+<main>
+  <div class="wrap">
+    <span class="kicker">Πριν την κλήση μας · 1 λεπτό</span>
+    <h1>Δείτε αυτό πριν μιλήσουμε.</h1>
+    <div class="video">
+      <video src="assets/video/precall.mp4" poster="assets/video/precall-poster.jpg" controls playsinline preload="metadata"></video>
+    </div>
+    <p class="lede">Τα λέμε στην κλήση. Βρείτε ένα ήσυχο μέρος και κρατήστε 30 λεπτά για να οργανώσουμε μαζί το πλάνο για την κλινική σας.</p>
+  </div>
+</main>
+</body>
+</html>
