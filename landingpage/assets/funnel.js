@@ -2,7 +2,7 @@
    Sends the form answers and the Calendly booking to the Google Apps Script web app,
    which builds the Leads tab. Paste your web-app URL below. */
 (() => {
-  const ENDPOINT = 'https://script.google.com/macros/s/AKfycbwSIgmmwuxX7ZgElldaDcWAhEfmsZsCE3kShe1XJboo6e-TmsXNlrDoVdbVARYEKdUOIw/exec'; // e.g. https://script.google.com/macros/s/XXXX/exec
+  const ENDPOINT = 'https://script.google.com/macros/s/AKfycbyV2gohWd3JXdKc0I2KSm3wvYN0jK2tcBsn9HPPCQ6MXRv7raVanxo7667hkh8_JIkDEQ/exec'; // e.g. https://script.google.com/macros/s/XXXX/exec
 
   const store = {
     get(k, d) { try { const v = sessionStorage.getItem(k); return v === null ? d : JSON.parse(v); } catch (e) { return d; } },
