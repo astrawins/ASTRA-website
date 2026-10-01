@@ -343,9 +343,9 @@ svg text { font-family: var(--mono); font-size: 11px; fill: var(--soft); }
 .feedrow .at { font-family: var(--mono); font-size: 11px; color: var(--soft); white-space: nowrap; }
 
 /* ---------- calendar ---------- */
-.calhead { display: grid; grid-template-columns: repeat(7, 1fr); border-bottom: 1px solid var(--hair); }
+.calhead { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); border-bottom: 1px solid var(--hair); }
 .calhead div { padding: 8px 10px; font-size: 10.5px; letter-spacing: .07em; text-transform: uppercase; color: var(--soft); font-weight: 700; text-align: center; }
-.calgrid { display: grid; grid-template-columns: repeat(7, 1fr); }
+.calgrid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); }
 .calday { min-height: 96px; border-bottom: 1px solid var(--hair2); border-right: 1px solid var(--hair2); padding: 6px; font-size: 12px; }
 .calday:nth-child(7n) { border-right: none; }
 .calday .dn { font-family: var(--mono); font-size: 11px; color: var(--soft); margin-bottom: 4px; }
@@ -360,7 +360,23 @@ svg text { font-family: var(--mono); font-size: 11px; fill: var(--soft); }
 .calday:not(.dim):hover { background: var(--card2); }
 .calday.today:hover { background: var(--chip-epik-bg); }
 .calev:hover { filter: brightness(.94); }
-@media (max-width: 860px) { .calday { min-height: 64px; } .calev { font-size: 10px; padding: 1px 4px; } }
+.calday { min-width: 0; }
+.calmore { font-size: 10px; color: var(--soft); }
+.calmore.m, #calAgenda { display: none; }
+.agrow { display: flex; gap: 12px; align-items: baseline; width: 100%; text-align: left; border: none; background: none; color: inherit; font: inherit; font-size: 14px; padding: 11px 14px; border-bottom: 1px solid var(--hair2); cursor: pointer; }
+.agrow:last-child { border-bottom: none; }
+.agrow .mono { flex: none; min-width: 86px; font-size: 12px; color: var(--bronze-deep); }
+.agrow.past { opacity: .55; }
+#calAgenda .taskday.today { color: var(--bronze-deep); }
+@media (max-width: 900px) {
+  .calhead div { padding: 6px 0; font-size: 9.5px; letter-spacing: .03em; }
+  .calday { min-height: 58px; padding: 4px 2px; }
+  .calday .dn { text-align: center; margin-bottom: 3px; }
+  .calev { font-size: 9.5px; padding: 1px 3px; margin-bottom: 2px; border-radius: 4px; text-overflow: clip; }
+  .calev .mono, .calev:nth-of-type(n+3), .calmore:not(.m) { display: none; }
+  .calmore.m { display: block; text-align: center; font-size: 9.5px; }
+  #calAgenda { display: block; margin-top: 14px; }
+}
 
 /* ---------- onboarding ---------- */
 .obrow { display: flex; gap: 10px; align-items: center; padding: 9px 4px; border-bottom: 1px solid var(--hair2); font-size: 14px; }

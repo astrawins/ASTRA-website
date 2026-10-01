@@ -794,13 +794,19 @@ function renderCalendar() {
     const gevs = (gevByDate[key] || []);
     cells += `<div class="calday${key === today ? ' today' : ''}" data-date="${key}"><div class="dn">${d}</div>`
       + gevs.slice(0, 5).map((ev) => `<button class="calev gev" data-gev="${esc(ev.id)}" title="${esc(ev.title + (ev.start ? ' · ' + ev.start : ''))}">${ev.start ? `<span class="mono">${ev.start}</span> ` : ''}${esc(ev.title)}</button>`).join('')
-      + (gevs.length > 5 ? `<div style="font-size:10px;color:var(--soft)">+${gevs.length - 5} ακόμα</div>` : '')
+      + (gevs.length > 5 ? `<div class="calmore">+${gevs.length - 5} ακόμα</div>` : '')
+      + (gevs.length > 2 ? `<div class="calmore m">+${gevs.length - 2}</div>` : '')
       + '</div>';
   }
   const total = startDow + daysIn;
   for (let i = total; i % 7 !== 0; i++) cells += '<div class="calday dim"></div>';
   $('calGrid').innerHTML = '<div class="calhead"><div>Δευ</div><div>Τρί</div><div>Τετ</div><div>Πέμ</div><div>Παρ</div><div>Σάβ</div><div>Κυρ</div></div>'
     + `<div class="calgrid">${cells}</div>`;
+  /* Κινητό: τα κελιά είναι στενά, οπότε κάτω από το πλέγμα μπαίνει λίστα με όλα τα συμβάντα του μήνα. */
+  const days = Object.keys(gevByDate).sort();
+  $('calAgenda').innerHTML = days.length ? days.map((key) => `<div class="taskday${key === today ? ' today' : ''}">${new Date(key + 'T12:00:00').toLocaleDateString('el-GR', { weekday: 'long', day: 'numeric', month: 'long' })}${key === today ? ' · σήμερα' : ''}</div>`
+    + gevByDate[key].map((ev) => `<button class="agrow${key < today ? ' past' : ''}" data-gev="${esc(ev.id)}"><span class="mono">${ev.start ? ev.start + (ev.end ? '–' + ev.end : '') : 'όλη μέρα'}</span><span>${esc(ev.title)}</span></button>`).join('')).join('')
+    : '<div class="empty">Κανένα συμβάν αυτόν τον μήνα.</div>';
 }
 
 /* ---- event modal (δημιουργία/επεξεργασία στο πραγματικό Google Calendar) ---- */
@@ -892,14 +898,15 @@ $('evDelete').onclick = async () => {
   } catch (e) { toast(e.message); }
   b.disabled = false; b.textContent = 'Διαγραφή';
 };
+function openGev(id) {
+  const gc = gcalCache[calMonthKey()];
+  const ev = Array.isArray(gc) ? gc.find((x) => x.id === id) : null;
+  if (ev) openEventModal(ev);
+}
+$('calAgenda').addEventListener('click', (e) => { const g = e.target.closest('[data-gev]'); if (g) openGev(g.dataset.gev); });
 $('calGrid').addEventListener('click', (e) => {
   const g = e.target.closest('[data-gev]');
-  if (g) {
-    const gc = gcalCache[calMonthKey()];
-    const ev = Array.isArray(gc) ? gc.find((x) => x.id === g.dataset.gev) : null;
-    if (ev) openEventModal(ev);
-    return;
-  }
+  if (g) { openGev(g.dataset.gev); return; }
   const day = e.target.closest('.calday:not(.dim)');
   if (day && day.dataset.date && gcalClient()) openEventModal(null, day.dataset.date);
 });
