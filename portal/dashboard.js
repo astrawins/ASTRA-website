@@ -1852,10 +1852,10 @@ $('crTable').addEventListener('click', async (e) => {
 });
 
 /* ============ FINANCE ============ */
-function quarters() {
-  const qs = new Set([quarterOf(new Date().toISOString())]);
-  S.fin.forEach((f) => { const q = quarterOf(f.date); if (q) qs.add(q); });
-  return [...qs].filter(Boolean).sort().reverse();
+function finMonths() {
+  const ms = new Set([nowMonth()]);
+  S.fin.forEach((f) => { const m = monthKey(f.date); if (m) ms.add(m); });
+  return [...ms].sort().reverse();
 }
 $('btnNewFin').onclick = () => {
   $('finForm').hidden = false; $('ff_date').value = todayISO();
@@ -1882,15 +1882,15 @@ $('btnSaveFin').onclick = async () => {
   $('finForm').hidden = true; toast('Η εγγραφή αποθηκεύτηκε.');
   await refresh();
 };
-['fqQuarter', 'ffKindFilter'].forEach((i) => $(i).addEventListener('input', renderFin));
+['fqMonth', 'ffKindFilter'].forEach((i) => $(i).addEventListener('input', renderFin));
 let finDel = null;
-function quarterRows(qk) { return S.fin.filter((f) => quarterOf(f.date) === qk); }
+function monthRows(mk) { return S.fin.filter((f) => monthKey(f.date) === mk); }
 function renderFin() {
-  const fq = $('fqQuarter'); const opts = quarters(); const cur = fq.value;
-  fq.innerHTML = opts.map((q) => `<option value="${q}">${q.replace('-Q', ' · ') + 'ο τρίμηνο'}</option>`).join('');
-  if (cur && opts.includes(cur)) fq.value = cur;
-  const qk = fq.value || opts[0];
-  const inQ = quarterRows(qk);
+  const fq = $('fqMonth'); const opts = finMonths(); const cur = fq.value;
+  fq.innerHTML = opts.map((m) => `<option value="${m}">${mLabel(m)}</option>`).join('');
+  fq.value = cur && opts.includes(cur) ? cur : nowMonth();
+  const mk = fq.value;
+  const inQ = monthRows(mk);
   const inc = inQ.filter((f) => f.kind === 'income'), exp = inQ.filter((f) => f.kind === 'expense');
   const sum = (a, k) => a.reduce((s, f) => s + (+f[k] || 0), 0);
   const vatOut = sum(inc, 'vat'), vatIn = sum(exp, 'vat'), vatDue = vatOut - vatIn;
@@ -1898,15 +1898,15 @@ function renderFin() {
     <div class="tile"><div class="lb">Έσοδα (καθαρά)</div><div class="v">${eur(sum(inc, 'net'))}</div><div class="d">${inc.length} εγγραφές</div></div>
     <div class="tile"><div class="lb">Έξοδα (καθαρά)</div><div class="v">${eur(sum(exp, 'net'))}</div><div class="d">${exp.length} εγγραφές</div></div>
     <div class="tile"><div class="lb">Αποτέλεσμα</div><div class="v ${sum(inc, 'net') - sum(exp, 'net') >= 0 ? 'pos' : 'neg'}">${eur(sum(inc, 'net') - sum(exp, 'net'))}</div><div class="d">προ φόρων</div></div>
-    <div class="tile"><div class="lb">ΦΠΑ εκροών − εισροών</div><div class="v ${vatDue > 0 ? 'neg' : 'pos'}">${eur(vatDue)}</div><div class="d">${vatDue > 0 ? 'για απόδοση' : 'πιστωτικό'} το τρίμηνο</div></div>`;
+    <div class="tile"><div class="lb">ΦΠΑ εκροών − εισροών</div><div class="v ${vatDue > 0 ? 'neg' : 'pos'}">${eur(vatDue)}</div><div class="d">${vatDue > 0 ? 'για απόδοση' : 'πιστωτικό'} τον μήνα</div></div>`;
   const kf = $('ffKindFilter').value;
   let rows = inQ; if (kf) rows = rows.filter((f) => f.kind === kf);
   rows = [...rows].sort((a, b) => String(b.date).localeCompare(String(a.date)));
   const el = $('finTable');
   if (!S.fin.length) {
-    el.innerHTML = '<div class="empty"><div class="big">Καμία εγγραφή ακόμα</div>Καταχώρησε έσοδα (αμοιβές κλινικών) και έξοδα με τον ΦΠΑ τους — το τρίμηνο κλείνει μόνο του: σύνολα, αποτέλεσμα και ΦΠΑ για απόδοση. Οι σταθερές χρεώσεις μπαίνουν μία φορά στις «Πάγιες εγγραφές».</div>';
+    el.innerHTML = '<div class="empty"><div class="big">Καμία εγγραφή ακόμα</div>Καταχώρησε έσοδα (αμοιβές κλινικών) και έξοδα με τον ΦΠΑ τους — ο μήνας κλείνει μόνος του: σύνολα, αποτέλεσμα και ΦΠΑ για απόδοση. Οι σταθερές χρεώσεις μπαίνουν μία φορά στις «Πάγιες εγγραφές».</div>';
   } else if (!rows.length) {
-    el.innerHTML = '<div class="empty">Καμία εγγραφή σε αυτό το τρίμηνο.</div>';
+    el.innerHTML = '<div class="empty">Καμία εγγραφή σε αυτόν τον μήνα.</div>';
   } else {
     el.innerHTML = '<table><thead><tr><th>Ημ/νία</th><th>Τύπος</th><th>Κατηγορία</th><th>Περιγραφή</th><th>Κλινική</th><th class="num">Καθαρό</th><th class="num">ΦΠΑ</th><th class="num">Μικτό</th><th></th></tr></thead><tbody>'
       + rows.map((f) => {
@@ -1938,10 +1938,10 @@ $('finTable').addEventListener('click', async (e) => {
   catch (err) { toast('Αποτυχία: ' + err.message); }
 });
 $('btnFinCSV').onclick = () => {
-  const qk = $('fqQuarter').value || quarters()[0];
-  const rows = quarterRows(qk);
-  if (!rows.length) { toast('Καμία εγγραφή στο τρίμηνο.'); return; }
-  downloadCSV('astra-oikonomika-' + qk + '.csv',
+  const mk = $('fqMonth').value || nowMonth();
+  const rows = monthRows(mk);
+  if (!rows.length) { toast('Καμία εγγραφή στον μήνα.'); return; }
+  downloadCSV('astra-oikonomika-' + mk + '.csv',
     ['Ημερομηνία', 'Τύπος', 'Κατηγορία', 'Περιγραφή', 'Κλινική', 'Καθαρό', 'ΦΠΑ %', 'ΦΠΑ', 'Μικτό'],
     rows.map((f) => [f.date, f.kind === 'income' ? 'Έσοδο' : 'Έξοδο', f.category, f.description, (clinicById(f.clinicId) || {}).name || '', f.net, f.vatRate, f.vat, f.gross]));
 };
