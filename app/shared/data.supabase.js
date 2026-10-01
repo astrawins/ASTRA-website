@@ -22,6 +22,7 @@ const QUERY = {
   accountant: 'accountant?select=*&order=id.desc&limit=36',
   client_log: 'client_log?select=*&order=at.desc&limit=500',
   billing: 'billing?select=*&order=month.desc&limit=200',
+  subscriptions: 'subscriptions?select=*&order=renew_date.asc',
 };
 
 export async function loadAll() {

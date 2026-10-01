@@ -327,6 +327,23 @@
         <input type="file" id="finCsvFile" accept=".csv,text/csv" hidden></div>
       <div class="card tablewrap section" id="recTable"></div>
 
+      <h3 class="sectionhead">Ετήσιες συνδρομές <span class="chip plain">υπενθύμιση 30 μέρες πριν την ανανέωση — στο «Σήμερα» και στις Ειδοποιήσεις</span></h3>
+      <div class="card formpanel" id="subForm" hidden>
+        <h3 id="subFormTitle">Νέα ετήσια συνδρομή</h3>
+        <div class="fgrid">
+          <div class="f"><label for="sf_clinic">Κλινική</label><select id="sf_clinic"></select></div>
+          <div class="f"><label for="sf_client">ή άλλος πελάτης</label><input id="sf_client" placeholder="αν δεν είναι στις κλινικές"></div>
+          <div class="f"><label for="sf_desc">Περιγραφή</label><input id="sf_desc" placeholder="π.χ. Ετήσιο πακέτο, hosting, domain"></div>
+          <div class="f"><label for="sf_net">Καθαρό ποσό (€)</label><input id="sf_net" inputmode="decimal"></div>
+          <div class="f"><label for="sf_vat">ΦΠΑ</label><select id="sf_vat"><option value="24">24%</option><option value="13">13%</option><option value="6">6%</option><option value="0">0%</option></select></div>
+          <div class="f"><label for="sf_date">Επόμενη ανανέωση *</label><input id="sf_date" type="date"></div>
+          <div class="f"><label for="sf_notes">Σημειώσεις</label><input id="sf_notes"></div>
+        </div>
+        <div class="factions"><button class="btn primary" id="btnSaveSub">Αποθήκευση</button><button class="btn" id="btnCancelSub">Άκυρο</button></div>
+      </div>
+      <div class="filters"><button class="btn small" id="btnNewSub">+ Ετήσια συνδρομή</button></div>
+      <div class="card tablewrap section" id="subTable"></div>
+
       <h3 class="sectionhead">Εβδομαδιαίες χρεώσεις (SEPA) <span class="chip plain">Δευτέρα–Κυριακή · ραντεβού × αμοιβή + ΦΠΑ · αυτόματη πάγια εντολή</span></h3>
       <div class="filters">
         <select id="wk_select"></select>

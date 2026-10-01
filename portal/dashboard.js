@@ -20,7 +20,7 @@ else if (sessionRole().role === 'client') location.replace('/client-portal/');
 else document.documentElement.classList.add('authed');
 
 /* ============ state ============ */
-const S = { clinics: [], leads: [], camps: [], fin: [], rec: [], act: [], tasks: [], cr: [], stats: [], trash: [], acct: [], clog: [], billing: [], settings: null };
+const S = { clinics: [], leads: [], camps: [], fin: [], rec: [], act: [], tasks: [], cr: [], stats: [], trash: [], acct: [], clog: [], billing: [], subs: [], settings: null };
 let activeTab = 'overview';
 const $ = (id) => document.getElementById(id);
 const clinicById = (id) => S.clinics.find((c) => c.id === id);
@@ -35,7 +35,7 @@ async function refresh() {
     const all = await data.loadAll();
     S.clinics = all.clinics; S.leads = all.leads; S.camps = all.campaigns; S.fin = all.finance;
     S.rec = all.recurring || []; S.act = all.activity || []; S.tasks = all.tasks || []; S.cr = all.creatives || [];
-    S.stats = all.monthly_stats || []; S.trash = all.trash || []; S.acct = all.accountant || []; S.clog = all.client_log || []; S.billing = all.billing || [];
+    S.stats = all.monthly_stats || []; S.trash = all.trash || []; S.acct = all.accountant || []; S.clog = all.client_log || []; S.billing = all.billing || []; S.subs = all.subscriptions || [];
     notifyRemoteLeads();
     S.settings = (all.settings && all.settings[0]) || null;
     $('dbBanner').hidden = true;
@@ -158,6 +158,7 @@ function maybeDailyDigest() {
   if (fresh.length) parts.push(fresh.length + ' νέα leads χωρίς επικοινωνία');
   if (tdue) parts.push(tdue + ' tasks');
   if (stale.length) parts.push(stale.length + ' ξεχασμένα');
+  if (subsDue().length) parts.push(subsDue().length + ' ετήσιες συνδρομές προς ανανέωση');
   if (parts.length) browserNotify('Καλημέρα! Η μέρα σου:', parts.join(' · '));
 }
 
@@ -249,8 +250,8 @@ function safeRender() {
 
 /* ============ activity log ============ */
 /* ---- κάδος: κάθε διαγραφή κρατά αντίγραφο 30 ημερών ---- */
-const COLL_LABEL = { clinics: 'Κλινική', leads: 'Lead', campaigns: 'Καμπάνια', finance: 'Εγγραφή', recurring: 'Πάγια', creatives: 'Δημιουργικό', tasks: 'Task' };
-function collSource(coll) { return { clinics: S.clinics, leads: S.leads, campaigns: S.camps, finance: S.fin, recurring: S.rec, creatives: S.cr, tasks: S.tasks }[coll]; }
+const COLL_LABEL = { clinics: 'Κλινική', leads: 'Lead', campaigns: 'Καμπάνια', finance: 'Εγγραφή', recurring: 'Πάγια', subscriptions: 'Συνδρομή', creatives: 'Δημιουργικό', tasks: 'Task' };
+function collSource(coll) { return { clinics: S.clinics, leads: S.leads, campaigns: S.camps, finance: S.fin, recurring: S.rec, subscriptions: S.subs, creatives: S.cr, tasks: S.tasks }[coll]; }
 async function trashRemove(coll, id) {
   const src = collSource(coll);
   const row = src && src.find((r) => r.id === id);
@@ -514,6 +515,12 @@ function renderToday() {
         <button class="btn small" data-tact2="t30">+30μ</button>
         <button class="btn small" data-tact2="tdone">✓ Έγινε</button>
       </div></div>`).join('')}</div>` : '';
+  const subs = isCaller() ? [] : subsDue();
+  const subBlock = subs.length ? `<h3 class="sectionhead" style="margin-top:0">Ετήσιες συνδρομές — ανανέωση <span class="chip epik">${subs.length}</span></h3>
+    <div class="card" style="margin-bottom:20px">${subs.map((s) => `<div class="todayrow" data-sub="${s.id}">
+      <div class="who"><b data-tact3="opensubs">${esc(subName(s))}</b><div class="sub">${esc(s.description || '')}${+s.net ? ' · ' + eur(+s.net) + ' + ΦΠΑ' : ''}</div></div>
+      <span class="due ${subDays(s) < 0 ? 'over' : ''}">${subWhen(s)}</span>
+      <div class="acts"><button class="btn small" data-tact3="renew">✓ Ανανεώθηκε</button></div></div>`).join('')}</div>` : '';
   const tdue = undoneTasksDue();
   const tnext = S.tasks.filter((t) => !t.done && t.date > todayISO()).sort((a, b) => String(a.date).localeCompare(String(b.date)));
   const taskBlock = `<h3 class="sectionhead">Tasks <span class="chip ${tdue.length ? 'epik' : 'plain'}">${tdue.length} για σήμερα</span>${tnext.length ? ` <span class="chip plain">${tnext.length} επόμενα</span>` : ''}</h3>
@@ -525,7 +532,7 @@ function renderToday() {
         + (later.length ? `<div class="taskday">Επόμενα</div>${later.map(taskRow).join('')}` : '')
         + '</div></div>';
     }).join('')}</div>`;
-  $('todayBody').innerHTML = touchBlock + taskBlock + clinicCallsBlock(due, fresh, upcoming, stale);
+  $('todayBody').innerHTML = touchBlock + subBlock + taskBlock + clinicCallsBlock(due, fresh, upcoming, stale);
 }
 /* Κλήσεις ημέρας ομαδοποιημένες ανά κλινική — κλειστές κάρτες με σύνοψη, ανοίγουν με κλικ. */
 let openCallGroups = new Set();
@@ -588,6 +595,13 @@ $('todayBody').addEventListener('click', async (e) => {
     if (openCallGroups.has(k)) openCallGroups.delete(k); else openCallGroups.add(k);
     try { localStorage.setItem('astra-today-open', JSON.stringify([...openCallGroups])); } catch { /* ok */ }
     renderToday();
+    return;
+  }
+  const t3 = e.target.closest('[data-tact3]');
+  if (t3) {
+    if (t3.dataset.tact3 === 'opensubs') { showTab('finance'); $('subTable').scrollIntoView({ block: 'center' }); return; }
+    t3.disabled = true;
+    await renewSub(t3.closest('[data-sub]').dataset.sub);
     return;
   }
   const t2 = e.target.closest('[data-tact2]');
@@ -1909,6 +1923,7 @@ function renderFin() {
   renderWeeks();
   renderBilling();
   renderRecurring();
+  renderSubs();
   renderAccountant();
   renderCashflow();
   renderProfit();
@@ -1981,6 +1996,100 @@ $('recTable').addEventListener('click', async (e) => {
   if (recDel !== id) { recDel = id; b.textContent = 'Σίγουρα;'; setTimeout(() => { recDel = null; renderRecurring(); }, 2500); return; }
   recDel = null;
   try { await trashRemove('recurring', id); toast('Η πάγια εγγραφή μπήκε στον κάδο.'); await refresh(); }
+  catch (err) { toast('Αποτυχία: ' + err.message); }
+});
+/* ---- ετήσιες συνδρομές πελατών: υπενθύμιση 30 μέρες πριν την ανανέωση ---- */
+const SUB_WARN_DAYS = 30;
+const subName = (s) => (clinicById(s.clinicId) || {}).name || s.clientName || '—';
+const subDays = (s) => Math.round((new Date(s.renewDate + 'T12:00:00') - new Date(todayISO() + 'T12:00:00')) / 86400000);
+const subsDue = () => S.subs.filter((s) => subDays(s) <= SUB_WARN_DAYS).sort((a, b) => String(a.renewDate).localeCompare(String(b.renewDate)));
+function subWhen(s) {
+  const d = subDays(s);
+  const dt = new Date(s.renewDate + 'T12:00:00').toLocaleDateString('el-GR', { day: 'numeric', month: 'short', year: '2-digit' });
+  return dt + (d < 0 ? ` · πριν ${-d}μ` : d === 0 ? ' · σήμερα' : d <= SUB_WARN_DAYS ? ` · σε ${d}μ` : '');
+}
+function plusYear(iso) {
+  const [y, m, d] = iso.split('-').map(Number);
+  return isoDate(new Date(y + 1, m - 1, Math.min(d, new Date(y + 1, m, 0).getDate()), 12));
+}
+let editSubId = null;
+function openSubForm(s) {
+  editSubId = s ? s.id : null;
+  $('subFormTitle').textContent = s ? 'Επεξεργασία συνδρομής' : 'Νέα ετήσια συνδρομή';
+  fillClinicSelect($('sf_clinic'), '—');
+  $('sf_clinic').value = (s && s.clinicId) || '';
+  $('sf_client').value = s ? s.clientName || '' : '';
+  $('sf_desc').value = s ? s.description || '' : '';
+  $('sf_net').value = s && +s.net ? s.net : '';
+  $('sf_vat').value = String(s ? s.vatRate ?? 24 : 24);
+  $('sf_date').value = s ? s.renewDate : '';
+  $('sf_notes').value = s ? s.notes || '' : '';
+  $('subForm').hidden = false;
+  $('subForm').scrollIntoView({ block: 'center' });
+}
+$('btnNewSub').onclick = () => openSubForm(null);
+$('btnCancelSub').onclick = () => { $('subForm').hidden = true; editSubId = null; };
+$('btnSaveSub').onclick = async () => {
+  const clinicId = $('sf_clinic').value || null, clientName = $('sf_client').value.trim();
+  if (!clinicId && !clientName) { toast('Διάλεξε κλινική ή γράψε όνομα πελάτη.'); return; }
+  if (!$('sf_date').value) { toast('Βάλε ημερομηνία επόμενης ανανέωσης.'); return; }
+  const body = {
+    clinicId, clientName, description: $('sf_desc').value.trim(),
+    net: parseNum($('sf_net').value), vatRate: +$('sf_vat').value,
+    renewDate: $('sf_date').value, notes: $('sf_notes').value.trim(),
+  };
+  try {
+    if (editSubId) await data.update('subscriptions', editSubId, body);
+    else await data.create('subscriptions', { ...body, createdAt: new Date().toISOString() });
+  } catch (e) { toast('Η αποθήκευση απέτυχε: ' + e.message); return; }
+  $('subForm').hidden = true; editSubId = null;
+  toast('Η συνδρομή αποθηκεύτηκε — θα σου το θυμίσω ' + SUB_WARN_DAYS + ' μέρες πριν.');
+  await refresh();
+};
+/* Ανανέωση: καταχωρεί το έσοδο (αν υπάρχει ποσό) και πάει την ημερομηνία έναν χρόνο μετά. */
+async function renewSub(id) {
+  const s = S.subs.find((x) => x.id === id); if (!s) return;
+  const net = +s.net || 0, vr = +s.vatRate || 0, next = plusYear(s.renewDate);
+  try {
+    if (net) {
+      await data.create('finance', {
+        kind: 'income', date: todayISO(), category: 'Αμοιβή διαχείρισης', clinicId: s.clinicId || null,
+        description: 'Ετήσια συνδρομή · ' + subName(s) + (s.description ? ' · ' + s.description : ''),
+        net, vatRate: vr, vat: +(net * vr / 100).toFixed(2), gross: +(net * (1 + vr / 100)).toFixed(2),
+      });
+    }
+    await data.update('subscriptions', id, { renewDate: next, lastRenewed: todayISO() });
+    toast(`Ανανεώθηκε έως ${new Date(next + 'T12:00:00').toLocaleDateString('el-GR')}` + (net ? ` — καταχωρήθηκε έσοδο ${eur(net)}.` : '.'));
+    await refresh();
+  } catch (err) { toast('Αποτυχία: ' + err.message); }
+}
+let subDel = null;
+function renderSubs() {
+  const el = $('subTable');
+  if (!S.subs.length) { el.innerHTML = '<div class="empty">Καμία ετήσια συνδρομή. Πρόσθεσε όσους πελάτες πληρώνουν μία φορά τον χρόνο και θα στο θυμίζω πριν την ανανέωση.</div>'; return; }
+  const total = S.subs.reduce((t, s) => t + (+s.net || 0), 0);
+  el.innerHTML = '<table><thead><tr><th>Πελάτης</th><th>Περιγραφή</th><th class="num">Καθαρό</th><th class="num">Με ΦΠΑ</th><th>Επόμενη ανανέωση</th><th>Σημειώσεις</th><th></th></tr></thead><tbody>'
+    + [...S.subs].sort((a, b) => String(a.renewDate).localeCompare(String(b.renewDate))).map((s) => {
+      const d = subDays(s), net = +s.net || 0;
+      return `<tr data-id="${s.id}">
+      <td><b>${esc(subName(s))}</b></td><td>${esc(s.description || '')}</td>
+      <td class="num">${net ? eur(net) : '—'}</td><td class="num">${net ? eur(+(net * (1 + (+s.vatRate || 0) / 100)).toFixed(2)) : '—'}</td>
+      <td><span class="chip ${d < 0 ? 'lost' : d <= SUB_WARN_DAYS ? 'epik' : 'plain'}">${subWhen(s)}</span></td>
+      <td>${esc(s.notes || '')}</td>
+      <td style="white-space:nowrap"><button class="btn small" data-act="renewsub" title="Καταχωρεί το έσοδο και μεταθέτει την ανανέωση +1 χρόνο">✓ Ανανεώθηκε</button>
+        <button class="btn small" data-act="editsub" title="Επεξεργασία">✎</button>
+        <button class="btn small danger" data-act="delsub">✕</button></td></tr>`;
+    }).join('')
+    + `</tbody><tfoot><tr><td colspan="2"><b>Σύνολο ανά έτος</b></td><td class="num"><b>${eur(total)}</b></td><td colspan="4"></td></tr></tfoot></table>`;
+}
+$('subTable').addEventListener('click', async (e) => {
+  const b = e.target.closest('button[data-act]'); if (!b) return;
+  const id = b.closest('tr').dataset.id, act = b.dataset.act;
+  if (act === 'editsub') { openSubForm(S.subs.find((s) => s.id === id)); return; }
+  if (act === 'renewsub') { b.disabled = true; await renewSub(id); return; }
+  if (subDel !== id) { subDel = id; b.textContent = 'Σίγουρα;'; setTimeout(() => { subDel = null; renderSubs(); }, 2500); return; }
+  subDel = null;
+  try { await trashRemove('subscriptions', id); toast('Η συνδρομή μπήκε στον κάδο.'); await refresh(); }
   catch (err) { toast('Αποτυχία: ' + err.message); }
 });
 /* Καταχωρεί τις πάγιες του τρέχοντος μήνα, μία φορά η καθεμία. */
@@ -2813,6 +2922,11 @@ function renderOverview() {
     if (d === null) return;
     if (d < 0) alerts.push({ cls: 'crit', ic: '▼', txt: `Το συμβόλαιο της «${c.name}» έχει λήξει — μίλησε για ανανέωση.` });
     else if (d <= 30) alerts.push({ cls: 'warn', ic: '!', txt: `Το συμβόλαιο της «${c.name}» λήγει σε ${d} μέρες.` });
+  });
+  subsDue().forEach((s) => {
+    const d = subDays(s), what = `Η ετήσια συνδρομή «${subName(s)}${s.description ? ' · ' + s.description : ''}»`;
+    if (d < 0) alerts.push({ cls: 'crit', ic: '▼', txt: `${what} έπρεπε να ανανεωθεί πριν ${-d} μέρες — Οικονομικά → Ετήσιες συνδρομές.` });
+    else alerts.push({ cls: 'warn', ic: '!', txt: `${what} ανανεώνεται ${d === 0 ? 'σήμερα' : 'σε ' + d + ' μέρες'}.` });
   });
   {
     const pm = lastMonths(2)[0];
