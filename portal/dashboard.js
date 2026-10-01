@@ -5,7 +5,7 @@ import { storageUpload, storageDownload, storageDelete, callFunction, updatePass
 import * as data from '/app/shared/data.js';
 import { sheetIdFrom, gidFrom, fetchSheetCSV, parseCSV, mapLeads } from '/app/shared/sheets.js';
 import { spreadsheetIdFrom, writeToSheet, readSheetValues } from '/app/shared/gsheets.js';
-import { uploadJsonToDrive } from '/app/shared/gdrive.js';
+import { uploadJsonToDrive, uploadReceipt, trashReceipt, RECEIPTS_FOLDER } from '/app/shared/gdrive.js';
 import { sendEmail, welcomeEmail, billingEmail, reportEmail } from '/app/shared/gmail.js';
 import { metaInsights, sendTelegram } from '/app/shared/integrations.js';
 import * as gcal from '/app/shared/gcal.js';
@@ -2412,7 +2412,62 @@ function renderAccountant() {
   $('acStatus').innerHTML = (a && a.status === 'sent')
     ? `<span class="chip won">Στάλθηκε ${a.sentAt ? new Date(a.sentAt).toLocaleDateString('el-GR', { day: 'numeric', month: 'short' }) : ''}</span> ${exp.length} έξοδα · ${rows.length - exp.length} έσοδα`
     : `<span class="chip epik">Εκκρεμεί</span> ${exp.length} έξοδα · ${rows.length - exp.length} έσοδα του μήνα`;
+  renderReceipts(m);
 }
+/* ---- αποδείξεις/τιμολόγια ανά μήνα: φωτογραφίες & PDF στο Google Drive, φάκελος «Αποδείξεις / Τιμολόγια»/YYYY-MM ---- */
+const driveLink = (u) => (/^https:\/\/(drive|docs)\.google\.com\//.test(u || '') ? u : '');
+const acctFiles = (m) => { const a = acctRow(m); return a && Array.isArray(a.files) ? a.files : []; };
+function renderReceipts(m) {
+  const cloud = CONFIG.backend === 'supabase';
+  $('acAddFiles').hidden = !cloud;
+  const files = acctFiles(m);
+  const fid = (files.find((f) => f.folderId) || {}).folderId;
+  $('acFilesHint').innerHTML = !cloud ? '' : `${files.length} αρχεία για ${mLabel(m)} — αποθηκεύονται στο Google Drive, φάκελος «${esc(RECEIPTS_FOLDER)}» › ${m}.`
+    + (fid ? ` <a href="https://drive.google.com/drive/folders/${encodeURIComponent(fid)}" target="_blank" rel="noopener">Άνοιγμα φακέλου ↗</a>` : '');
+  $('acFiles').innerHTML = !cloud ? '<div class="empty">Το ανέβασμα αποδείξεων είναι διαθέσιμο μόνο σε cloud mode.</div>'
+    : files.length ? files.map((f, i) => `<div class="trashrow" data-i="${i}" style="padding:10px 14px">
+        <span>${esc(f.name)}</span>
+        <span class="tmeta">${(f.size / 1024 / 1024).toFixed(1)}MB · ${new Date(f.at).toLocaleDateString('el-GR', { day: 'numeric', month: 'short' })}</span>
+        ${driveLink(f.link) ? `<a class="btn small" style="text-decoration:none" href="${esc(f.link)}" target="_blank" rel="noopener">Άνοιγμα ↗</a>` : ''}
+        <button class="btn small danger" data-act="rcdel">✕</button>
+      </div>`).join('')
+      : `<div class="empty">Καμία απόδειξη για ${mLabel(m)}. Τράβα φωτογραφία ή ανέβασε PDF — αποθηκεύονται στο Google Drive ανά μήνα.</div>`;
+}
+async function saveAcctFiles(m, files) {
+  if (acctRow(m)) await data.update('accountant', m, { files });
+  else await data.create('accountant', { sheetUrl: '', sheetId: '', status: 'open', notes: '', files }, m);
+}
+$('acAddFiles').onclick = () => $('acFile').click();
+$('acFile').addEventListener('change', async (e) => {
+  const picked = [...e.target.files]; e.target.value = '';
+  const m = $('ac_month').value;
+  if (!picked.length || !m) return;
+  const files = [...acctFiles(m)];
+  let ok = 0, lastErr = '';
+  toast(`Ανέβασμα ${picked.length} αρχείων…`);
+  for (const file of picked) {
+    if (file.size > 40 * 1024 * 1024) { lastErr = 'Μέγιστο μέγεθος 40MB ανά αρχείο.'; continue; }
+    try {
+      const up = await uploadReceipt(gcalClient(), m, file);
+      files.push({ name: file.name, driveId: up.id, link: up.link, folderId: up.folderId, size: file.size, at: new Date().toISOString(), by: userEmail() });
+      ok++;
+    } catch (err) { lastErr = err.message; }
+  }
+  try { if (ok) { await saveAcctFiles(m, files); await refresh(); } }
+  catch (err) { lastErr = 'Αποτυχία: ' + err.message; ok = 0; }
+  toast(ok ? `Ανέβηκαν ${ok} αρχεία στον ${mLabel(m)} ✓` + (lastErr ? ' · ' + lastErr : '') : lastErr || 'Δεν ανέβηκε τίποτα.');
+});
+$('acFiles').addEventListener('click', async (e) => {
+  const act = e.target.closest('button[data-act]'); if (!act) return;
+  const m = $('ac_month').value;
+  const f = acctFiles(m)[+act.closest('[data-i]').dataset.i]; if (!f) return;
+  if (act.textContent !== 'Σίγουρα;') { act.textContent = 'Σίγουρα;'; setTimeout(() => { act.textContent = '✕'; }, 2500); return; }
+  try {
+    await trashReceipt(gcalClient(), f.driveId);
+    await saveAcctFiles(m, acctFiles(m).filter((x) => x.driveId !== f.driveId));
+    await refresh(); toast('Το αρχείο πήγε στον κάδο του Drive.');
+  } catch (err) { toast(err.message); }
+});
 function acctMatrix(m) {
   const rows = S.fin.filter((f) => monthKey(f.date) === m).sort((a, b) => String(a.date).localeCompare(String(b.date)));
   const head = ['Ημερομηνία', 'Τύπος', 'Κατηγορία', 'Περιγραφή', 'Κλινική', 'Καθαρό', 'ΦΠΑ %', 'ΦΠΑ', 'Μικτό'];
