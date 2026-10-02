@@ -295,6 +295,7 @@
           <div class="f"><label for="ff_net">Καθαρό ποσό (€) *</label><input id="ff_net" inputmode="decimal"></div>
           <div class="f"><label for="ff_vat">ΦΠΑ</label><select id="ff_vat"><option value="24">24%</option><option value="13">13%</option><option value="6">6%</option><option value="0">0% / απαλλαγή</option></select></div>
           <div class="f"><label>Μικτό</label><div class="mono" id="ff_gross" style="padding:8px 2px;font-size:15px">—</div></div>
+          <div class="f" id="ff_fileWrap"><label for="ff_file">Απόδειξη / τιμολόγιο (φωτογραφία ή PDF)</label><input id="ff_file" type="file" accept="image/*,.pdf"></div>
         </div>
         <div class="factions"><button class="btn primary" id="btnSaveFin">Αποθήκευση</button><button class="btn" id="btnCancelFin">Άκυρο</button></div>
       </div>
@@ -376,6 +377,7 @@
       <div class="filters">
         <button class="btn small primary" id="acAddFiles">⇪ Αποδείξεις / τιμολόγια μήνα</button>
         <input type="file" id="acFile" hidden multiple accept="image/*,.pdf">
+        <input type="file" id="finRcFile" hidden accept="image/*,.pdf">
         <span class="fhint" id="acFilesHint"></span>
       </div>
       <div class="card section" id="acFiles"></div>

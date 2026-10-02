@@ -233,6 +233,8 @@ $('tabs').addEventListener('click', (e) => { const b = e.target.closest('button'
 function initTab() {
   let t = (location.hash || '').replace('#', '');
   if (!TABS.includes(t)) { try { t = localStorage.getItem('astra-tab') || ''; } catch { t = ''; } }
+  /* Κινητό: το app ανοίγει πάντα στο «Σήμερα» (πρόγραμμα ημέρας + tasks), εκτός αν το link ζητά άλλο tab. */
+  if (!(location.hash || '').replace('#', '') && window.matchMedia && window.matchMedia('(max-width: 900px)').matches) t = 'today';
   if (TABS.includes(t)) showTab(t);
 }
 
@@ -499,6 +501,25 @@ function todayRow(l, kind) {
     </div>
   </div>`;
 }
+/* Πρόγραμμα ημέρας: τα συμβάντα του Google Calendar για σήμερα και αύριο. */
+function scheduleBlock() {
+  if (!gcalKey() && !gcalClient()) return '';
+  const today = todayISO(), tomorrow = addDays(1);
+  const months = [...new Set([monthKey(today), monthKey(tomorrow)])];
+  months.forEach(loadGcalMonth);
+  const states = months.map((m) => gcalCache[m]);
+  const evs = states.filter(Array.isArray).flat();
+  const byTime = (a, b) => String(a.start).localeCompare(String(b.start));
+  const row = (ev) => `<button class="agrow" data-gev="${esc(ev.id)}"><span class="mono">${ev.start ? ev.start + (ev.end ? '–' + ev.end : '') : 'όλη μέρα'}</span><span>${esc(ev.title)}</span></button>`;
+  const td = evs.filter((e) => e.date === today).sort(byTime), tm = evs.filter((e) => e.date === tomorrow).sort(byTime);
+  const body = states.includes('loading') && !evs.length ? '<div class="empty" style="padding:14px">Φόρτωση προγράμματος…</div>'
+    : states.some((x) => x === 'connect' || x === 'error') && !evs.length ? '<div class="empty" style="padding:14px">Το Google Calendar δεν είναι διαθέσιμο — άνοιξε το tab «Ημερολόγιο».</div>'
+    : (td.length ? td.map(row).join('') : '<div class="empty" style="padding:14px">Κανένα ραντεβού σήμερα ✓</div>')
+      + (tm.length ? `<div class="taskday">Αύριο</div>${tm.map(row).join('')}` : '');
+  return `<h3 class="sectionhead" style="margin-top:0">Πρόγραμμα ημέρας <span class="chip ${td.length ? 'epik' : 'plain'}">${td.length} σήμερα</span>
+      <button class="btn small" data-newev style="margin-left:auto">+ Συμβάν</button></h3>
+    <div class="card" style="margin-bottom:20px">${body}</div>`;
+}
 function renderToday() {
   const { due, fresh, upcoming, stale } = todayItems();
   const sec = (title, chip, arr, kind, emptyTxt) =>
@@ -532,7 +553,7 @@ function renderToday() {
         + (later.length ? `<div class="taskday">Επόμενα</div>${later.map(taskRow).join('')}` : '')
         + '</div></div>';
     }).join('')}</div>`;
-  $('todayBody').innerHTML = touchBlock + subBlock + taskBlock + clinicCallsBlock(due, fresh, upcoming, stale);
+  $('todayBody').innerHTML = scheduleBlock() + taskBlock + '<div style="height:20px"></div>' + touchBlock + subBlock + clinicCallsBlock(due, fresh, upcoming, stale);
 }
 /* Κλήσεις ημέρας ομαδοποιημένες ανά κλινική — κλειστές κάρτες με σύνοψη, ανοίγουν με κλικ. */
 let openCallGroups = new Set();
@@ -597,6 +618,9 @@ $('todayBody').addEventListener('click', async (e) => {
     renderToday();
     return;
   }
+  const gev = e.target.closest('[data-gev]');
+  if (gev) { openGev(gev.dataset.gev); return; }
+  if (e.target.closest('[data-newev]')) { openEventModal(null, todayISO()); return; }
   const t3 = e.target.closest('[data-tact3]');
   if (t3) {
     if (t3.dataset.tact3 === 'opensubs') { showTab('finance'); $('subTable').scrollIntoView({ block: 'center' }); return; }
@@ -755,9 +779,11 @@ function loadGcalMonth(mk) {
   gcal.listEvents({ apiKey: gcalKey(), clientId: gcalClient() }, gcalId(), mk).then((evs) => {
     gcalCache[mk] = evs;
     if (activeTab === 'calendar') renderCalendar();
+    if (activeTab === 'today') renderToday();
   }).catch((e) => {
     gcalCache[mk] = e.code === 'connect_needed' ? 'connect' : 'error';
     if (activeTab === 'calendar') renderCalendar();
+    if (activeTab === 'today') renderToday();
   });
 }
 function invalidateGcal(mk) { delete gcalCache[mk]; }
@@ -881,6 +907,7 @@ $('evSave').onclick = async () => {
     $('evModal').hidden = true;
     toast(editEventId ? 'Το συμβάν ενημερώθηκε στο Google Calendar.' : 'Το συμβάν δημιουργήθηκε στο Google Calendar.');
     renderCalendar();
+    if (activeTab === 'today') renderToday();
   } catch (e) { toast(e.message); }
   $('evSave').disabled = false;
 };
@@ -891,16 +918,16 @@ $('evDelete').onclick = async () => {
   b.disabled = true;
   try {
     await gcal.deleteEvent(gcalClient(), gcalId(), editEventId);
-    invalidateGcal(calMonthKey());
+    invalidateGcal(calMonthKey()); invalidateGcal(nowMonth()); invalidateGcal(monthKey(addDays(1)));
     $('evModal').hidden = true;
     toast('Το συμβάν διαγράφηκε από το Google Calendar.');
     renderCalendar();
+    if (activeTab === 'today') renderToday();
   } catch (e) { toast(e.message); }
   b.disabled = false; b.textContent = 'Διαγραφή';
 };
 function openGev(id) {
-  const gc = gcalCache[calMonthKey()];
-  const ev = Array.isArray(gc) ? gc.find((x) => x.id === id) : null;
+  const ev = Object.values(gcalCache).filter(Array.isArray).flat().find((x) => x.id === id);
   if (ev) openEventModal(ev);
 }
 $('calAgenda').addEventListener('click', (e) => { const g = e.target.closest('[data-gev]'); if (g) openGev(g.dataset.gev); });
@@ -1866,6 +1893,7 @@ function finMonths() {
 }
 $('btnNewFin').onclick = () => {
   $('finForm').hidden = false; $('ff_date').value = todayISO();
+  $('ff_fileWrap').hidden = CONFIG.backend !== 'supabase'; $('ff_file').value = '';
   fillFinCats(); fillClinicSelect($('ff_clinic'), '—'); updGross(); $('ff_net').focus();
 };
 $('btnCancelFin').onclick = () => { $('finForm').hidden = true; };
@@ -1878,17 +1906,44 @@ $('btnSaveFin').onclick = async () => {
   const net = parseNum($('ff_net').value);
   if (!net) { toast('Γράψε καθαρό ποσό.'); return; }
   const vatRate = +$('ff_vat').value;
+  const file = $('ff_file').files[0];
+  let row;
   try {
-    await data.create('finance', {
+    row = await data.create('finance', {
       kind: $('ff_kind').value, date: $('ff_date').value || todayISO(),
       category: $('ff_cat').value, clinicId: $('ff_clinic').value || null, description: $('ff_desc').value.trim(),
       net, vatRate, vat: +(net * vatRate / 100).toFixed(2), gross: +(net * (1 + vatRate / 100)).toFixed(2),
     });
   } catch (e) { toast('Η αποθήκευση απέτυχε: ' + e.message); return; }
-  $('ff_net').value = ''; $('ff_desc').value = ''; updGross();
-  $('finForm').hidden = true; toast('Η εγγραφή αποθηκεύτηκε.');
+  $('ff_net').value = ''; $('ff_desc').value = ''; $('ff_file').value = ''; updGross();
+  $('finForm').hidden = true;
+  let msg = 'Η εγγραφή αποθηκεύτηκε.';
+  if (file) {
+    toast('Η εγγραφή αποθηκεύτηκε — ανεβαίνει το παραστατικό…');
+    try { await attachReceipt(row, file); msg = 'Η εγγραφή αποθηκεύτηκε με το παραστατικό της ✓'; }
+    catch (e) { msg = 'Η εγγραφή αποθηκεύτηκε, αλλά το παραστατικό δεν ανέβηκε: ' + e.message; }
+  }
+  toast(msg);
   await refresh();
 };
+/* Ανεβάζει το παραστατικό στο Drive (φάκελος του μήνα της εγγραφής), το δένει με την εγγραφή
+   και το προσθέτει στη λίστα αποδείξεων του μήνα. */
+async function attachReceipt(f, file) {
+  if (file.size > 40 * 1024 * 1024) throw new Error('Μέγιστο μέγεθος 40MB.');
+  const m = monthKey(f.date);
+  const up = await uploadReceipt(gcalClient(), m, file);
+  await data.update('finance', f.id, { receiptLink: up.link, receiptId: up.id });
+  await saveAcctFiles(m, [...acctFiles(m), { name: file.name, driveId: up.id, link: up.link, folderId: up.folderId, size: file.size, at: new Date().toISOString(), by: userEmail(), finId: f.id }]);
+}
+let finRcId = null;
+$('finRcFile').addEventListener('change', async (e) => {
+  const file = e.target.files[0]; e.target.value = '';
+  const f = S.fin.find((x) => x.id === finRcId);
+  if (!file || !f) return;
+  toast('Ανέβασμα «' + file.name + '»…');
+  try { await attachReceipt(f, file); await refresh(); toast('Το παραστατικό δέθηκε με την εγγραφή ✓'); }
+  catch (err) { toast(err.message); }
+});
 ['fqMonth', 'ffKindFilter'].forEach((i) => $(i).addEventListener('input', renderFin));
 let finDel = null;
 function monthRows(mk) { return S.fin.filter((f) => monthKey(f.date) === mk); }
@@ -1901,9 +1956,11 @@ function renderFin() {
   const inc = inQ.filter((f) => f.kind === 'income'), exp = inQ.filter((f) => f.kind === 'expense');
   const sum = (a, k) => a.reduce((s, f) => s + (+f[k] || 0), 0);
   const vatOut = sum(inc, 'vat'), vatIn = sum(exp, 'vat'), vatDue = vatOut - vatIn;
+  const cloud = CONFIG.backend === 'supabase';
+  const noRc = exp.filter((f) => !driveLink(f.receiptLink)).length;
   $('finTiles').innerHTML = `
     <div class="tile"><div class="lb">Έσοδα (καθαρά)</div><div class="v">${eur(sum(inc, 'net'))}</div><div class="d">${inc.length} εγγραφές</div></div>
-    <div class="tile"><div class="lb">Έξοδα (καθαρά)</div><div class="v">${eur(sum(exp, 'net'))}</div><div class="d">${exp.length} εγγραφές</div></div>
+    <div class="tile"><div class="lb">Έξοδα (καθαρά)</div><div class="v">${eur(sum(exp, 'net'))}</div><div class="d">${exp.length} εγγραφές${cloud && noRc ? ` · <span class="neg">${noRc} χωρίς παραστατικό</span>` : ''}</div></div>
     <div class="tile"><div class="lb">Αποτέλεσμα</div><div class="v ${sum(inc, 'net') - sum(exp, 'net') >= 0 ? 'pos' : 'neg'}">${eur(sum(inc, 'net') - sum(exp, 'net'))}</div><div class="d">προ φόρων</div></div>
     <div class="tile"><div class="lb">ΦΠΑ εκροών − εισροών</div><div class="v ${vatDue > 0 ? 'neg' : 'pos'}">${eur(vatDue)}</div><div class="d">${vatDue > 0 ? 'για απόδοση' : 'πιστωτικό'} τον μήνα</div></div>`;
   const kf = $('ffKindFilter').value;
@@ -1915,14 +1972,17 @@ function renderFin() {
   } else if (!rows.length) {
     el.innerHTML = '<div class="empty">Καμία εγγραφή σε αυτόν τον μήνα.</div>';
   } else {
-    el.innerHTML = '<table><thead><tr><th>Ημ/νία</th><th>Τύπος</th><th>Κατηγορία</th><th>Περιγραφή</th><th>Κλινική</th><th class="num">Καθαρό</th><th class="num">ΦΠΑ</th><th class="num">Μικτό</th><th></th></tr></thead><tbody>'
+    el.innerHTML = '<table><thead><tr><th>Ημ/νία</th><th>Τύπος</th><th>Κατηγορία</th><th>Περιγραφή</th><th>Κλινική</th><th class="num">Καθαρό</th><th class="num">ΦΠΑ</th><th class="num">Μικτό</th>' + (cloud ? '<th>Παραστατικό</th>' : '') + '<th></th></tr></thead><tbody>'
       + rows.map((f) => {
         const c = clinicById(f.clinicId);
+        const rc = !cloud ? '' : '<td>' + (driveLink(f.receiptLink)
+          ? `<a class="btn small" style="text-decoration:none" href="${esc(f.receiptLink)}" target="_blank" rel="noopener" title="Άνοιγμα στο Drive">📎 Άνοιγμα</a>`
+          : `<button class="btn small" data-act="attfin" title="Ανέβασε φωτογραφία ή PDF">⇪ ${f.kind === 'expense' ? '<span class="neg">Λείπει</span>' : 'Προσθήκη'}</button>`) + '</td>';
         return `<tr data-id="${f.id}">
         <td class="mono">${new Date(f.date).toLocaleDateString('el-GR', { day: '2-digit', month: '2-digit', year: '2-digit' })}</td>
         <td><span class="chip ${f.kind === 'income' ? 'won' : 'lost'}">${f.kind === 'income' ? 'Έσοδο' : 'Έξοδο'}</span>${f.recurringId ? ' <span class="chip plain" title="Από πάγια εγγραφή">↻</span>' : ''}</td>
         <td>${esc(f.category || '')}</td><td>${esc(f.description || '')}</td><td>${esc(c ? c.name : '')}</td>
-        <td class="num">${eur(f.net)}</td><td class="num" title="${f.vatRate}%">${eur(f.vat)}</td><td class="num"><b>${eur(f.gross)}</b></td>
+        <td class="num">${eur(f.net)}</td><td class="num" title="${f.vatRate}%">${eur(f.vat)}</td><td class="num"><b>${eur(f.gross)}</b></td>${rc}
         <td><button class="btn small danger" data-act="delfin">✕</button></td></tr>`;
       }).join('') + '</tbody></table>';
   }
@@ -1937,6 +1997,8 @@ function renderFin() {
   renderExpChart();
 }
 $('finTable').addEventListener('click', async (e) => {
+  const at = e.target.closest('button[data-act=attfin]');
+  if (at) { finRcId = at.closest('tr').dataset.id; $('finRcFile').click(); return; }
   const b = e.target.closest('button[data-act=delfin]'); if (!b) return;
   const id = b.closest('tr').dataset.id;
   if (finDel !== id) { finDel = id; b.textContent = 'Σίγουρα;'; setTimeout(() => { finDel = null; renderFin(); }, 2500); return; }
@@ -2472,13 +2534,15 @@ $('acFiles').addEventListener('click', async (e) => {
   try {
     await trashReceipt(gcalClient(), f.driveId);
     await saveAcctFiles(m, acctFiles(m).filter((x) => x.driveId !== f.driveId));
+    if (f.finId && S.fin.some((x) => x.id === f.finId)) await data.update('finance', f.finId, { receiptLink: '', receiptId: '' });
     await refresh(); toast('Το αρχείο πήγε στον κάδο του Drive.');
   } catch (err) { toast(err.message); }
 });
 function acctMatrix(m) {
   const rows = S.fin.filter((f) => monthKey(f.date) === m).sort((a, b) => String(a.date).localeCompare(String(b.date)));
-  const head = ['Ημερομηνία', 'Τύπος', 'Κατηγορία', 'Περιγραφή', 'Κλινική', 'Καθαρό', 'ΦΠΑ %', 'ΦΠΑ', 'Μικτό'];
-  const body = rows.map((f) => [f.date, f.kind === 'income' ? 'Έσοδο' : 'Έξοδο', f.category || '', f.description || '', (clinicById(f.clinicId) || {}).name || '', +f.net || 0, +f.vatRate || 0, +f.vat || 0, +f.gross || 0]);
+  const head = ['Ημερομηνία', 'Τύπος', 'Κατηγορία', 'Περιγραφή', 'Κλινική', 'Καθαρό', 'ΦΠΑ %', 'ΦΠΑ', 'Μικτό', 'Παραστατικό'];
+  const body = rows.map((f) => [f.date, f.kind === 'income' ? 'Έσοδο' : 'Έξοδο', f.category || '', f.description || '', (clinicById(f.clinicId) || {}).name || '', +f.net || 0, +f.vatRate || 0, +f.vat || 0, +f.gross || 0, driveLink(f.receiptLink)]);
+  const fid = (acctFiles(m).find((x) => x.folderId) || {}).folderId;
   const sum = (kind, k) => rows.filter((f) => f.kind === kind).reduce((s, f) => s + (+f[k] || 0), 0);
   const foot = [
     [], ['ΣΥΝΟΛΑ', '', '', '', '', '', '', '', ''],
@@ -2486,6 +2550,7 @@ function acctMatrix(m) {
     ['', 'Έσοδα', '', '', '', +sum('income', 'net').toFixed(2), '', +sum('income', 'vat').toFixed(2), +sum('income', 'gross').toFixed(2)],
     ['', '', '', '', '', '', '', '', ''],
     ['Astra Marketing — Astra HQ export', mLabel(m), new Date().toLocaleDateString('el-GR'), '', '', '', '', '', ''],
+    ...(fid ? [['Φάκελος παραστατικών μήνα', 'https://drive.google.com/drive/folders/' + fid]] : []),
   ];
   return { rows, matrix: [head, ...body, ...foot] };
 }
