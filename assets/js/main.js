@@ -737,6 +737,7 @@
       });
       if (invalid) { ev.preventDefault(); return; }
 
+      var EL = (document.documentElement.lang || '').toLowerCase().indexOf('el') === 0;
       var action = form.getAttribute('action') || '';
       if (action.indexOf('REPLACE') !== -1) return; /* endpoint not configured: normal POST shows provider error */
       ev.preventDefault();
@@ -745,12 +746,12 @@
         .then(function (r) {
           if (r.ok) {
             form.reset();
-            status.textContent = 'Received. We reply within one working day.';
+            status.textContent = EL ? 'Το λάβαμε. Απαντάμε μέσα σε μία εργάσιμη ημέρα.' : 'Received. We reply within one working day.';
             status.className = 'form-status ok';
           } else { throw new Error('bad'); }
         })
         .catch(function () {
-          status.textContent = 'Something failed on the way. Email us instead: hello@astramarketing.gr';
+          status.textContent = EL ? 'Κάτι πήγε στραβά. Στείλτε μας email: hello@astramarketing.gr' : 'Something failed on the way. Email us instead: hello@astramarketing.gr';
           status.className = 'form-status fail';
         });
     });

@@ -167,6 +167,7 @@ p  { max-width: 58ch; }
 }
 .nav-cells a:hover { color: var(--ink); }
 .nav-cells a[aria-current="page"] { color: var(--ink); text-decoration: underline; text-underline-offset: 6px; text-decoration-color: var(--bronze); }
+.nav-cells .lang-switch { border: 1px solid var(--hair, currentColor); border-radius: 999px; padding: 4px 9px; letter-spacing: 0.1em; }
 .cta-cell {
   font-family: var(--mono);
   font-size: 0.6875rem;
