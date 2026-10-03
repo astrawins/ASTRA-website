@@ -11,6 +11,9 @@ export const CONFIG = Object.freeze({
   timezone: 'Europe/Athens',
 });
 
+/* Web Push: δημόσιο κλειδί VAPID (το ιδιωτικό ζει μόνο στο edge function push-send). Άδειο = push ανενεργό. */
+export const VAPID_PUBLIC_KEY = 'BPm8LV86TkqdnGlzvpvLBTBiMtCoXhORUvmo1O1E2sT-cmALidrhjDKtLT7tO84Wo614cmKE2GiJ7vWDiC_o_Ac';
+
 export const isLocal = () => CONFIG.backend === 'local';
 
 /* Λογαριασμοί για το τοπικό mode (μόνο για development χωρίς Supabase).

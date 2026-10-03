@@ -484,6 +484,16 @@
           <div class="fhint" id="notifState" style="margin-top:8px"></div>
         </div>
         <div class="card setcard">
+          <h3>Ειδοποιήσεις push στο κινητό</h3>
+          <div class="desc">Έρχονται και με το app κλειστό: πρωινή σύνοψη (πρόγραμμα + tasks), υπενθύμιση 15′ πριν από ραντεβού, νέα leads, αποτυχημένες χρεώσεις, ανανεώσεις που πλησιάζουν. Ενεργοποίηση ανά συσκευή. Στο iPhone: πρώτα «Προσθήκη στην οθόνη Αφετηρίας» και άνοιγμα από το εικονίδιο.</div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <button class="btn small primary" id="btnPushOn">Ενεργοποίηση σε αυτή τη συσκευή</button>
+            <button class="btn small" id="btnPushTest" hidden>Δοκιμαστική ειδοποίηση</button>
+            <button class="btn small" id="btnPushOff" hidden>Απενεργοποίηση</button>
+          </div>
+          <div class="fhint" id="pushState" style="margin-top:8px"></div>
+        </div>
+        <div class="card setcard">
           <h3>Ειδοποιήσεις Telegram</h3>
           <div class="desc">Μήνυμα στο Telegram όταν το sync φέρνει νέα leads. Φτιάξε bot στο @BotFather και βάλε το chat id της ομάδας.</div>
           <div class="f"><label for="st_tgToken">Bot token</label><input id="st_tgToken" type="password" autocomplete="off"></div>
@@ -572,8 +582,5 @@
 </div>
 <div class="tooltip" id="tooltip"></div>
 <script type="module" src="./dashboard.js"></script>
-<script>
-  if ('serviceWorker' in navigator) { navigator.serviceWorker.register('/app/sw.js', { scope: '/' }).catch(function () {}); }
-</script>
 </body>
 </html>

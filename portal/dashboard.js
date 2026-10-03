@@ -1,5 +1,5 @@
 // dashboard/dashboard.js — Astra HQ: state, router, views.
-import { CONFIG } from '/app/shared/config.js';
+import { CONFIG, VAPID_PUBLIC_KEY } from '/app/shared/config.js';
 import { currentSession, logout, sessionRole } from '/app/shared/auth.js';
 import { storageUpload, storageDownload, storageDelete, callFunction, updatePassword } from '/app/shared/supabase.js';
 import * as data from '/app/shared/data.js';
@@ -311,7 +311,60 @@ function notifyNewLeads(clinic, n) {
   const s = SET();
   if (s.tgToken && s.tgChat) sendTelegram(s.tgToken, s.tgChat, `📥 Astra HQ: ${n} νέο${n > 1 ? 'ι' : ''} lead${n > 1 ? 's' : ''} για «${clinic.name}».`);
   browserNotify(`${n} νέο${n > 1 ? 'ι' : ''} lead${n > 1 ? 's' : ''} — ${clinic.name}`, 'Άνοιξε το tab «Σήμερα» για follow-up.');
+  pushSub().then((sub) => callFunction('push-send', { action: 'leads', clinic: clinic.name, n, endpoint: sub ? sub.endpoint : '' })).catch(() => { /* push προαιρετικό */ });
 }
+
+/* ---- push ειδοποιήσεις (Web Push μέσω service worker — έρχονται και με το app κλειστό) ---- */
+const swReg = navigator.serviceWorker ? navigator.serviceWorker.register('/app/sw.js', { scope: '/' }).catch(() => null) : Promise.resolve(null);
+const pushSupported = () => CONFIG.backend === 'supabase' && !!VAPID_PUBLIC_KEY && !!navigator.serviceWorker && 'PushManager' in window && typeof Notification !== 'undefined';
+async function pushSub() {
+  if (!pushSupported()) return null;
+  const reg = await swReg;
+  return reg ? reg.pushManager.getSubscription() : null;
+}
+const b64urlBytes = (s) => Uint8Array.from(atob(s.replace(/-/g, '+').replace(/_/g, '/')), (c) => c.charCodeAt(0));
+async function renderPush() {
+  const st = $('pushState');
+  if (!pushSupported()) {
+    $('btnPushOn').hidden = true; $('btnPushTest').hidden = true; $('btnPushOff').hidden = true;
+    st.textContent = CONFIG.backend !== 'supabase' ? 'Διαθέσιμο μόνο σε cloud mode.'
+      : !VAPID_PUBLIC_KEY ? 'Δεν έχει ολοκληρωθεί ακόμα η ρύθμιση στον server.'
+      : 'Αυτή η συσκευή δεν το υποστηρίζει έτσι όπως είναι ανοιχτό το app. Στο iPhone: Κοινή χρήση → «Προσθήκη στην οθόνη Αφετηρίας» και άνοιξέ το από το εικονίδιο.';
+    return;
+  }
+  const sub = await pushSub().catch(() => null);
+  $('btnPushOn').hidden = !!sub; $('btnPushTest').hidden = !sub; $('btnPushOff').hidden = !sub;
+  st.textContent = sub ? 'Ενεργές σε αυτή τη συσκευή ✓' : Notification.permission === 'denied' ? 'Οι ειδοποιήσεις είναι μπλοκαρισμένες στις ρυθμίσεις της συσκευής για αυτό το app.' : 'Ανενεργές σε αυτή τη συσκευή.';
+}
+$('btnPushOn').onclick = async () => {
+  const b = $('btnPushOn'); b.disabled = true;
+  try {
+    if ((await Notification.requestPermission()) !== 'granted') throw new Error('Δεν δόθηκε άδεια για ειδοποιήσεις.');
+    const reg = await swReg;
+    if (!reg) throw new Error('Ο service worker δεν φόρτωσε — ανανέωσε τη σελίδα.');
+    await navigator.serviceWorker.ready;
+    const sub = (await reg.pushManager.getSubscription()) || (await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64urlBytes(VAPID_PUBLIC_KEY) }));
+    await callFunction('push-send', { action: 'subscribe', sub: sub.toJSON(), ua: navigator.userAgent });
+    await callFunction('push-send', { action: 'test', endpoint: sub.endpoint });
+    toast('Ειδοποιήσεις push ενεργές ✓ — στάλθηκε δοκιμαστική.');
+  } catch (e) { toast(e.message); }
+  b.disabled = false; renderPush();
+};
+$('btnPushTest').onclick = async () => {
+  try {
+    const sub = await pushSub();
+    const j = await callFunction('push-send', { action: 'test', endpoint: sub ? sub.endpoint : '' });
+    toast(j.sent ? 'Στάλθηκε — θα εμφανιστεί σε λίγα δευτερόλεπτα.' : 'Η συσκευή δεν βρέθηκε στον server — απενεργοποίησε και ξαναενεργοποίησε.');
+  } catch (e) { toast(e.message); }
+};
+$('btnPushOff').onclick = async () => {
+  try {
+    const sub = await pushSub();
+    if (sub) { await callFunction('push-send', { action: 'unsubscribe', endpoint: sub.endpoint }).catch(() => {}); await sub.unsubscribe(); }
+    toast('Οι ειδοποιήσεις push απενεργοποιήθηκαν σε αυτή τη συσκευή.');
+  } catch (e) { toast(e.message); }
+  renderPush();
+};
 
 /* ---- browser notifications (ανά συσκευή) ---- */
 const notifOn = () => { try { return localStorage.getItem('astra_notif') === '1' && Notification.permission === 'granted'; } catch { return false; } };
@@ -2878,6 +2931,7 @@ $('statsTable').addEventListener('click', async (e) => {
 /* ============ SETTINGS ============ */
 function renderSettings() {
   const s = SET();
+  renderPush();
   const perm = typeof Notification !== 'undefined' ? Notification.permission : 'unsupported';
   $('notifState').textContent = perm === 'unsupported' ? 'Ο browser δεν υποστηρίζει ειδοποιήσεις.'
     : notifOn() ? '✓ Ενεργές σε αυτή τη συσκευή.'
