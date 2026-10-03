@@ -11,7 +11,7 @@ self.addEventListener('fetch', (e) => {
   const url = new URL(e.request.url);
   if (e.request.method !== 'GET' || url.origin !== location.origin) return; // API κλήσεις (Supabase κ.λπ.) περνάνε ανέγγιχτες
   e.respondWith(
-    fetch(e.request).then((res) => {
+    fetch(e.request, { cache: 'no-cache' }).then((res) => { // επανεπικύρωση κάθε φορά — ποτέ μπαγιάτικο JS από το HTTP cache
       const copy = res.clone();
       caches.open(CACHE).then((c) => c.put(e.request, copy)).catch(() => {});
       return res;

@@ -292,6 +292,30 @@ function notifyNewLeads(clinic, n) {
 const swReg = navigator.serviceWorker
   ? navigator.serviceWorker.register('/app/sw.js', { scope: '/' }).catch(() => navigator.serviceWorker.register('/app/sw.js')).catch(() => null)
   : Promise.resolve(null);
+/* Δεύτερος worker στη ρίζα (/sw.js, scope /): φρέσκο HTML/JS σε κάθε άνοιγμα, και offline fallback. */
+if (navigator.serviceWorker) navigator.serviceWorker.register('/sw.js').catch(() => {});
+
+/* ---- νέα έκδοση: το PWA στο κινητό μένει «ζωντανό» στη μνήμη και δεν ξαναφορτώνει μόνο του.
+   Ελέγχουμε το ETag του dashboard.js όταν το app έρχεται μπροστά (και κάθε 5′)· αν άλλαξε → reload. ---- */
+let bootEtag = null;
+async function versionEtag() {
+  try { const r = await fetch('/portal/dashboard.js', { method: 'HEAD', cache: 'no-store' }); return r.ok ? (r.headers.get('etag') || r.headers.get('last-modified') || '') : null; }
+  catch { return null; }
+}
+async function checkVersion(auto) {
+  const et = await versionEtag();
+  if (et === null) return;
+  if (bootEtag === null) { bootEtag = et; return; }
+  if (et === bootEtag) return;
+  const modalOpen = [...document.querySelectorAll('.modalback')].some((m) => !m.hidden);
+  if (auto && !modalOpen) { reloadApp(); return; }
+  const b = $('dbBanner'); b.innerHTML = 'Υπάρχει νέα έκδοση του Astra HQ — <button class="btn small primary" id="btnReloadApp">Ανανέωση</button>'; b.hidden = false;
+  $('btnReloadApp').onclick = reloadApp;
+}
+function reloadApp() { location.replace('/portal/?v=' + Date.now() + (location.hash || '')); }
+checkVersion(false);
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') { checkVersion(true); refresh(); } });
+setInterval(() => checkVersion(false), 5 * 60_000);
 const pushSupported = () => CONFIG.backend === 'supabase' && !!VAPID_PUBLIC_KEY && !!navigator.serviceWorker && 'PushManager' in window && typeof Notification !== 'undefined';
 async function pushSub() {
   if (!pushSupported()) return null;
@@ -1051,12 +1075,13 @@ function openMoreSheet() {
       const svg = rb ? (rb.querySelector('svg') || { outerHTML: '' }).outerHTML : '';
       return `<button data-tab="${t}" class="${t === activeTab ? 'on' : ''}">${svg}${TAB_LABELS[t]}</button>`;
     }).join('')
-    + `</div><div class="sheetfoot"><span>${esc(userEmail())}</span><button class="btn small" id="sheetLogout">Αποσύνδεση</button></div>`;
+    + `</div><div class="sheetfoot"><span>${esc(userEmail())}</span><span style="display:flex;gap:8px"><button class="btn small" id="sheetReload">⟳ Ανανέωση app</button><button class="btn small" id="sheetLogout">Αποσύνδεση</button></span></div>`;
   $('moreSheet').hidden = false;
 }
 $('moreSheet').addEventListener('click', (e) => {
   if (e.target === $('moreSheet')) { $('moreSheet').hidden = true; return; }
   if (e.target.closest('#sheetLogout')) { logout(); location.href = '/login/'; return; }
+  if (e.target.closest('#sheetReload')) { reloadApp(); return; }
   const b = e.target.closest('button[data-tab]');
   if (b) { $('moreSheet').hidden = true; showTab(b.dataset.tab); }
 });
