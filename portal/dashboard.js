@@ -325,6 +325,13 @@ async function pushSub() {
   const reg = await swReg;
   return reg ? reg.pushManager.getSubscription() : null;
 }
+function swActive(reg) {
+  if (reg.active) return Promise.resolve();
+  const w = reg.installing || reg.waiting;
+  if (!w) return Promise.resolve();
+  return new Promise((res) => w.addEventListener('statechange', () => { if (w.state === 'activated' || w.state === 'redundant') res(); }));
+}
+const withTimeout = (p, ms, msg) => Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error(msg)), ms))]);
 const b64urlBytes = (s) => Uint8Array.from(atob(s.replace(/-/g, '+').replace(/_/g, '/')), (c) => c.charCodeAt(0));
 async function renderPush() {
   const st = $('pushState');
@@ -345,8 +352,10 @@ $('btnPushOn').onclick = async () => {
     if ((await Notification.requestPermission()) !== 'granted') throw new Error('Δεν δόθηκε άδεια για ειδοποιήσεις.');
     const reg = await swReg;
     if (!reg) throw new Error('Ο service worker δεν φόρτωσε — ανανέωσε τη σελίδα.');
-    await navigator.serviceWorker.ready;
-    const sub = (await reg.pushManager.getSubscription()) || (await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64urlBytes(VAPID_PUBLIC_KEY) }));
+    /* ΟΧΙ navigator.serviceWorker.ready: περιμένει worker που ελέγχει ΑΥΤΗ τη σελίδα (/portal/), ενώ ο δικός μας έχει scope /app/ — δεν θα έλυνε ποτέ. */
+    await withTimeout(swActive(reg), 20000, 'Ο service worker δεν ενεργοποιήθηκε — κλείσε και ξανάνοιξε το app.');
+    const sub = (await reg.pushManager.getSubscription())
+      || (await withTimeout(reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64urlBytes(VAPID_PUBLIC_KEY) }), 20000, 'Η εγγραφή για push δεν απάντησε — δοκίμασε ξανά με καλύτερο δίκτυο.'));
     await callFunction('push-send', { action: 'subscribe', sub: sub.toJSON(), ua: navigator.userAgent });
     await callFunction('push-send', { action: 'test', endpoint: sub.endpoint });
     toast('Ειδοποιήσεις push ενεργές ✓ — στάλθηκε δοκιμαστική.');
