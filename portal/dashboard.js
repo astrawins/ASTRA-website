@@ -315,7 +315,10 @@ function notifyNewLeads(clinic, n) {
 }
 
 /* ---- push ειδοποιήσεις (Web Push μέσω service worker — έρχονται και με το app κλειστό) ---- */
-const swReg = navigator.serviceWorker ? navigator.serviceWorker.register('/app/sw.js', { scope: '/' }).catch(() => null) : Promise.resolve(null);
+/* Scope '/' θέλει header Service-Worker-Allowed που ο host δεν στέλνει — τότε πέφτει στο προεπιλεγμένο scope /app/ (αρκεί για push). */
+const swReg = navigator.serviceWorker
+  ? navigator.serviceWorker.register('/app/sw.js', { scope: '/' }).catch(() => navigator.serviceWorker.register('/app/sw.js')).catch(() => null)
+  : Promise.resolve(null);
 const pushSupported = () => CONFIG.backend === 'supabase' && !!VAPID_PUBLIC_KEY && !!navigator.serviceWorker && 'PushManager' in window && typeof Notification !== 'undefined';
 async function pushSub() {
   if (!pushSupported()) return null;

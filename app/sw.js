@@ -33,7 +33,7 @@ self.addEventListener('notificationclick', (e) => {
   const url = (e.notification.data && e.notification.data.url) || '/portal/';
   e.waitUntil(self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((list) => {
     const open = list.find((c) => new URL(c.url).pathname.startsWith('/portal'));
-    if (open) { open.navigate(url).catch(() => {}); return open.focus(); }
+    if (open) return open.focus().then(() => open.navigate(url).catch(() => {}));
     return self.clients.openWindow(url);
   }));
 });
