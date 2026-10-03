@@ -1,4 +1,4 @@
-// shared/integrations.js — προαιρετικές εξωτερικές συνδέσεις: Meta Graph API + Telegram.
+// shared/integrations.js — προαιρετικές εξωτερικές συνδέσεις: Meta Graph API.
 // Και οι δύο είναι αδρανείς μέχρι να μπουν tokens στις Ρυθμίσεις.
 
 /* Τραβάει spend/impressions/clicks ανά καμπάνια για τον τρέχοντα μήνα.
@@ -16,17 +16,4 @@ export async function metaInsights(token, account) {
     impressions: parseInt(d.impressions || 0, 10),
     clicks: parseInt(d.clicks || 0, 10),
   }));
-}
-
-/* Στέλνει μήνυμα στο Telegram (bot token + chat id). Σιωπηλά αγνοεί αποτυχίες. */
-export async function sendTelegram(token, chat, text) {
-  if (!token || !chat) return false;
-  try {
-    const r = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ chat_id: chat, text, disable_web_page_preview: true }),
-    });
-    return r.ok;
-  } catch { return false; }
 }

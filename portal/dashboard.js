@@ -7,7 +7,7 @@ import { sheetIdFrom, gidFrom, fetchSheetCSV, parseCSV, mapLeads } from '/app/sh
 import { spreadsheetIdFrom, writeToSheet, readSheetValues } from '/app/shared/gsheets.js';
 import { uploadJsonToDrive, uploadReceipt, trashReceipt, RECEIPTS_FOLDER } from '/app/shared/gdrive.js';
 import { sendEmail, welcomeEmail, billingEmail, reportEmail } from '/app/shared/gmail.js';
-import { metaInsights, sendTelegram } from '/app/shared/integrations.js';
+import { metaInsights } from '/app/shared/integrations.js';
 import * as gcal from '/app/shared/gcal.js';
 import {
   esc, eur, num, parseNum, todayISO, monthKey, nowMonth, mLabel, lastMonths,
@@ -54,7 +54,6 @@ async function onFirstLoad() {
   await archiveMonthlyStats();
   purgeTrash();
   applyRetention();
-  maybeWeeklySummary();
   maybeDailyDigest();
   if (SET().autoSync !== false) autoSyncAll();
   maybeDailyMetaSync();
@@ -160,30 +159,6 @@ function maybeDailyDigest() {
   if (stale.length) parts.push(stale.length + ' ξεχασμένα');
   if (subsDue().length) parts.push(subsDue().length + ' ετήσιες συνδρομές προς ανανέωση');
   if (parts.length) browserNotify('Καλημέρα! Η μέρα σου:', parts.join(' · '));
-}
-
-/* Εβδομαδιαία σύνοψη στο Telegram — μία φορά, με το πρώτο άνοιγμα κάθε εβδομάδας. */
-async function maybeWeeklySummary() {
-  const s = SET();
-  if (!s.tgToken || !s.tgChat) return;
-  const now = new Date();
-  const monday = new Date(now); monday.setDate(now.getDate() - ((now.getDay() + 6) % 7)); monday.setHours(0, 0, 0, 0);
-  const wk = 'w' + isoDate(monday);
-  if (s.lastWeeklySent === wk) return;
-  const prevMon = new Date(monday); prevMon.setDate(monday.getDate() - 7);
-  const inPrev = (d) => { const t = new Date(d).getTime(); return t >= prevMon.getTime() && t < monday.getTime(); };
-  const ls = S.leads.filter((l) => inPrev(l.createdTime));
-  const rv = ls.filter((l) => ['rv', 'show', 'won'].includes(l.status)).length;
-  const won = S.leads.filter((l) => l.status === 'won' && inPrev(l.saleDate || l.createdTime));
-  const rev = won.reduce((sum, l) => sum + (+l.amount || 0), 0);
-  const range = prevMon.toLocaleDateString('el-GR', { day: 'numeric', month: 'short' }) + '–' + new Date(monday.getTime() - 86400000).toLocaleDateString('el-GR', { day: 'numeric', month: 'short' });
-  const ok = await sendTelegram(s.tgToken, s.tgChat, `📊 Astra HQ · εβδομάδα ${range}: ${ls.length} νέα leads, ${rv} ραντεβού, ${won.length} πωλήσεις (${eur(rev)}). Καλή εβδομάδα! 💪`);
-  if (ok) {
-    try {
-      if (S.settings) await data.update('settings', 'main', { lastWeeklySent: wk });
-      else await data.create('settings', { lastWeeklySent: wk }, 'main');
-    } catch { /* θα ξαναστείλει του χρόνου */ }
-  }
 }
 
 /* ---- rail foot ---- */
@@ -308,8 +283,6 @@ async function importRows(rows, clinic, label) {
   return added;
 }
 function notifyNewLeads(clinic, n) {
-  const s = SET();
-  if (s.tgToken && s.tgChat) sendTelegram(s.tgToken, s.tgChat, `📥 Astra HQ: ${n} νέο${n > 1 ? 'ι' : ''} lead${n > 1 ? 's' : ''} για «${clinic.name}».`);
   browserNotify(`${n} νέο${n > 1 ? 'ι' : ''} lead${n > 1 ? 's' : ''} — ${clinic.name}`, 'Άνοιξε το tab «Σήμερα» για follow-up.');
   pushSub().then((sub) => callFunction('push-send', { action: 'leads', clinic: clinic.name, n, endpoint: sub ? sub.endpoint : '' })).catch(() => { /* push προαιρετικό */ });
 }
@@ -894,10 +867,10 @@ function renderCalendar() {
   $('calGrid').innerHTML = '<div class="calhead"><div>Δευ</div><div>Τρί</div><div>Τετ</div><div>Πέμ</div><div>Παρ</div><div>Σάβ</div><div>Κυρ</div></div>'
     + `<div class="calgrid">${cells}</div>`;
   /* Κινητό: τα κελιά είναι στενά, οπότε κάτω από το πλέγμα μπαίνει λίστα με όλα τα συμβάντα του μήνα. */
-  const days = Object.keys(gevByDate).sort();
+  const days = Object.keys(gevByDate).filter((k) => k >= today).sort(); // ό,τι πέρασε φεύγει — μόνο από σήμερα και μετά
   $('calAgenda').innerHTML = days.length ? days.map((key) => `<div class="taskday${key === today ? ' today' : ''}">${new Date(key + 'T12:00:00').toLocaleDateString('el-GR', { weekday: 'long', day: 'numeric', month: 'long' })}${key === today ? ' · σήμερα' : ''}</div>`
-    + gevByDate[key].map((ev) => `<button class="agrow${key < today ? ' past' : ''}" data-gev="${esc(ev.id)}"><span class="mono">${ev.start ? ev.start + (ev.end ? '–' + ev.end : '') : 'όλη μέρα'}</span><span>${esc(ev.title)}</span></button>`).join('')).join('')
-    : '<div class="empty">Κανένα συμβάν αυτόν τον μήνα.</div>';
+    + gevByDate[key].map((ev) => `<button class="agrow" data-gev="${esc(ev.id)}"><span class="mono">${ev.start ? ev.start + (ev.end ? '–' + ev.end : '') : 'όλη μέρα'}</span><span>${esc(ev.title)}</span></button>`).join('')).join('')
+    : '<div class="empty">Κανένα επόμενο συμβάν αυτόν τον μήνα.</div>';
 }
 
 /* ---- event modal (δημιουργία/επεξεργασία στο πραγματικό Google Calendar) ---- */
@@ -2964,8 +2937,6 @@ function renderSettings() {
   renderTrash();
   $('st_metaToken').value = s.metaToken || '';
   $('st_metaAccount').value = s.metaAccount || '';
-  $('st_tgToken').value = s.tgToken || '';
-  $('st_tgChat').value = s.tgChat || '';
 }
 $('btnSaveSettings').onclick = async () => {
   const d = {
@@ -2983,8 +2954,6 @@ $('btnSaveSettings').onclick = async () => {
     autoCharge: $('st_autoCharge').checked,
     metaToken: $('st_metaToken').value.trim(),
     metaAccount: $('st_metaAccount').value.trim(),
-    tgToken: $('st_tgToken').value.trim(),
-    tgChat: $('st_tgChat').value.trim(),
   };
   try {
     if (S.settings) await data.update('settings', 'main', d);
@@ -3046,11 +3015,6 @@ $('btnGcalReconnect').onclick = async () => {
   } catch (e) { toast(e.message); }
   b.disabled = false;
 };
-$('btnTgTest').onclick = async () => {
-  const ok = await sendTelegram($('st_tgToken').value.trim(), $('st_tgChat').value.trim(), '✅ Astra HQ: οι ειδοποιήσεις Telegram δουλεύουν.');
-  toast(ok ? 'Στάλθηκε δοκιμαστικό μήνυμα.' : 'Δεν στάλθηκε — έλεγξε token και chat id.');
-};
-
 /* ============ OVERVIEW ============ */
 function renderOverview() {
   const mk = nowMonth();
