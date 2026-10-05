@@ -64,13 +64,14 @@ async function onFirstLoad() {
 /* Κάθε Δευτέρα (ή πρώτο άνοιγμα της εβδομάδας): κλείνει & χρεώνει την προηγούμενη εβδομάδα. */
 async function maybeMondayCharges() {
   const s = SET();
-  if (!s.autoCharge) return;
   const w = lastWeeks(1)[0];
   if (s.lastAutoChargeWeek === w) return;
   try {
     await saveSetting({ lastAutoChargeWeek: w });
-    const r = await runWeeklyCharges(w);
-    if (r.closed || r.charged) toast(`Δευτέρα: έκλεισαν ${r.closed} εβδομάδες, στάλθηκαν ${r.charged} χρεώσεις SEPA${r.failed ? ', ' + r.failed + ' αποτυχίες' : ''}.`);
+    /* Κάθε Δευτέρα: κλείνει η προηγούμενη εβδομάδα για όλες τις κλινικές (ο πελάτης βλέπει την οφειλή στο portal)·
+       η αυτόματη χρέωση SEPA μόνο αν είναι ενεργή στις Ρυθμίσεις. */
+    const r = s.autoCharge ? await runWeeklyCharges(w) : await closeWeekAll(w);
+    if (r.closed || r.charged) toast(`Δευτέρα: έκλεισαν ${r.closed} εβδομαδιαίες εκκαθαρίσεις${s.autoCharge ? `, στάλθηκαν ${r.charged} χρεώσεις SEPA${r.failed ? ', ' + r.failed + ' αποτυχίες' : ''}` : ''}.`);
   } catch { /* επόμενο άνοιγμα */ }
 }
 /* 4) Ημερήσιο αυτόματο Meta sync */
@@ -1106,7 +1107,7 @@ document.addEventListener('keydown', (e) => {
 let editClinicId = null;
 $('btnNewClinic').onclick = () => {
   editClinicId = null; $('clinicFormTitle').textContent = 'Νέα κλινική';
-  ['cf_name', 'cf_doctor', 'cf_spec', 'cf_phone', 'cf_email', 'cf_portalEmail', 'cf_fee', 'cf_dailyBudget', 'cf_monthlyBudget', 'cf_goalLeads', 'cf_goalSales', 'cf_contractStart', 'cf_contractEnd', 'cf_nextTouch', 'cf_tags', 'cf_contacts', 'cf_sheet', 'cf_metaAd', 'cf_script', 'cf_templates', 'cf_notes'].forEach((i) => { $(i).value = ''; });
+  ['cf_name', 'cf_doctor', 'cf_spec', 'cf_phone', 'cf_email', 'cf_portalEmail', 'cf_fee', 'cf_sharePct', 'cf_dailyBudget', 'cf_monthlyBudget', 'cf_goalLeads', 'cf_goalSales', 'cf_contractStart', 'cf_contractEnd', 'cf_nextTouch', 'cf_tags', 'cf_contacts', 'cf_sheet', 'cf_metaAd', 'cf_script', 'cf_templates', 'cf_notes'].forEach((i) => { $(i).value = ''; });
   $('clinicForm').hidden = false; $('cf_name').focus();
 };
 $('btnCancelClinic').onclick = () => { $('clinicForm').hidden = true; };
@@ -1117,6 +1118,7 @@ $('btnSaveClinic').onclick = async () => {
   const d = {
     name, doctor: $('cf_doctor').value.trim(), specialty: $('cf_spec').value.trim(),
     phone: $('cf_phone').value.trim(), email: $('cf_email').value.trim(), portalEmail: $('cf_portalEmail').value.trim(), fee: parseNum($('cf_fee').value),
+    billingModel: $('cf_billingModel').value, sharePct: parseNum($('cf_sharePct').value) || 50,
     dailyBudget: parseNum($('cf_dailyBudget').value), monthlyBudget: parseNum($('cf_monthlyBudget').value),
     goalLeads: Math.round(parseNum($('cf_goalLeads').value)), goalSales: Math.round(parseNum($('cf_goalSales').value)),
     contractStart: $('cf_contractStart').value || null, contractEnd: $('cf_contractEnd').value || null,
@@ -1216,6 +1218,7 @@ function openClinicEdit(id) {
   editClinicId = id; $('clinicFormTitle').textContent = 'Επεξεργασία κλινικής';
   $('cf_name').value = c.name || ''; $('cf_doctor').value = c.doctor || ''; $('cf_spec').value = c.specialty || '';
   $('cf_phone').value = c.phone || ''; $('cf_email').value = c.email || ''; $('cf_portalEmail').value = c.portalEmail || ''; $('cf_fee').value = c.fee || '';
+  $('cf_billingModel').value = c.billingModel || 'appointment'; $('cf_sharePct').value = c.sharePct ?? 50;
   $('cf_dailyBudget').value = c.dailyBudget || ''; $('cf_monthlyBudget').value = c.monthlyBudget || '';
   $('cf_goalLeads').value = c.goalLeads || ''; $('cf_goalSales').value = c.goalSales || '';
   $('cf_contractStart').value = c.contractStart || ''; $('cf_contractEnd').value = c.contractEnd || '';
@@ -2309,22 +2312,33 @@ function weekLeads(clinicId, startIso) {
   return S.leads.filter((l) => l.clinicId === clinicId && isBooked(l) && l.createdTime && String(l.createdTime).slice(0, 10) >= r.start && String(l.createdTime).slice(0, 10) <= r.end)
     .sort((a, b) => String(a.createdTime).localeCompare(String(b.createdTime)));
 }
+/* Μοντέλο «ποσοστό επί πωλήσεων»: πωλήσεις της εβδομάδας (ημερομηνία πώλησης) × καθαρό ποσό × ποσοστό. */
+const isShare = (c) => (c.billingModel || 'appointment') === 'share';
+function weekSales(clinicId, startIso) {
+  const r = weekRange(startIso);
+  return S.leads.filter((l) => l.clinicId === clinicId && l.status === 'won' && (+l.amount || 0) > 0 && String(l.saleDate || l.createdTime).slice(0, 10) >= r.start && String(l.saleDate || l.createdTime).slice(0, 10) <= r.end)
+    .sort((a, b) => String(a.saleDate || a.createdTime).localeCompare(String(b.saleDate || b.createdTime)));
+}
+const weekItems = (c, w) => (isShare(c) ? weekSales(c.id, w) : weekLeads(c.id, w));
+const shareNet = (c, ls) => +(ls.reduce((s, l) => s + (+l.amount || 0) / 1.24, 0) * ((+c.sharePct || 50) / 100)).toFixed(2);
+const weekNet = (c, ls) => (isShare(c) ? shareNet(c, ls) : ls.length * apptFee());
 const SEPA_CHIP = { active: ['Εντολή ενεργή', 'won'], pending: ['Αναμονή υπογραφής', 'epik'], '': ['Χωρίς εντολή', 'plain'] };
 const PAY_CHIP = { pending: ['Προς χρέωση', 'epik'], processing: ['Σε επεξεργασία', 'rv'], paid: ['Πληρώθηκε ✓', 'won'], failed: ['Απέτυχε', 'lost'] };
 async function closeWeek(clinicId, startIso) {
   const c = clinicById(clinicId); const r = weekRange(startIso);
-  const ls = weekLeads(clinicId, startIso); if (!ls.length) return null;
-  const fee = apptFee(); const total = ls.length * fee; const vat = +(total * 0.24).toFixed(2);
+  const ls = weekItems(c, startIso); if (!ls.length) return null;
+  const share = isShare(c); const fee = apptFee(); const total = weekNet(c, ls); const vat = +(total * 0.24).toFixed(2);
   const id = 'W' + startIso + '_' + clinicId;
   if (S.billing.some((x) => x.id === id)) return id;
   await data.create('billing', {
-    month: startIso.slice(0, 7), clinicId, clinicName: c.name, appts: ls.length, fee, total, vat,
+    month: startIso.slice(0, 7), clinicId, clinicName: c.name, appts: share ? 0 : ls.length, fee: share ? 0 : fee, total, vat,
+    model: share ? 'share' : 'appointment', sales: share ? ls.length : 0, sharePct: share ? (+c.sharePct || 50) : 0,
     gross: +(total + vat).toFixed(2), leadIds: ls.map((l) => l.id), status: 'final',
     period: 'week', periodStart: r.start, periodEnd: r.end, payStatus: 'pending', createdAt: new Date().toISOString(),
   }, id);
   await data.create('finance', {
-    kind: 'income', date: r.end, category: 'Χρέωση ραντεβού', clinicId,
-    description: `Εβδομάδα ${wkLabel(startIso)}: ${ls.length} ραντεβού × ${fee}€`,
+    kind: 'income', date: r.end, category: share ? 'Αμοιβή διαχείρισης' : 'Χρέωση ραντεβού', clinicId,
+    description: share ? `Εβδομάδα ${wkLabel(startIso)}: ${ls.length} πωλήσεις × ${+c.sharePct || 50}% επί καθαρού` : `Εβδομάδα ${wkLabel(startIso)}: ${ls.length} ραντεβού × ${fee}€`,
     net: total, vatRate: 24, vat, gross: +(total + vat).toFixed(2), month: r.end.slice(0, 7),
   });
   return id;
@@ -2340,22 +2354,22 @@ function renderWeeks() {
   sel.value = cur && weeks.includes(cur) ? cur : weeks[0];
   const w = sel.value;
   const fee = apptFee();
-  const rows = S.clinics.map((c) => ({ c, ls: weekLeads(c.id, w), b: S.billing.find((x) => x.id === 'W' + w + '_' + c.id) }))
+  const rows = S.clinics.map((c) => ({ c, ls: weekItems(c, w), b: S.billing.find((x) => x.id === 'W' + w + '_' + c.id) }))
     .filter((r) => r.ls.length || r.b);
   $('wkHint').textContent = SET().autoCharge ? 'Αυτόματη χρέωση: ΕΝΕΡΓΗ (κάθε Δευτέρα)' : 'Αυτόματη χρέωση: ανενεργή (Ρυθμίσεις)';
   const el = $('weekTable');
   if (!rows.length) { el.innerHTML = '<div class="empty">Κανένα χρεώσιμο ραντεβού την εβδομάδα ' + wkLabel(w) + '.</div>'; return; }
   let T = 0;
-  el.innerHTML = '<table><thead><tr><th>Κλινική</th><th class="num">Ραντεβού</th><th class="num">Σύνολο (με ΦΠΑ)</th><th>Εντολή SEPA</th><th>Πληρωμή</th><th></th></tr></thead><tbody>'
+  el.innerHTML = '<table><thead><tr><th>Κλινική</th><th class="num">Ραντεβού / Πωλήσεις</th><th class="num">Σύνολο (με ΦΠΑ)</th><th>Εντολή SEPA</th><th>Πληρωμή</th><th></th></tr></thead><tbody>'
     + rows.map(({ c, ls, b }) => {
-      const appts = b ? b.appts : ls.length;
-      const gross = b ? +b.gross : +(ls.length * fee * 1.24).toFixed(2);
+      const appts = b ? (b.model === 'share' ? b.sales : b.appts) : ls.length;
+      const gross = b ? +b.gross : +(weekNet(c, ls) * 1.24).toFixed(2);
       T += gross;
       const sp = SEPA_CHIP[c.sepaStatus || ''] || SEPA_CHIP[''];
       const pc = b ? (PAY_CHIP[b.payStatus || 'pending'] || PAY_CHIP.pending) : null;
       return `<tr data-clinic="${c.id}" data-week="${w}">
         <td><b>${esc(c.name)}</b></td>
-        <td class="num">${appts}</td>
+        <td class="num">${appts}${isShare(c) ? ` <span class="chip plain" title="${+c.sharePct || 50}% επί καθαρού ποσού πωλήσεων">${+c.sharePct || 50}%</span>` : ''}</td>
         <td class="num"><b>${eur(gross)}</b></td>
         <td><span class="chip ${sp[1]}">${sp[0]}</span></td>
         <td>${pc ? `<span class="chip ${pc[1]}" title="${esc(b.failReason || '')}">${pc[0]}</span>` : '<span class="chip plain">Ανοιχτή</span>'}</td>
@@ -2422,10 +2436,20 @@ $('wkChargeAll').onclick = async () => {
   b.disabled = false; b.textContent = 'Χρέωση όλων με εντολή SEPA';
 };
 /* Κλείνει όλες τις κλινικές μιας εβδομάδας και χρεώνει όσες έχουν ενεργή εντολή. */
+async function closeWeekAll(w) {
+  let closed = 0;
+  for (const c of S.clinics) {
+    const id = 'W' + w + '_' + c.id;
+    if (!weekItems(c, w).length || S.billing.some((x) => x.id === id)) continue;
+    try { await closeWeek(c.id, w); closed++; } catch { /* επόμενο άνοιγμα */ }
+  }
+  if (closed) await refresh();
+  return { closed, charged: 0, failed: 0 };
+}
 async function runWeeklyCharges(w) {
   let closed = 0, charged = 0, failed = 0, err = '';
   for (const c of S.clinics) {
-    const ls = weekLeads(c.id, w);
+    const ls = weekItems(c, w);
     const id = 'W' + w + '_' + c.id;
     if (!ls.length && !S.billing.some((x) => x.id === id)) continue;
     try { if (!S.billing.some((x) => x.id === id)) { await closeWeek(c.id, w); closed++; } } catch (e) { err = e.message; continue; }

@@ -89,20 +89,28 @@ document.getElementById('pTabs').addEventListener('click', (e) => {
 
 async function load() {
   const body = document.getElementById('pBody');
-  let stats, camps, leads;
+  let stats, camps, leads, bills = [], clinic = null;
   try {
     [stats, camps, leads] = await Promise.all([
       rest('monthly_stats?select=*&order=month.desc&limit=24'),
       rest('campaigns?select=*&order=month.desc&limit=100'),
       rest('client_leads?select=*&order=created_time.desc&limit=500'),
     ]);
+    /* Οφειλές: προαιρετικά — αν ο server δεν τα δίνει ακόμα, το tab απλώς δεν εμφανίζεται. */
+    try {
+      [bills, clinic] = await Promise.all([rest('billing?select=*&period=eq.week&order=period_start.desc&limit=60'), rest('client_clinic?select=*')]);
+      clinic = clinic && clinic[0] ? toCamel(clinic[0]) : null;
+    } catch { bills = []; clinic = null; }
   } catch (e) {
     if (String(e.message).includes('session')) { location.href = '/login/'; return; }
     body.innerHTML = '<div class="card empty">Πρόβλημα φόρτωσης: ' + esc(e.message) + '</div>';
     return;
   }
   stats = stats.map(toCamel); camps = camps.map(toCamel);
-  D = { stats, camps, leads: leads.map(toCamel) };
+  D = { stats, camps, leads: leads.map(toCamel), bills: (bills || []).map(toCamel), clinic };
+  const open = D.bills.filter((b) => (b.payStatus || 'pending') !== 'paid').length;
+  document.getElementById('billsTab').hidden = !clinic;
+  const bb = document.getElementById('billBadge'); bb.textContent = open; bb.style.display = open ? '' : 'none';
   const pend = D.leads.filter((l) => l.status === 'rv').length;
   const bd = document.getElementById('apptBadge');
   bd.textContent = pend; bd.style.display = pend ? '' : 'none';
@@ -143,6 +151,7 @@ function render() {
       ${tile('Κόστος ανά ενδιαφερόμενο', c.cpl ? eur(c.cpl) : '—', 'Cost per Lead')}
       ${tile('Κόστος ανά ραντεβού', c.rv && c.spend ? eur(c.spend / c.rv) : '—', 'Cost per Booking')}
       ${tile('Απόδοση (ROAS)', c.spend > 0 ? (+c.roas).toFixed(2) + '×' : '—', 'έσοδα ÷ δαπάνη')}
+      ${(() => { const e = currentWeekEstimate(); const open = D.bills.filter((b) => (b.payStatus || 'pending') !== 'paid').reduce((s, b) => s + (+b.gross || 0), 0); return D.clinic ? tile('Οφειλή προς astra', eur(open + (e ? e.gross : 0)), (open ? eur(open) + ' ανοιχτό' : 'τίποτα ανοιχτό') + (e ? ' · ' + eur(e.gross) + ' τρέχουσα εβδ.' : '')) : ''; })()}
     </div>`;
 
   const funnelHtml = `<h3 class="sectionhead">Η πορεία του μήνα</h3><div class="card section">${funnel(c)}</div>`;
@@ -232,12 +241,56 @@ function renderJourney() {
   si.addEventListener('input', () => { journeyQ = si.value; renderJourney(); const s2 = document.getElementById('jSearch'); s2.focus(); s2.setSelectionRange(s2.value.length, s2.value.length); });
 }
 
+/* ---- Tab «Οφειλές»: τι χρωστά η κλινική στην astra — κλείνει κάθε Δευτέρα για την προηγούμενη εβδομάδα ---- */
+const isoDay = (d) => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+function thisWeek() {
+  const s = new Date(); s.setHours(12, 0, 0, 0); s.setDate(s.getDate() - ((s.getDay() + 6) % 7));
+  const e = new Date(s); e.setDate(s.getDate() + 6);
+  return { start: isoDay(s), end: isoDay(e) };
+}
+const wkText = (a, b) => { const f = (x) => new Date(x + 'T12:00:00').toLocaleDateString('el-GR', { day: 'numeric', month: 'short' }); return f(a) + ' – ' + f(b); };
+const PAY = { pending: ['Προς πληρωμή', 'epik'], processing: ['Σε επεξεργασία', 'rv'], paid: ['Πληρώθηκε ✓', 'show'], failed: ['Απέτυχε η χρέωση', 'lost'] };
+/* Εκτίμηση τρέχουσας εβδομάδας από τα leads (ίδιος κανόνας με το κλείσιμο της Δευτέρας). */
+function currentWeekEstimate() {
+  const c = D.clinic; if (!c) return null;
+  const w = thisWeek(); const share = (c.billingModel || 'appointment') === 'share';
+  const inWeek = (d) => d && String(d).slice(0, 10) >= w.start && String(d).slice(0, 10) <= w.end;
+  const items = share
+    ? D.leads.filter((l) => l.status === 'won' && (+l.amount || 0) > 0 && inWeek(l.saleDate || l.createdTime))
+    : D.leads.filter((l) => ['rv', 'show', 'won'].includes(l.status) && inWeek(l.createdTime));
+  const net = share ? items.reduce((s, l) => s + (+l.amount || 0) / 1.24, 0) * ((+c.sharePct || 50) / 100) : items.length * (+c.fee || 50);
+  return { w, share, n: items.length, net: +net.toFixed(2), gross: +(net * 1.24).toFixed(2), pct: +c.sharePct || 50, fee: +c.fee || 50 };
+}
+function renderBills() {
+  const body = document.getElementById('pBody');
+  const est = currentWeekEstimate();
+  const open = D.bills.filter((b) => (b.payStatus || 'pending') !== 'paid');
+  const due = open.reduce((s, b) => s + (+b.gross || 0), 0);
+  const tiles = `<div class="tiles section">
+      ${tile('Ανοιχτό υπόλοιπο', eur(due), open.length ? open.length + ' εκκαθαρίσεις προς πληρωμή' : 'Όλα εξοφλημένα ✓')}
+      ${est ? tile('Τρέχουσα εβδομάδα (εκτίμηση)', eur(est.gross), (est.share ? `${est.n} πωλήσεις × ${est.pct}% επί καθαρού` : `${est.n} ραντεβού × ${eur(est.fee)}`) + ' · κλείνει τη Δευτέρα') : ''}
+      ${tile('Πληρωμένα συνολικά', eur(D.bills.filter((b) => b.payStatus === 'paid').reduce((s, b) => s + (+b.gross || 0), 0)), '')}
+    </div>`;
+  const how = est ? `<p style="color:var(--soft);font-size:13px;margin:-4px 0 14px">${est.share
+    ? `Η αμοιβή της astra είναι ${est.pct}% επί του καθαρού ποσού (χωρίς ΦΠΑ) κάθε πώλησης που κλείνει. Κάθε Δευτέρα κλείνει η εκκαθάριση της προηγούμενης εβδομάδας· τα ποσά παρακάτω περιλαμβάνουν ΦΠΑ 24%.`
+    : `Η αμοιβή της astra είναι ${eur(est.fee)} ανά κλεισμένο ραντεβού. Κάθε Δευτέρα κλείνει η εκκαθάριση της προηγούμενης εβδομάδας· τα ποσά παρακάτω περιλαμβάνουν ΦΠΑ 24%.`}</p>` : '';
+  const rows = D.bills.map((b) => {
+    const pc = PAY[b.payStatus || 'pending'] || PAY.pending;
+    const items = b.model === 'share' ? `${b.sales} πωλήσεις × ${+b.sharePct}%` : `${b.appts} ραντεβού × ${eur(+b.fee)}`;
+    return `<tr><td class="mono"><b>${wkText(b.periodStart, b.periodEnd)}</b></td><td>${items}</td><td class="num">${eur(+b.total)}</td><td class="num">${eur(+b.vat)}</td><td class="num"><b>${eur(+b.gross)}</b></td><td><span class="chip ${pc[1]}">${pc[0]}</span>${b.paidAt ? `<div style="font-size:11px;color:var(--soft)">${new Date(b.paidAt).toLocaleDateString('el-GR', { day: 'numeric', month: 'short' })}</div>` : ''}</td></tr>`;
+  }).join('');
+  body.innerHTML = tiles + `<h3 class="sectionhead">Εβδομαδιαίες εκκαθαρίσεις</h3>` + how
+    + `<div class="card tablewrap"><table><thead><tr><th>Εβδομάδα</th><th>Υπολογισμός</th><th class="num">Καθαρό</th><th class="num">ΦΠΑ</th><th class="num">Σύνολο</th><th>Κατάσταση</th></tr></thead><tbody>
+      ${rows || '<tr><td colspan="6" class="empty">Καμία εκκαθάριση ακόμα — η πρώτη κλείνει την επόμενη Δευτέρα.</td></tr>'}</tbody></table></div>
+    <p style="color:var(--soft);font-size:12.5px;margin-top:22px">Η πληρωμή γίνεται αυτόματα με την πάγια εντολή SEPA, ή με τραπεζική κατάθεση αν δεν έχει ενεργοποιηθεί. Για οτιδήποτε: info@astramarketing.gr</p>`;
+}
 function renderRoot() {
   document.getElementById('pAccount').hidden = pTab !== 'account';
   document.getElementById('pBody').hidden = pTab === 'account';
   if (pTab === 'account') return;
   if (pTab === 'appts') return renderAppts();
   if (pTab === 'journey') return renderJourney();
+  if (pTab === 'bills') return renderBills();
   return render();
 }
 document.getElementById('pTabs').addEventListener('click', () => {}); // (κρατά τη σειρά των listeners)
