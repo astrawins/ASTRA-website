@@ -117,6 +117,24 @@ async function load() {
   renderRoot();
 }
 
+/* Κέρδος κλινικής (χωρίς ΦΠΑ): έσοδα νέων ασθενών ÷ 1,24 − διαφημιστική δαπάνη − αμοιβή astra. */
+const netRev = (s) => (+s.revenue || 0) / 1.24;
+const profitOf = (s) => +(netRev(s) - (+s.spend || 0) - (+s.agencyIncome || 0)).toFixed(2);
+const roiOf = (s) => { const cost = (+s.spend || 0) + (+s.agencyIncome || 0); return cost > 0 ? profitOf(s) / cost : 0; };
+function profitBlock(list, title) {
+  const rev = list.reduce((a, s) => a + netRev(s), 0), spend = list.reduce((a, s) => a + (+s.spend || 0), 0), fee = list.reduce((a, s) => a + (+s.agencyIncome || 0), 0);
+  const profit = rev - spend - fee, cost = spend + fee;
+  if (!rev && !spend) return '';
+  const row = (lb, v, cls) => `<div class="todayrow" style="justify-content:space-between"><span${cls ? ` style="${cls}"` : ''}>${lb}</span><b class="mono"${cls ? ` style="${cls}"` : ''}>${v}</b></div>`;
+  return `<h3 class="sectionhead">${title}</h3>
+    <div class="card section">
+      ${row('Έσοδα από νέους ασθενείς (χωρίς ΦΠΑ)', eur(rev))}
+      ${row('− Διαφημιστική δαπάνη', '− ' + eur(spend))}
+      ${row('− Αμοιβή astra', '− ' + eur(fee))}
+      ${row('= Καθαρό κέρδος σας', eur(profit), 'color:var(--good);font-size:16px')}
+      ${cost > 0 ? row('Για κάθε 1 € που επενδύσατε (δαπάνη + αμοιβή)', 'πήρατε πίσω ' + (1 + profit / cost).toFixed(2) + ' €') : ''}
+    </div>`;
+}
 function render() {
   const { stats, camps } = D;
   const body = document.getElementById('pBody');
@@ -151,10 +169,12 @@ function render() {
       ${tile('Κόστος ανά ενδιαφερόμενο', c.cpl ? eur(c.cpl) : '—', 'Cost per Lead')}
       ${tile('Κόστος ανά ραντεβού', c.rv && c.spend ? eur(c.spend / c.rv) : '—', 'Cost per Booking')}
       ${tile('Απόδοση (ROAS)', c.spend > 0 ? (+c.roas).toFixed(2) + '×' : '—', 'έσοδα ÷ δαπάνη')}
+      ${tile('Καθαρό κέρδος σας · ' + mLabel(mk), `<span style="color:var(--good)">${eur(profitOf(c))}</span>`, 'μετά τη δαπάνη και την αμοιβή astra')}
       ${(() => { const e = currentWeekEstimate(); const open = D.bills.filter((b) => (b.payStatus || 'pending') !== 'paid').reduce((s, b) => s + (+b.gross || 0), 0); return D.clinic ? tile('Οφειλή προς astra', eur(open + (e ? e.gross : 0)), (open ? eur(open) + ' ανοιχτό' : 'τίποτα ανοιχτό') + (e ? ' · ' + eur(e.gross) + ' τρέχουσα εβδ.' : '')) : ''; })()}
     </div>`;
 
-  const funnelHtml = `<h3 class="sectionhead">Η πορεία του μήνα</h3><div class="card section">${funnel(c)}</div>`;
+  const funnelHtml = `<h3 class="sectionhead">Η πορεία του μήνα</h3><div class="card section">${funnel(c)}</div>`
+    + profitBlock(stats, 'Η συνεργασία μας σε αριθμούς · από την αρχή');
 
   // Γράφημα 6 μηνών (παρελθόν + τρέχων)
   const last6 = [...past.slice(0, 5)].reverse().concat(cur ? [cur] : []);
@@ -166,8 +186,8 @@ function render() {
          { name: 'Νέοι ασθενείς', vals: last6.map((s) => +s.sales || 0), color: 'var(--c3)' }], (v) => num(v))}</div></div>` : '';
 
   const hist = past.length ? `<h3 class="sectionhead">Ιστορικό ανά μήνα</h3>
-    <div class="card tablewrap section"><table><thead><tr><th>Μήνας</th><th class="num">Ενδιαφ.</th><th class="num">Ραντεβού</th><th class="num">Ήρθαν</th><th class="num">Ασθενείς</th><th class="num">Έσοδα</th><th class="num">Δαπάνη</th><th class="num">€/Lead</th><th class="num">€/Ραντ.</th><th class="num">ROAS</th></tr></thead><tbody>
-      ${past.map((s) => `<tr><td class="mono"><b>${mLabel(s.month)}</b></td><td class="num">${s.leads}</td><td class="num">${s.rv}</td><td class="num">${s.shows}</td><td class="num">${s.sales}</td><td class="num">${eur(s.revenue)}</td><td class="num">${eur(s.spend)}</td><td class="num">${s.cpl ? eur(s.cpl) : '—'}</td><td class="num">${s.rv && s.spend ? eur(s.spend / s.rv) : '—'}</td><td class="num">${s.spend > 0 ? (+s.roas).toFixed(2) + '×' : '—'}</td></tr>`).join('')}
+    <div class="card tablewrap section"><table><thead><tr><th>Μήνας</th><th class="num">Ενδιαφ.</th><th class="num">Ραντεβού</th><th class="num">Ήρθαν</th><th class="num">Ασθενείς</th><th class="num">Έσοδα</th><th class="num">Κέρδος σας</th><th class="num">Δαπάνη</th><th class="num">€/Lead</th><th class="num">€/Ραντ.</th><th class="num">ROAS</th></tr></thead><tbody>
+      ${past.map((s) => `<tr><td class="mono"><b>${mLabel(s.month)}</b></td><td class="num">${s.leads}</td><td class="num">${s.rv}</td><td class="num">${s.shows}</td><td class="num">${s.sales}</td><td class="num">${eur(s.revenue)}</td><td class="num" style="color:var(--good)"><b>${eur(profitOf(s))}</b></td><td class="num">${eur(s.spend)}</td><td class="num">${s.cpl ? eur(s.cpl) : '—'}</td><td class="num">${s.rv && s.spend ? eur(s.spend / s.rv) : '—'}</td><td class="num">${s.spend > 0 ? (+s.roas).toFixed(2) + '×' : '—'}</td></tr>`).join('')}
     </tbody></table></div>` : '';
 
   const campsHtml = camps.length ? `<h3 class="sectionhead">Οι καμπάνιες σας</h3>
