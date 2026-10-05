@@ -23,6 +23,7 @@
     .pupdated { color: var(--soft); font-size: 12.5px; margin-bottom: 20px; }
   </style>
 <script src="/app/shared/nozoom.js"></script>
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
 <body>
 <div class="pwrap">
@@ -36,6 +37,7 @@
     <button data-ptab="stats" class="on">Στατιστικά</button>
     <button data-ptab="appts">Ραντεβού <span class="chip epik" id="apptBadge" style="display:none;font-size:10px;padding:0 6px"></span></button>
     <button data-ptab="journey">Πορεία ενδιαφερομένων</button>
+    <button data-ptab="calendar">Ημερολόγιο</button>
     <button data-ptab="bills" id="billsTab" hidden>Οφειλές <span class="chip epik" id="billBadge" style="display:none;font-size:10px;padding:0 6px"></span></button>
     <button data-ptab="account">Λογαριασμός</button>
   </div>
@@ -46,7 +48,30 @@
           <div class="f"><label for="pw1">Νέος κωδικός</label><input id="pw1" type="password" autocomplete="new-password"></div>
           <div class="f"><label for="pw2">Επανάληψη</label><input id="pw2" type="password" autocomplete="new-password"></div>
           <button class="btn small primary" id="pwSave">Αλλαγή κωδικού</button>
+        </div>
+        <div class="card setcard" style="margin-top:14px">
+          <h3>Google Calendar</h3>
+          <div class="desc" id="gcState">…</div>
+          <button class="btn small" id="gcDisconnect" hidden>Αποσύνδεση Google</button>
         </div></div>
+</div>
+<div class="modalback" id="cevModal" hidden>
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="cevTitle" style="max-width:460px">
+    <div class="mhead"><h3 id="cevTitle">Νέο ραντεβού</h3><button class="x" id="cevClose" aria-label="Κλείσιμο">✕</button></div>
+    <div class="f" style="margin-bottom:10px"><label for="cev_title">Τίτλος *</label><input id="cev_title" placeholder="π.χ. Laser — Μαρία Παπαδοπούλου"></div>
+    <div class="fgrid">
+      <div class="f"><label for="cev_date">Ημερομηνία</label><input id="cev_date" type="date"></div>
+      <div class="f"><label for="cev_start">Έναρξη</label><select id="cev_start"></select></div>
+      <div class="f"><label for="cev_end">Λήξη</label><select id="cev_end"></select></div>
+    </div>
+    <div class="f" style="margin-top:10px"><label for="cev_phone">Τηλέφωνο (προαιρετικό)</label><input id="cev_phone" inputmode="tel" autocomplete="off"></div>
+    <div class="f" style="margin-top:10px"><label for="cev_desc">Σημειώσεις</label><textarea id="cev_desc" rows="2"></textarea></div>
+    <div class="factions">
+      <button class="btn primary" id="cevSave">Αποθήκευση</button>
+      <button class="btn danger" id="cevDelete" hidden>Διαγραφή</button>
+      <span class="fhint" style="margin-left:auto">Αποθηκεύεται στο Google Calendar σας</span>
+    </div>
+  </div>
 </div>
 <script type="module" src="./portal.js"></script>
 </body>

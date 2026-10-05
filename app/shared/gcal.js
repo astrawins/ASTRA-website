@@ -11,15 +11,25 @@ const TZ = 'Europe/Athens';
 /* Access token: μοιράζεται από τον server (gcal-auth function) που κρατά μόνιμο
    refresh token — η ομάδα συνδέεται με Google ΜΙΑ φορά συνολικά. */
 let accessToken = null, tokenExp = 0;
+let AUTH_FN = 'gcal-auth', TOK_KEY = 'astra_gtok';
+let SCOPES = ['https://www.googleapis.com/auth/calendar', 'https://www.googleapis.com/auth/spreadsheets', 'https://www.googleapis.com/auth/gmail.send', 'https://www.googleapis.com/auth/drive.file'];
+/* Client portal: ο ΠΕΛΑΤΗΣ συνδέει το δικό του Google Calendar μέσω του client-gcal-auth (μόνο calendar scope, ξεχωριστό token). */
+export function useClientAuth() {
+  AUTH_FN = 'client-gcal-auth'; TOK_KEY = 'astra_gtok_client';
+  SCOPES = ['https://www.googleapis.com/auth/calendar', 'https://www.googleapis.com/auth/userinfo.email'];
+  accessToken = null; tokenExp = 0;
+  try { const s = JSON.parse(localStorage.getItem(TOK_KEY) || 'null'); if (s && s.exp > Date.now()) { accessToken = s.t; tokenExp = s.exp; } } catch { /* ok */ }
+}
 try {
-  const s = JSON.parse(localStorage.getItem('astra_gtok') || 'null');
+  const s = JSON.parse(localStorage.getItem(TOK_KEY) || 'null');
   if (s && s.exp > Date.now()) { accessToken = s.t; tokenExp = s.exp; }
 } catch { /* storage blocked */ }
 function saveTok(t, expiresIn) {
   accessToken = t; tokenExp = Date.now() + ((expiresIn || 3600) - 90) * 1000;
-  try { localStorage.setItem('astra_gtok', JSON.stringify({ t, exp: tokenExp })); } catch { /* ok */ }
+  try { localStorage.setItem(TOK_KEY, JSON.stringify({ t, exp: tokenExp })); } catch { /* ok */ }
 }
-function dropTok() { accessToken = null; tokenExp = 0; try { localStorage.removeItem('astra_gtok'); } catch { /* ok */ } }
+function dropTok() { accessToken = null; tokenExp = 0; try { localStorage.removeItem(TOK_KEY); } catch { /* ok */ } }
+export { dropTok };
 
 export const gisReady = () => typeof google !== 'undefined' && !!(google.accounts && google.accounts.oauth2);
 export const hasToken = () => !!accessToken && Date.now() < tokenExp;
@@ -28,7 +38,7 @@ export const hasToken = () => !!accessToken && Date.now() < tokenExp;
 export async function getToken(clientId) {
   if (hasToken()) return accessToken;
   try {
-    const j = await callFunction('gcal-auth', { action: 'token', clientId });
+    const j = await callFunction(AUTH_FN, { action: 'token', clientId });
     saveTok(j.access_token, j.expires_in);
     return accessToken;
   } catch (e) {
@@ -49,17 +59,12 @@ export function connectPermanent(clientId) {
       // Όλα όσα μπορεί να χρειαστεί ποτέ το Astra HQ — μία συγκατάθεση, μία φορά:
       // ημερολόγιο (πλήρες), Sheets (λογιστής + ιδιωτικά lead sheets), Gmail send
       // (μελλοντικές αναφορές σε πελάτες), Drive file (αρχεία που φτιάχνει το app).
-      scope: [
-        'https://www.googleapis.com/auth/calendar',
-        'https://www.googleapis.com/auth/spreadsheets',
-        'https://www.googleapis.com/auth/gmail.send',
-        'https://www.googleapis.com/auth/drive.file',
-      ].join(' '),
+      scope: SCOPES.join(' '),
       ux_mode: 'popup',
       callback: async (resp) => {
         if (resp.error) return reject(new Error('Η σύνδεση απέτυχε: ' + resp.error));
         try {
-          const j = await callFunction('gcal-auth', { action: 'save', code: resp.code, clientId });
+          const j = await callFunction(AUTH_FN, { action: 'save', code: resp.code, clientId });
           saveTok(j.access_token, j.expires_in);
           resolve(accessToken);
         } catch (e) { reject(e); }

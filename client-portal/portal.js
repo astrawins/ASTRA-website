@@ -1,8 +1,10 @@
 // portal/portal.js — προβολή στατιστικών ΜΟΝΟ της κλινικής του συνδεδεμένου πελάτη.
 // Η βάση (RLS) εγγυάται ότι βλέπει αποκλειστικά τα δικά του monthly_stats & campaigns.
 import { currentSession, sessionRole, logout } from '/app/shared/auth.js';
-import { rest, updatePassword } from '/app/shared/supabase.js';
-import { esc, eur, num, mLabel, nowMonth } from '/app/shared/util.js';
+import { rest, updatePassword, callFunction } from '/app/shared/supabase.js';
+import { esc, eur, num, mLabel, nowMonth, todayISO, addDays } from '/app/shared/util.js';
+import * as gcal from '/app/shared/gcal.js';
+gcal.useClientAuth(); // ο πελάτης συνδέει το ΔΙΚΟ του Google Calendar (client-gcal-auth), όχι της ομάδας
 
 if (!currentSession()) location.replace('/login/');
 const role = sessionRole();
@@ -304,13 +306,147 @@ function renderBills() {
       ${rows || '<tr><td colspan="6" class="empty">Καμία εκκαθάριση ακόμα — η πρώτη κλείνει την επόμενη Δευτέρα.</td></tr>'}</tbody></table></div>
     <p style="color:var(--soft);font-size:12.5px;margin-top:22px">Η πληρωμή γίνεται αυτόματα με την πάγια εντολή SEPA, ή με τραπεζική κατάθεση αν δεν έχει ενεργοποιηθεί. Για οτιδήποτε: info@astramarketing.gr</p>`;
 }
+/* ---- Tab «Ημερολόγιο»: το Google Calendar της κλινικής μέσα στο portal — σύνδεση ΜΙΑ φορά, μετά για πάντα ---- */
+const CAL = { status: null, offset: 0, cache: {}, loading: false };
+const calMonth = () => { const d = new Date(); const x = new Date(d.getFullYear(), d.getMonth() + CAL.offset, 1); return x.getFullYear() + '-' + String(x.getMonth() + 1).padStart(2, '0'); };
+const TIMES = (() => { const o = []; for (let h = 8; h <= 21; h++) for (const m of ['00', '30']) o.push(String(h).padStart(2, '0') + ':' + m); return o; })();
+async function calStatus() {
+  if (CAL.status) return CAL.status;
+  try { CAL.status = await callFunction('client-gcal-auth', { action: 'status' }); }
+  catch (e) { CAL.status = { error: e.message }; }
+  return CAL.status;
+}
+function loadCalMonth(mk) {
+  if (CAL.cache[mk]) return;
+  CAL.cache[mk] = 'loading';
+  gcal.listEvents({ clientId: CAL.status.clientId }, CAL.status.calendarId || 'primary', mk)
+    .then((evs) => { CAL.cache[mk] = evs; if (pTab === 'calendar') renderCal(); })
+    .catch((e) => { CAL.cache[mk] = e.code === 'connect_needed' ? 'connect' : 'error'; if (pTab === 'calendar') renderCal(); });
+}
+async function renderCal() {
+  const body = document.getElementById('pBody');
+  const st = await calStatus();
+  if (pTab !== 'calendar') return;
+  if (st.error) { body.innerHTML = `<div class="card empty">Το ημερολόγιο δεν είναι διαθέσιμο αυτή τη στιγμή (${esc(st.error)}).</div>`; return; }
+  if (!st.connected) {
+    body.innerHTML = `<div class="card empty" style="padding:48px 28px">
+        <div class="big">Το ημερολόγιό σας, μέσα στο portal</div>
+        Συνδέστε μία φορά το Google Calendar της κλινικής. Από εκεί και πέρα θα βλέπετε εδώ όλα τα ραντεβού σας και θα προσθέτετε ή θα αλλάζετε ραντεβού απευθείας — αποθηκεύονται στο Google Calendar σας.
+        <div style="margin-top:18px"><button class="btn primary" id="btnCalConnect">Σύνδεση με Google</button></div>
+        <div class="fhint" style="margin-top:12px">Ζητάμε πρόσβαση μόνο στο ημερολόγιο. Μπορείτε να την αφαιρέσετε όποτε θέλετε από το tab «Λογαριασμός».</div>
+      </div>`;
+    document.getElementById('btnCalConnect').onclick = async () => {
+      const b = document.getElementById('btnCalConnect'); b.disabled = true; b.textContent = 'Σύνδεση…';
+      try { await gcal.connectPermanent(st.clientId); CAL.status = null; CAL.cache = {}; alertBox('Το ημερολόγιό σας συνδέθηκε ✓'); renderCal(); }
+      catch (e) { alertBox(e.message); b.disabled = false; b.textContent = 'Σύνδεση με Google'; }
+    };
+    return;
+  }
+  const mk = calMonth(); loadCalMonth(mk);
+  const today = todayISO(), tomorrow = addDays(1);
+  const [y, m] = mk.split('-').map(Number);
+  const first = new Date(y, m - 1, 1), daysIn = new Date(y, m, 0).getDate(), startDow = (first.getDay() + 6) % 7;
+  const gc = CAL.cache[mk];
+  const byDate = {};
+  if (Array.isArray(gc)) gc.forEach((ev) => { (byDate[ev.date] = byDate[ev.date] || []).push({ ...ev, kind: 'g' }); });
+  /* Ραντεβού που έκλεισε η astra από τα leads (ημερομηνία μόνο) — εμφανίζονται ως ένδειξη, δεν επεξεργάζονται εδώ */
+  D.leads.filter((l) => l.status === 'rv' && l.nextAction && String(l.nextAction).slice(0, 7) === mk)
+    .forEach((l) => { const k = String(l.nextAction).slice(0, 10); (byDate[k] = byDate[k] || []).push({ id: 'lead-' + l.id, title: 'astra: ' + l.name, start: '', kind: 'lead' }); });
+  const chip = (ev) => ev.kind === 'lead'
+    ? `<span class="calev act" title="${esc(ev.title)}">${esc(ev.title)}</span>`
+    : `<button class="calev gev" data-gev="${esc(ev.id)}" title="${esc(ev.title + (ev.start ? ' · ' + ev.start : ''))}">${ev.start ? `<span class="mono">${ev.start}</span> ` : ''}${esc(ev.title)}</button>`;
+  let cells = '';
+  for (let i = 0; i < startDow; i++) cells += '<div class="calday dim"></div>';
+  for (let d = 1; d <= daysIn; d++) {
+    const key = `${mk}-${String(d).padStart(2, '0')}`; const evs = (byDate[key] || []).sort((a, b) => String(a.start).localeCompare(String(b.start)));
+    cells += `<div class="calday${key === today ? ' today' : ''}" data-date="${key}"><div class="dn">${d}</div>${evs.slice(0, 5).map(chip).join('')}${evs.length > 5 ? `<div class="calmore">+${evs.length - 5} ακόμα</div>` : ''}${evs.length > 2 ? `<div class="calmore m">+${evs.length - 2}</div>` : ''}</div>`;
+  }
+  for (let t = startDow + daysIn; t % 7 !== 0; t++) cells += '<div class="calday dim"></div>';
+  const days = Object.keys(byDate).filter((k) => k >= today).sort();
+  const agenda = days.length ? days.map((k) => `<div class="taskday${k === today ? ' today' : ''}">${new Date(k + 'T12:00:00').toLocaleDateString('el-GR', { weekday: 'long', day: 'numeric', month: 'long' })}${k === today ? ' · σήμερα' : k === tomorrow ? ' · αύριο' : ''}</div>`
+    + byDate[k].sort((a, b) => String(a.start).localeCompare(String(b.start))).map((ev) => ev.kind === 'lead'
+      ? `<div class="agrow" style="cursor:default"><span class="mono">ραντεβού</span><span>${esc(ev.title)}</span></div>`
+      : `<button class="agrow" data-gev="${esc(ev.id)}"><span class="mono">${ev.start ? ev.start + (ev.end ? '–' + ev.end : '') : 'όλη μέρα'}</span><span>${esc(ev.title)}</span></button>`).join('')).join('')
+    : '<div class="empty">Κανένα επόμενο ραντεβού αυτόν τον μήνα.</div>';
+  body.innerHTML = `
+    <div class="filters" style="align-items:center">
+      <button class="btn small" id="calPrev">‹</button><b class="mono" id="calTitle" style="min-width:90px;text-align:center">${mLabel(mk)}</b><button class="btn small" id="calNext">›</button>
+      <button class="btn small" id="calToday">Σήμερα</button>
+      <button class="btn primary small" id="calNew" style="margin-left:auto">+ Ραντεβού</button>
+    </div>
+    <p style="color:var(--soft);font-size:12.5px;margin:-4px 0 12px">${gc === 'loading' ? 'Φόρτωση από το Google Calendar…' : gc === 'error' ? 'Σφάλμα ανάγνωσης — δοκιμάστε ανανέωση.' : gc === 'connect' ? 'Η σύνδεση Google χρειάζεται ανανέωση — ξανασυνδεθείτε από το tab «Λογαριασμός».' : 'Συνδεδεμένο με το Google Calendar σας' + (st.email ? ' (' + esc(st.email) + ')' : '') + ' · κλικ σε μέρα = νέο ραντεβού, κλικ σε ραντεβού = αλλαγή.'}</p>
+    <div class="card" id="calGrid" style="overflow:hidden"><div class="calhead"><div>Δευ</div><div>Τρί</div><div>Τετ</div><div>Πέμ</div><div>Παρ</div><div>Σάβ</div><div>Κυρ</div></div><div class="calgrid">${cells}</div></div>
+    <div class="card" id="calAgenda">${agenda}</div>`;
+  document.getElementById('calPrev').onclick = () => { CAL.offset--; renderCal(); };
+  document.getElementById('calNext').onclick = () => { CAL.offset++; renderCal(); };
+  document.getElementById('calToday').onclick = () => { CAL.offset = 0; renderCal(); };
+  document.getElementById('calNew').onclick = () => openCev(null, today);
+}
+document.getElementById('pBody').addEventListener('click', (e) => {
+  if (pTab !== 'calendar') return;
+  const g = e.target.closest('[data-gev]');
+  if (g) { const ev = Object.values(CAL.cache).filter(Array.isArray).flat().find((x) => x.id === g.dataset.gev); if (ev) openCev(ev); return; }
+  const day = e.target.closest('.calday:not(.dim)');
+  if (day && !e.target.closest('.calev')) openCev(null, day.dataset.date);
+});
+/* ---- modal ραντεβού ---- */
+let cevId = null;
+const fillTimes = (sel, v) => { sel.innerHTML = '<option value="">—</option>' + TIMES.map((t) => `<option${t === v ? ' selected' : ''}>${t}</option>`).join(''); };
+function openCev(ev, date) {
+  cevId = ev ? ev.id : null;
+  document.getElementById('cevTitle').textContent = ev ? 'Αλλαγή ραντεβού' : 'Νέο ραντεβού';
+  document.getElementById('cev_title').value = ev ? ev.title : '';
+  document.getElementById('cev_date').value = ev ? ev.date : (date || todayISO());
+  fillTimes(document.getElementById('cev_start'), ev ? ev.start : '10:00'); fillTimes(document.getElementById('cev_end'), ev ? ev.end : '10:30');
+  const phone = ev && /Τηλ:\s*(.+)/.exec(ev.desc || ''); document.getElementById('cev_phone').value = phone ? phone[1].trim() : '';
+  document.getElementById('cev_desc').value = ev ? (ev.desc || '').replace(/Τηλ:.*\n?/, '').trim() : '';
+  document.getElementById('cevDelete').hidden = !ev;
+  document.getElementById('cevModal').hidden = false;
+  document.getElementById('cev_title').focus();
+}
+document.getElementById('cevClose').onclick = () => { document.getElementById('cevModal').hidden = true; };
+document.getElementById('cev_start').addEventListener('change', (e) => { const i = TIMES.indexOf(e.target.value); const end = document.getElementById('cev_end'); if (i >= 0 && (!end.value || end.value <= e.target.value)) end.value = TIMES[Math.min(i + 1, TIMES.length - 1)]; });
+document.getElementById('cevSave').onclick = async () => {
+  const title = document.getElementById('cev_title').value.trim(); if (!title) { alertBox('Γράψτε τίτλο.'); return; }
+  const phone = document.getElementById('cev_phone').value.trim(); const notes = document.getElementById('cev_desc').value.trim();
+  const ev = { title, date: document.getElementById('cev_date').value || todayISO(), start: document.getElementById('cev_start').value, end: document.getElementById('cev_end').value, desc: (phone ? 'Τηλ: ' + phone + '\n' : '') + notes };
+  const b = document.getElementById('cevSave'); b.disabled = true;
+  try {
+    const cal = CAL.status.calendarId || 'primary';
+    if (cevId) await gcal.patchEvent(CAL.status.clientId, cal, cevId, ev); else await gcal.createEvent(CAL.status.clientId, cal, ev);
+    delete CAL.cache[ev.date.slice(0, 7)]; delete CAL.cache[calMonth()];
+    document.getElementById('cevModal').hidden = true; alertBox(cevId ? 'Το ραντεβού ενημερώθηκε ✓' : 'Το ραντεβού προστέθηκε στο Google Calendar σας ✓'); renderCal();
+  } catch (e) { alertBox(e.message); }
+  b.disabled = false;
+};
+document.getElementById('cevDelete').onclick = async () => {
+  const b = document.getElementById('cevDelete');
+  if (b.textContent !== 'Σίγουρα;') { b.textContent = 'Σίγουρα;'; setTimeout(() => { b.textContent = 'Διαγραφή'; }, 2500); return; }
+  b.disabled = true;
+  try { await gcal.deleteEvent(CAL.status.clientId, CAL.status.calendarId || 'primary', cevId); CAL.cache = {}; document.getElementById('cevModal').hidden = true; alertBox('Το ραντεβού διαγράφηκε.'); renderCal(); }
+  catch (e) { alertBox(e.message); }
+  b.disabled = false; b.textContent = 'Διαγραφή';
+};
+async function renderAccount() {
+  const st = await calStatus(); const el = document.getElementById('gcState'); const b = document.getElementById('gcDisconnect');
+  el.textContent = st.error ? 'Μη διαθέσιμο αυτή τη στιγμή.' : st.connected ? `Συνδεδεμένο${st.email ? ' (' + st.email + ')' : ''} — τα ραντεβού σας φαίνονται στο tab «Ημερολόγιο».` : 'Δεν έχει συνδεθεί. Η σύνδεση γίνεται από το tab «Ημερολόγιο».';
+  b.hidden = !st.connected;
+  b.onclick = async () => {
+    if (b.textContent !== 'Σίγουρα;') { b.textContent = 'Σίγουρα;'; setTimeout(() => { b.textContent = 'Αποσύνδεση Google'; }, 2500); return; }
+    b.disabled = true;
+    try { await callFunction('client-gcal-auth', { action: 'disconnect' }); gcal.dropTok(); CAL.status = null; CAL.cache = {}; alertBox('Το Google Calendar αποσυνδέθηκε.'); renderAccount(); }
+    catch (e) { alertBox(e.message); }
+    b.disabled = false; b.textContent = 'Αποσύνδεση Google';
+  };
+}
 function renderRoot() {
   document.getElementById('pAccount').hidden = pTab !== 'account';
   document.getElementById('pBody').hidden = pTab === 'account';
-  if (pTab === 'account') return;
+  if (pTab === 'account') return renderAccount();
   if (pTab === 'appts') return renderAppts();
   if (pTab === 'journey') return renderJourney();
   if (pTab === 'bills') return renderBills();
+  if (pTab === 'calendar') return renderCal();
   return render();
 }
 document.getElementById('pTabs').addEventListener('click', () => {}); // (κρατά τη σειρά των listeners)
