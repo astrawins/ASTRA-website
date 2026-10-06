@@ -731,7 +731,7 @@
       var invalid = false;
       form.querySelectorAll('[required]').forEach(function (input) {
         var field = input.closest('.field');
-        var bad = !input.value.trim() || (input.type === 'email' && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(input.value));
+        var bad = input.type === 'checkbox' ? !input.checked : (!input.value.trim() || (input.type === 'email' && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(input.value)));
         field.classList.toggle('invalid', bad);
         if (bad) invalid = true;
       });
