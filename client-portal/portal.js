@@ -228,6 +228,8 @@ document.getElementById('pBody').addEventListener('click', async (e) => {
   b.disabled = true; b.textContent = '…';
   try {
     await rest('rpc/client_mark_attended', { method: 'POST', body: { p_lead_id: id, p_attended: attended } });
+    callFunction('push-send', { action: 'attended', leadId: id, attended }).catch(() => { /* η ειδοποίηση είναι προαιρετική */ });
+    alertBox(attended ? 'Καταγράφηκε: ήρθε ✓ — η ομάδα της astra ενημερώθηκε.' : 'Καταγράφηκε: δεν ήρθε — η ομάδα της astra θα κάνει follow-up.');
     await load();
   } catch (err) {
     alertBox(err.message); b.disabled = false; b.textContent = attended ? '✓ Έγινε' : 'Δεν ήρθε';

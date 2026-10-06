@@ -599,6 +599,15 @@ function renderToday() {
         <button class="btn small" data-tact2="t30">+30μ</button>
         <button class="btn small" data-tact2="tdone">✓ Έγινε</button>
       </div></div>`).join('')}</div>` : '';
+  /* Επιβεβαιώσεις προσέλευσης από τα ιατρεία (client portal) — τελευταίες 7 μέρες */
+  const cutoffP = Date.now() - 7 * 86400000;
+  const fromPortal = S.act.filter((a) => String(a.by || '').startsWith('portal:') && new Date(a.at).getTime() > cutoffP).slice(0, 20);
+  const portalBlock = fromPortal.length ? `<h3 class="sectionhead" style="margin-top:0">Από τα ιατρεία <span class="chip plain">${fromPortal.length}</span></h3>
+    <div class="card" style="margin-bottom:20px">${fromPortal.map((a) => { const l = leadById(a.leadId); const c = l && clinicById(l.clinicId); const ok = /✓/.test(a.body || ''); return `<div class="todayrow">
+      <div class="who"><b data-lead="${esc(a.leadId)}">${esc(l ? l.name : a.leadId)}</b><div class="sub">${esc(c ? c.name : '')}</div></div>
+      <span class="chip ${ok ? 'show' : 'lost'}">${ok ? 'Ήρθε ✓' : 'Δεν ήρθε'}</span>
+      <span class="due">${new Date(a.at).toLocaleDateString('el-GR', { day: 'numeric', month: 'short' })} ${new Date(a.at).toLocaleTimeString('el-GR', { hour: '2-digit', minute: '2-digit' })}</span>
+      ${!ok && l && !['won', 'lost'].includes(l.status) ? '<div class="acts"><button class="btn small" data-tact4="open">Άνοιγμα lead</button></div>' : ''}</div>`; }).join('')}</div>` : '';
   const subs = isCaller() ? [] : subsDue();
   const subBlock = subs.length ? `<h3 class="sectionhead" style="margin-top:0">Ετήσιες συνδρομές — ανανέωση <span class="chip epik">${subs.length}</span></h3>
     <div class="card" style="margin-bottom:20px">${subs.map((s) => `<div class="todayrow" data-sub="${s.id}">
@@ -616,7 +625,7 @@ function renderToday() {
         + (later.length ? `<div class="taskday">Επόμενα</div>${later.map(taskRow).join('')}` : '')
         + '</div></div>';
     }).join('')}</div>`;
-  $('todayBody').innerHTML = scheduleBlock() + taskBlock + '<div style="height:20px"></div>' + touchBlock + subBlock + clinicCallsBlock(due, fresh, upcoming, stale);
+  $('todayBody').innerHTML = scheduleBlock() + portalBlock + taskBlock + '<div style="height:20px"></div>' + touchBlock + subBlock + clinicCallsBlock(due, fresh, upcoming, stale);
 }
 /* Κλήσεις ημέρας ομαδοποιημένες ανά κλινική — κλειστές κάρτες με σύνοψη, ανοίγουν με κλικ. */
 let openCallGroups = new Set();
@@ -684,6 +693,8 @@ $('todayBody').addEventListener('click', async (e) => {
   const gev = e.target.closest('[data-gev]');
   if (gev) { openGev(gev.dataset.gev); return; }
   if (e.target.closest('[data-newev]')) { openEventModal(null, todayISO()); return; }
+  const t4 = e.target.closest('[data-tact4], [data-lead]');
+  if (t4) { const row = t4.closest('.todayrow'); const id = (row && row.querySelector('[data-lead]') || {}).dataset?.lead; if (id && leadById(id)) openLeadModal(id); return; }
   const t3 = e.target.closest('[data-tact3]');
   if (t3) {
     if (t3.dataset.tact3 === 'opensubs') { showTab('finance'); $('subTable').scrollIntoView({ block: 'center' }); return; }
