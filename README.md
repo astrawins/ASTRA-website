@@ -8,7 +8,6 @@ Static site for astra, a marketing practice for aesthetic clinics. Plain HTML/CS
 index.html                      Home
 services/paid-ads/index.html    Paid Ads (Meta & Google)
 services/social-media/index.html Social Media Management
-services/seo/index.html         SEO & Local SEO
 about/index.html                About
 contact/index.html              Contact form ("Book a call")
 privacy/index.html              Privacy policy (noindex)

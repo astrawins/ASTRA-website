@@ -101,5 +101,8 @@
     }
   ],
   "trailingSlash": true,
-  "redirects": []
+  "redirects": [
+    { "source": "/services/seo/", "destination": "/", "permanent": true },
+    { "source": "/el/ypiresies/seo-iatreion/", "destination": "/el/", "permanent": true }
+  ]
 }

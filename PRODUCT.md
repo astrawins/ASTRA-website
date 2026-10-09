@@ -24,10 +24,10 @@ Niche exclusivity: astra markets aesthetic clinics only, not everyone. The claim
 
 ## Capabilities and Constraints
 
-Confirmed services (exactly three; each gets its own page for SEO):
+Confirmed services (exactly two; each gets its own page for SEO):
 1. Paid Ads (Meta & Google) — appointment/lead campaigns
 2. Social Media Management — content and channel management for clinics
-3. SEO & Local SEO — Google ranking, Google Business Profile, reviews
+
 
 Primary CTA: contact form ("Book a call"). Form backend undecided — build with a static-friendly handler (e.g. Formspree placeholder) the user can swap.
 
