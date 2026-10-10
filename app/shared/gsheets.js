@@ -25,9 +25,18 @@ export async function writeToSheet(clientId, spreadsheetId, values) {
 }
 
 /* Ανάγνωση ΙΔΙΩΤΙΚΟΥ sheet μέσω Sheets API (μόνιμη σύνδεση Google) — rows όπως το CSV. */
-export async function readSheetValues(clientId, spreadsheetId) {
+export async function readSheetValues(clientId, spreadsheetId, gid) {
   const token = await ensureToken(clientId);
-  const r = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/A1:Z20000?majorDimension=ROWS`, {
+  // Με gid στο link διαβάζουμε το συγκεκριμένο φύλλο (όχι πάντα το πρώτο).
+  let range = 'A1:Z20000';
+  if (gid) {
+    const m = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}?fields=sheets.properties(sheetId,title)`, {
+      headers: { Authorization: 'Bearer ' + token },
+    }).then((x) => x.json()).catch(() => ({}));
+    const sh = (m.sheets || []).find((x) => String(x.properties?.sheetId) === String(gid));
+    if (sh) range = `'${sh.properties.title.replace(/'/g, "''")}'!A1:Z20000`;
+  }
+  const r = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(range)}?majorDimension=ROWS`, {
     headers: { Authorization: 'Bearer ' + token },
   });
   const j = await r.json().catch(() => ({}));

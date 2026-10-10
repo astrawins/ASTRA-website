@@ -402,7 +402,7 @@ async function syncClinic(clinic, silent) {
   // Πρώτα ιδιωτική ανάγνωση μέσω Sheets API (δεν χρειάζεται «Anyone with link»)
   if (gcalClient()) {
     try {
-      const rows = await readSheetValues(gcalClient(), clinic.sheetId);
+      const rows = await readSheetValues(gcalClient(), clinic.sheetId, gidFrom(clinic.sheetUrl));
       return importRows(rows, clinic, 'sheet');
     } catch (e) {
       if (e.code !== 'connect_needed' && !silent) toast(e.message);
