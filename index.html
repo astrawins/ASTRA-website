@@ -31,12 +31,14 @@
   <link rel="icon" href="/assets/img/favicon-32.png" sizes="32x32" type="image/png">
   <link rel="apple-touch-icon" href="/assets/img/apple-touch-icon.png">
 
-  <link rel="preload" href="/assets/fonts/archivo.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="preload" href="/assets/fonts/spline-sans-mono.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="/assets/css/main.css">
-  <script>try{if(!sessionStorage.getItem('astra-seen')&&!matchMedia('(prefers-reduced-motion: reduce)').matches&&location.search.indexOf('noloader')===-1)document.documentElement.classList.add('astra-loading');}catch(e){}</script>
+  <script>try{if(!matchMedia('(prefers-reduced-motion: reduce)').matches){var c=document.documentElement.classList;c.add('cx');var q=location.search;if((!sessionStorage.getItem('astra-cx-seen')||q.indexOf('intro')!==-1)&&q.indexOf('nointro')===-1)c.add('cx-intro');}}catch(e){}</script>
   <script src="/assets/js/lenis.min.js" defer></script>
   <script src="/assets/js/main.js" defer></script>
+  <script src="/assets/js/constellation.js" defer></script>
 
   <script type="application/ld+json">
   {
@@ -98,17 +100,16 @@
       <a href="/about/">About</a>
       <a href="/el/" lang="el" hreflang="el" class="lang-switch" aria-label="Ελληνικά">ΕΛ</a>
     </nav>
-    <a class="cta-cell" href="/contact/">Book a call</a>
+    <a class="cta-cell" href="/booking/">Book a call</a>
   </header>
 
   <main>
     <section class="hero shell">
-      <canvas class="starfield" aria-hidden="true"></canvas>
       <div class="wrap">
         <h1>Helping clinics reach&nbsp;the stars.</h1>
         <svg class="hero-star star-drift" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 0C12.9 7.4 16.6 11.1 24 12c-7.4.9-11.1 4.6-12 12-.9-7.4-4.6-11.1-12-12 7.4-.9 11.1-4.6 12-12Z"/></svg>
         <p class="kicker-line mono">Marketing for aesthetic clinics</p>
-        <p class="hero-cta"><a class="btn" href="/contact/">Book a call</a></p>
+        <p class="hero-cta"><a class="btn" href="/booking/">Book a call</a></p>
       </div>
     </section>
 
@@ -258,7 +259,7 @@
         <div>
           <h2>Begin the protocol.</h2>
           <p class="lede">One call. We look at your clinic's current signals and tell you honestly what we would run, and why.</p>
-          <p><a class="btn" href="/contact/">Book a call</a></p>
+          <p><a class="btn" href="/booking/">Book a call</a></p>
         </div>
       </div>
     </section>
@@ -270,7 +271,7 @@
       <span class="cell"><a href="/services/paid-ads/">Paid Ads</a></span>
       <span class="cell"><a href="/services/social-media/">Social Media</a></span>
       <span class="cell"><a href="/about/">About</a></span>
-      <span class="cell"><a href="/contact/">Book a call</a></span>
+      <span class="cell"><a href="/booking/">Book a call</a></span>
       <span class="cell grow"></span>
       <span class="cell"><a href="/el/" lang="el" hreflang="el">Ελληνικά</a></span>
       <span class="cell"><a href="/privacy/">Privacy</a></span>

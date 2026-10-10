@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Book a call | astra</title>
+  <meta name="description" content="Book a 30-minute call with astra, marketing for aesthetic clinics.">
+  <link rel="canonical" href="https://astramarketing.gr/booking/">
+  <meta name="theme-color" content="#E6D7C3">
+  <link rel="icon" href="/assets/img/favicon.svg" type="image/svg+xml">
+  <link rel="icon" href="/assets/img/favicon-32.png" sizes="32x32" type="image/png">
+  <link rel="apple-touch-icon" href="/assets/img/apple-touch-icon.png">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { background: #E6D7C3; }
+    body {
+      min-height: 100dvh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: clamp(28px, 6vh, 64px) 16px 24px;
+      color: #2A2118;
+      font-family: 'Helvetica Neue', Arial, sans-serif;
+    }
+    .logo img {
+      display: block;
+      width: clamp(150px, 22vw, 230px);
+      height: auto;
+      filter: drop-shadow(0 10px 28px rgba(107, 69, 38, 0.32)) drop-shadow(0 3px 8px rgba(107, 69, 38, 0.18));
+    }
+    .calendly-inline-widget {
+      width: 100%;
+      max-width: 1060px;
+      min-width: 320px;
+      height: 700px;
+      margin-top: clamp(16px, 3vh, 32px);
+    }
+    @media (max-width: 767px) { .calendly-inline-widget { height: 1000px; } }
+  </style>
+</head>
+<body>
+  <a class="logo" href="/" aria-label="astra, home">
+    <img src="/assets/img/logo-white.webp" alt="astra" width="96" height="37">
+  </a>
+  <!-- Calendly inline widget begin -->
+  <div class="calendly-inline-widget" data-url="https://calendly.com/astramarketing-info/30min?hide_gdpr_banner=1&background_color=e6d7c3&text_color=2a2118&primary_color=6b4526"></div>
+  <script type="text/javascript" src="https://assets.calendly.com/assets/external/widget.js" async></script>
+  <!-- Calendly inline widget end -->
+</body>
+</html>

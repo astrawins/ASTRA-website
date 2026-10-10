@@ -577,7 +577,7 @@
       skyRaf = requestAnimationFrame(skyFrame);
     }
     function skyPlay() {
-      if (skyLive || document.hidden || !root.classList.contains('space')) return;
+      if (skyLive || document.hidden || !(root.classList.contains('space') || root.classList.contains('dusk'))) return;
       skyLive = true;
       skyRaf = requestAnimationFrame(skyFrame);
     }
@@ -593,7 +593,7 @@
       root.classList.toggle('space', on);
       clearTimeout(themeTimer);
       themeTimer = setTimeout(function () { root.classList.remove('theme-anim'); }, 1000);
-      if (on) skyPlay(); else setTimeout(skyHalt, 1000);
+      if (on) skyPlay(); else setTimeout(function () { if (!root.classList.contains('dusk')) skyHalt(); }, 1000);
     }
 
     document.addEventListener('click', function (e) {
@@ -616,17 +616,54 @@
     });
 
     if (svcZone) {
-      var sentinel = document.createElement('div');
-      sentinel.style.cssText = 'position:absolute;top:0;height:1px;width:1px;pointer-events:none;';
-      svcZone.style.position = 'relative';
-      svcZone.insertBefore(sentinel, svcZone.firstChild);
-      if ('IntersectionObserver' in window) {
-        new IntersectionObserver(function (en) {
-          var e = en[0];
-          var line = e.rootBounds ? e.rootBounds.bottom : window.innerHeight * 0.62;
-          setSpace(e.boundingClientRect.top < line);
-        }, { rootMargin: '0px 0px -38% 0px', threshold: [0, 1] }).observe(sentinel);
-      }
+      /* Day → sunset → night, scrubbed continuously by scroll */
+      var grad = document.createElement('div');
+      grad.id = 'skygrad';
+      grad.setAttribute('aria-hidden', 'true');
+      document.body.insertBefore(grad, document.body.firstChild);
+      root.classList.add('skyfade');
+      sky.style.transition = 'none';
+      var BG = [0.902, 0.843, 0.765];
+      var DUSK_T = [0.30, 0.20, 0.24], DUSK_B = [0.74, 0.47, 0.34];
+      var NIGHT_T = [0.016, 0.027, 0.07], NIGHT_B = [0.05, 0.06, 0.12];
+      var mix3 = function (a, b, t) { return [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t]; };
+      var ss = function (e0, e1, x) { x = Math.max(0, Math.min(1, (x - e0) / (e1 - e0))); return x * x * (3 - 2 * x); };
+      var rgb = function (c) { return 'rgb(' + Math.round(c[0] * 255) + ',' + Math.round(c[1] * 255) + ',' + Math.round(c[2] * 255) + ')'; };
+      var nCur = -1, nGoal = 0, gRaf = 0;
+      var nightGoal = function () {
+        if (forceSpace) return 1;
+        var vh = window.innerHeight, top = svcZone.getBoundingClientRect().top;
+        return Math.max(0, Math.min(1, (1.7 * vh - top) / (1.08 * vh)));
+      };
+      var paintSky = function (n) {
+        var d = ss(0, 0.5, n), k = ss(0.38, 1, n);
+        var top = mix3(mix3(BG, DUSK_T, d), NIGHT_T, k);
+        var bot = mix3(mix3(BG, DUSK_B, d), NIGHT_B, k);
+        var glow = (d * (1 - k) * 0.55 + k * 0.10).toFixed(3);
+        grad.style.background =
+          'radial-gradient(130% 60% at 50% 118%, rgba(242,158,97,' + glow + '), transparent 66%),' +
+          'linear-gradient(to bottom,' + rgb(top) + ',' + rgb(bot) + ')';
+        sky.style.opacity = ss(0.3, 1, n).toFixed(3);
+        var dusk = n > 0.25;
+        root.classList.toggle('dusk', dusk);
+        if (dusk) skyPlay(); else if (!root.classList.contains('space')) skyHalt();
+        root.classList.toggle('night-ink', n > 0.45);
+        setSpace(n > 0.82);
+      };
+      var skyTick = function () {
+        nCur += (nGoal - nCur) * 0.14;
+        if (Math.abs(nGoal - nCur) < 0.002) nCur = nGoal;
+        paintSky(nCur);
+        gRaf = nCur !== nGoal ? requestAnimationFrame(skyTick) : 0;
+      };
+      var skyScroll = function () {
+        nGoal = nightGoal();
+        if (nCur < 0) { nCur = nGoal; paintSky(nCur); return; }
+        if (!gRaf) gRaf = requestAnimationFrame(skyTick);
+      };
+      window.addEventListener('scroll', skyScroll, { passive: true });
+      window.addEventListener('resize', skyScroll);
+      skyScroll();
     } else if (deck404) {
       root.classList.add('space');
       skyPlay();

@@ -115,4 +115,9 @@
     <xhtml:link rel="alternate" hreflang="el" href="https://astramarketing.gr/el/ypiresies/social-media/"/>
     <xhtml:link rel="alternate" hreflang="x-default" href="https://astramarketing.gr/services/social-media/"/>
   </url>
+  <url>
+    <loc>https://astramarketing.gr/booking/</loc>
+    <lastmod>2026-10-10</lastmod>
+    <priority>0.8</priority>
+  </url>
 </urlset>
