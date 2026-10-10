@@ -1118,7 +1118,7 @@ document.addEventListener('keydown', (e) => {
 let editClinicId = null;
 $('btnNewClinic').onclick = () => {
   editClinicId = null; $('clinicFormTitle').textContent = 'Νέα κλινική';
-  ['cf_name', 'cf_doctor', 'cf_spec', 'cf_phone', 'cf_email', 'cf_portalEmail', 'cf_fee', 'cf_sharePct', 'cf_dailyBudget', 'cf_monthlyBudget', 'cf_goalLeads', 'cf_goalSales', 'cf_contractStart', 'cf_contractEnd', 'cf_nextTouch', 'cf_tags', 'cf_contacts', 'cf_sheet', 'cf_metaAd', 'cf_metaSince', 'cf_script', 'cf_templates', 'cf_notes'].forEach((i) => { $(i).value = ''; });
+  ['cf_name', 'cf_doctor', 'cf_spec', 'cf_phone', 'cf_email', 'cf_portalEmail', 'cf_fee', 'cf_sharePct', 'cf_dailyBudget', 'cf_monthlyBudget', 'cf_goalLeads', 'cf_goalSales', 'cf_contractStart', 'cf_contractEnd', 'cf_nextTouch', 'cf_tags', 'cf_contacts', 'cf_sheet', 'cf_metaAd', 'cf_metaSince', 'cf_metaFilter', 'cf_script', 'cf_templates', 'cf_notes'].forEach((i) => { $(i).value = ''; });
   $('clinicForm').hidden = false; $('cf_name').focus();
 };
 $('btnCancelClinic').onclick = () => { $('clinicForm').hidden = true; };
@@ -1144,7 +1144,7 @@ $('btnSaveClinic').onclick = async () => {
       const i = ln.indexOf(':'); if (i < 1) return null;
       return { t: ln.slice(0, i).trim(), b: ln.slice(i + 1).trim() };
     }).filter((x) => x && x.t && x.b),
-    sheetUrl, sheetId: sheetIdFrom(sheetUrl) || '', metaAdAccount: $('cf_metaAd').value.trim(), metaSince: $('cf_metaSince').value || null, notes: $('cf_notes').value.trim(),
+    sheetUrl, sheetId: sheetIdFrom(sheetUrl) || '', metaAdAccount: $('cf_metaAd').value.trim(), metaSince: $('cf_metaSince').value || null, metaFilter: $('cf_metaFilter').value.trim(), notes: $('cf_notes').value.trim(),
   };
   let saved;
   try {
@@ -1238,7 +1238,7 @@ function openClinicEdit(id) {
   $('cf_contacts').value = (Array.isArray(c.contacts) ? c.contacts : []).map((x) => [x.name, x.role, x.phone, x.email].join(' | ')).join('\n');
   $('cf_script').value = c.script || '';
   $('cf_templates').value = (Array.isArray(c.templates) ? c.templates : []).map((t) => t.t + ': ' + t.b).join('\n');
-  $('cf_sheet').value = c.sheetUrl || ''; $('cf_metaAd').value = c.metaAdAccount || ''; $('cf_metaSince').value = c.metaSince || ''; $('cf_notes').value = c.notes || '';
+  $('cf_sheet').value = c.sheetUrl || ''; $('cf_metaAd').value = c.metaAdAccount || ''; $('cf_metaSince').value = c.metaSince || ''; $('cf_metaFilter').value = c.metaFilter || ''; $('cf_notes').value = c.notes || '';
   $('clinicForm').hidden = false; window.scrollTo({ top: 0 });
 }
 let confirmDelete = null;
@@ -1863,7 +1863,7 @@ async function metaSyncAll(silent) {
   const today = todayISO();
   // metaSince: μετράμε μόνο από αυτή τη μέρα (νέα καμπάνια) — αν είναι στο μέλλον, η κλινική παραλείπεται
   const targets = S.clinics.filter((c) => c.metaAdAccount && !(c.metaSince && c.metaSince > today))
-    .map((c) => ({ account: c.metaAdAccount, clinicId: c.id, name: c.name, since: c.metaSince && c.metaSince > mk + '-01' ? c.metaSince : null }));
+    .map((c) => ({ account: c.metaAdAccount, clinicId: c.id, name: c.name, since: c.metaSince && c.metaSince > mk + '-01' ? c.metaSince : null, filter: String(c.metaFilter || '').trim().toLowerCase() }));
   if (!targets.length && s.metaAccount) targets.push({ account: s.metaAccount, clinicId: null, name: 'γενικό' });
   {
     for (const t of targets) {
@@ -1871,6 +1871,7 @@ async function metaSyncAll(silent) {
       try { ins = await metaInsights(s.metaToken, t.account, t.since); }
       catch (e) { errs.push(t.name + ': ' + e.message); continue; }
       for (const hit of ins) {
+        if (t.filter && !hit.name.toLowerCase().includes(t.filter)) continue; // μόνο οι καμπάνιες της κλινικής μας
         const cp = S.camps.find((c) => c.month === mk
           && (t.clinicId ? c.clinicId === t.clinicId : true)
           && c.name.trim().toLowerCase() === hit.name.trim().toLowerCase());
