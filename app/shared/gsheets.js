@@ -36,7 +36,7 @@ export async function readSheetValues(clientId, spreadsheetId, gid) {
     const sh = (m.sheets || []).find((x) => String(x.properties?.sheetId) === String(gid));
     if (sh) range = `'${sh.properties.title.replace(/'/g, "''")}'!A1:Z20000`;
   }
-  const r = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(range)}?majorDimension=ROWS`, {
+  const r = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(range)}?majorDimension=ROWS&valueRenderOption=UNFORMATTED_VALUE&dateTimeRenderOption=SERIAL_NUMBER`, {
     headers: { Authorization: 'Bearer ' + token },
   });
   const j = await r.json().catch(() => ({}));
