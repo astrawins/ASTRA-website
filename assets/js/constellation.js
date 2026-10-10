@@ -346,6 +346,7 @@
   var intro = root.classList.contains('cx-intro');
   var phase = intro ? 'logo' : 'gather';
   var phaseT = 0, start = null, active = null, slogan = null, logo = null, landed = false, releaseAt = 0;
+  var LOGO_HOLD = mobile ? 4100 : 3700, logoOutT = -1;
   var space = false, warpT = -1e9, frameN = 0;
 
   if (intro) {
@@ -421,8 +422,8 @@
     var shape = null, alphaMul = 1, kMul = 1, damp = 0.86;
     if (phase === 'logo') {
       shape = logo; kMul = 0.75; damp = 0.84;
-      if (now - phaseT > (mobile ? 2900 : 2500)) {
-        phase = 'slogan'; phaseT = now;
+      if (now - phaseT > LOGO_HOLD) {
+        phase = 'slogan'; phaseT = now; logoOutT = now;
         for (var q = 0; q < N; q++) {
           var ddx = x[q] - logo.cx, ddy = y[q] - logo.cy, dd = Math.hypot(ddx, ddy) || 1, f = 4 + Math.random() * 14;
           vx[q] += ddx / dd * f; vy[q] += ddy / dd * f - 2;
@@ -589,13 +590,31 @@
 
     /* the loader hairline under the wordmark */
     if (phase === 'logo' && logo) {
-      var lp = Math.min(1, Math.max(0, (now - phaseT - 900) / 1500));
+      var lp = Math.min(1, Math.max(0, (now - phaseT - 900) / (LOGO_HOLD - 1100)));
       if (lp > 0) {
         var ly0 = logo.cy - sy + logo.h / 2 + 46, lw0 = logo.w * 0.5;
         ctx.globalAlpha = 0.9; ctx.globalCompositeOperation = 'source-over';
         ctx.fillStyle = 'rgba(42,33,24,0.14)'; ctx.fillRect(W / 2 - lw0 / 2, ly0, lw0, 1.5);
         ctx.fillStyle = '#FFFFFF'; ctx.fillRect(W / 2 - lw0 / 2, ly0, lw0 * (1 - Math.pow(1 - lp, 3)), 1.5);
       }
+    }
+    /* the real wordmark resolves out of the stars, then leaves with the burst */
+    if (logo) {
+      var la = 0;
+      if (phase === 'logo') la = Math.min(1, Math.max(0, (now - phaseT - 1500) / 700));
+      else if (logoOutT > 0) la = Math.max(0, 1 - (now - logoOutT) / 380);
+      if (la > 0) {
+        var lgx = W / 2 - logo.w / 2, lgy = logo.cy - sy - logo.h / 2;
+        var e = la * la * (3 - 2 * la);
+        ctx.save();
+        ctx.globalCompositeOperation = 'source-over';
+        ctx.globalAlpha = e;
+        ctx.shadowColor = 'rgba(107,69,38,0.32)'; ctx.shadowBlur = 28 * DPR; ctx.shadowOffsetY = 10 * DPR;
+        ctx.drawImage(logoImg, lgx, lgy, logo.w, logo.h);
+        ctx.shadowColor = 'rgba(107,69,38,0.18)'; ctx.shadowBlur = 8 * DPR; ctx.shadowOffsetY = 3 * DPR;
+        ctx.drawImage(logoImg, lgx, lgy, logo.w, logo.h);
+        ctx.restore();
+      } else if (phase !== 'logo') logoOutT = -1;
     }
     ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over';
     requestAnimationFrame(frame);
