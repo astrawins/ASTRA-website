@@ -552,13 +552,15 @@ function updateTodayBadge() {
   const mb = $('mtabBadge');
   if (mb) { mb.textContent = n > 99 ? '99+' : n; mb.hidden = !n; }
 }
+/* Ώρα ραντεβού (appt_time) — μόνο ΩΩ:ΛΛ */
+const hhmm = (t) => (t ? String(t).slice(0, 5) : '');
 function todayRow(l, kind) {
   const c = clinicById(l.clinicId);
   const today = todayISO();
   const over = l.nextAction && l.nextAction < today;
   const dueTxt = kind === 'fresh'
     ? 'χωρίς επικοινωνία από ' + new Date(l.createdTime).toLocaleDateString('el-GR', { day: 'numeric', month: 'short' })
-    : (l.status === 'rv' ? 'ραντεβού ' : 'ενέργεια ') + new Date(l.nextAction).toLocaleDateString('el-GR', { day: 'numeric', month: 'short' });
+    : (l.status === 'rv' ? 'ραντεβού ' : 'ενέργεια ') + new Date(l.nextAction).toLocaleDateString('el-GR', { day: 'numeric', month: 'short' }) + (l.apptTime ? ' ' + hhmm(l.apptTime) : '');
   return `<div class="todayrow" data-id="${l.id}">
     <div class="who"><b data-act="open">${esc(l.name)}</b><div class="sub">${esc(c ? c.name : '—')}${l.campaign ? ' · ' + esc(l.campaign) : ''}</div></div>
     <span class="chip ${l.status}">${STATUS[l.status]}</span>
@@ -762,6 +764,7 @@ function openLeadModal(id) {
   $('lmTemplates').dataset.clinic = c ? c.id : '';
   $('lm_status').innerHTML = Object.entries(STATUS).map(([k, v]) => `<option value="${k}"${l.status === k ? ' selected' : ''}>${v}</option>`).join('');
   $('lm_next').value = l.nextAction || '';
+  $('lm_time').value = hhmm(l.apptTime);
   $('lm_amount').value = l.amount || '';
   $('lm_notes').value = l.notes || '';
   renderTimeline(l);
@@ -799,7 +802,13 @@ $('lm_status').addEventListener('change', async () => {
 $('lm_next').addEventListener('change', async () => {
   if (!modalLeadId) return;
   const v = $('lm_next').value || null;
-  await updateLead(modalLeadId, { nextAction: v }, 'next', v ? 'Επόμενη ενέργεια: ' + v : 'Καθαρίστηκε η επόμενη ενέργεια');
+  await updateLead(modalLeadId, v ? { nextAction: v } : { nextAction: null, apptTime: null }, 'next', v ? 'Επόμενη ενέργεια: ' + v : 'Καθαρίστηκε η επόμενη ενέργεια');
+  const l = leadById(modalLeadId); if (l) renderTimeline(l);
+});
+$('lm_time').addEventListener('change', async () => {
+  if (!modalLeadId) return;
+  const v = $('lm_time').value || null;
+  await updateLead(modalLeadId, { apptTime: v }, 'next', v ? 'Ώρα ραντεβού: ' + v : 'Καθαρίστηκε η ώρα ραντεβού');
   const l = leadById(modalLeadId); if (l) renderTimeline(l);
 });
 $('lm_amount').addEventListener('change', async () => {
@@ -1421,7 +1430,7 @@ function renderClinicView() {
     const row = (l, over) => `<div class="todayrow" data-id="${l.id}">
         <div class="who"><b data-act="open">${esc(l.name)}</b><div class="sub">${esc(l.phone || '')}</div></div>
         <span class="chip ${l.status}">${STATUS[l.status]}</span>
-        <span class="due ${over ? 'over' : ''}">${new Date(l.nextAction).toLocaleDateString('el-GR', { weekday: 'short', day: 'numeric', month: 'short' })}</span>
+        <span class="due ${over ? 'over' : ''}">${new Date(l.nextAction).toLocaleDateString('el-GR', { weekday: 'short', day: 'numeric', month: 'short' })}${l.apptTime ? ' ' + hhmm(l.apptTime) : ''}</span>
       </div>`;
     body = `${overdue.length ? `<h3 class="sectionhead" style="margin-top:0">Εκπρόθεσμα <span class="chip lost">${overdue.length}</span></h3><div class="card">${overdue.map((l) => row(l, true)).join('')}</div>` : ''}
       <h3 class="sectionhead">Επερχόμενα ραντεβού &amp; ενέργειες <span class="chip plain">${upcoming.length}</span></h3>
@@ -1740,7 +1749,7 @@ function leadRowHTML(l) {
     <td>${esc(c ? c.name : '—')}</td>
     <td style="font-size:12.5px">${esc(l.campaign || '—')}${plat ? ` <span class="chip plain">${plat}</span>` : ''}</td>
     <td><select data-f="status">${Object.entries(STATUS).map(([k, v]) => `<option value="${k}"${l.status === k ? ' selected' : ''}>${v}</option>`).join('')}</select></td>
-    <td><input type="date" data-f="nextAction" value="${l.nextAction || ''}" style="${over ? 'color:var(--crit);font-weight:600' : ''}"></td>
+    <td style="white-space:nowrap"><input type="date" data-f="nextAction" value="${l.nextAction || ''}" style="${over ? 'color:var(--crit);font-weight:600' : ''}"> <input type="time" data-f="apptTime" value="${hhmm(l.apptTime)}" title="Ώρα ραντεβού" style="width:92px"></td>
     <td class="num">${l.status === 'won' ? `<input class="amt" data-f="amount" value="${l.amount || ''}" placeholder="0" inputmode="decimal">` : (+l.amount ? eur(+l.amount) : '—')}</td>
   </tr>`;
 }
@@ -1756,7 +1765,9 @@ async function onLeadRowChange(e) {
       const v = parseNum(t.value);
       await updateLead(id, { amount: v }, 'amount', 'Ποσό αγοράς: ' + eur(v));
     } else if (f === 'nextAction') {
-      await updateLead(id, { nextAction: t.value || null }, 'next', t.value ? 'Επόμενη ενέργεια: ' + t.value : 'Καθαρίστηκε');
+      await updateLead(id, t.value ? { nextAction: t.value } : { nextAction: null, apptTime: null }, 'next', t.value ? 'Επόμενη ενέργεια: ' + t.value : 'Καθαρίστηκε');
+    } else if (f === 'apptTime') {
+      await updateLead(id, { apptTime: t.value || null }, 'next', t.value ? 'Ώρα ραντεβού: ' + t.value : 'Καθαρίστηκε η ώρα');
     }
   } catch (err) { toast('Αποτυχία ενημέρωσης: ' + err.message); }
 }

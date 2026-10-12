@@ -103,7 +103,10 @@ export function mapLeads(rows, clinicId) {
     const pack = /^ναι|^yes/i.test(g(iPack));
     const amount = parseFloat(String(g(iAmount)).replace(/[^\d.,]/g, '').replace(',', '.')) || 0;
     const status = pack ? 'won' : statusFromEl(g(iStatus));
-    const appt = g(iAppt) ? sheetDateToISO(iAppt >= 0 ? r[iAppt] : '').slice(0, 10) : '';
+    const apptISO = g(iAppt) ? sheetDateToISO(iAppt >= 0 ? r[iAppt] : '') : '';
+    const appt = apptISO.slice(0, 10);
+    const ad = apptISO ? new Date(apptISO) : null; // ώρα ραντεβού αν το sheet έχει και ώρα
+    const apptTime = ad && !isNaN(ad) && (ad.getHours() || ad.getMinutes()) ? String(ad.getHours()).padStart(2, '0') + ':' + String(ad.getMinutes()).padStart(2, '0') : '';
     const created = iCr >= 0 ? sheetDateToISO(r[iCr]) : '';
     out.push({
       id, clinicId,
@@ -113,6 +116,7 @@ export function mapLeads(rows, clinicId) {
       sheetNotes, source: 'sheet',
       status, amount, notes: '',
       ...(appt ? { nextAction: appt } : {}),
+      ...(apptTime ? { apptTime } : {}),
       ...(status === 'won' ? { saleDate: appt || created.slice(0, 10) || new Date().toISOString().slice(0, 10) } : {}),
       ...(status === 'show' || status === 'won' ? { attendedAt: new Date().toISOString().slice(0, 10) } : {}), // ήρθε ήδη κατά την εισαγωγή → χρεώνεται με ημερομηνία εισαγωγής
       importedAt: new Date().toISOString(),

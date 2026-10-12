@@ -219,6 +219,7 @@ function render() {
     + '<p style="color:var(--soft);font-size:12.5px;margin-top:26px">Τα στοιχεία ενημερώνονται από την ομάδα της Astra Marketing. Για οτιδήποτε χρειαστείτε: info@astramarketing.gr</p>';
 }
 
+const hhmm = (t) => (t ? String(t).slice(0, 5) : '');
 /* ---- Tab «Ραντεβού»: επιβεβαίωση ποιος ήρθε ---- */
 function renderAppts() {
   const body = document.getElementById('pBody');
@@ -227,7 +228,7 @@ function renderAppts() {
   const shown = D.leads.filter((l) => l.status === 'show').sort((a, b) => String(b.createdTime).localeCompare(String(a.createdTime))).slice(0, 15);
   const row = (l) => `<div class="todayrow" data-id="${l.id}">
       <div class="who"><b>${esc(l.name)}</b><div class="sub">${esc(l.phone || '')}</div></div>
-      <span class="due ${l.nextAction && l.nextAction < today ? 'over' : ''}">${l.nextAction ? new Date(l.nextAction).toLocaleDateString('el-GR', { weekday: 'short', day: 'numeric', month: 'short' }) : 'χωρίς ημερομηνία'}</span>
+      <span class="due ${l.nextAction && l.nextAction < today ? 'over' : ''}">${l.nextAction ? new Date(l.nextAction).toLocaleDateString('el-GR', { weekday: 'short', day: 'numeric', month: 'short' }) + (l.apptTime ? ' · ' + hhmm(l.apptTime) : '') : 'χωρίς ημερομηνία'}</span>
       <div class="acts">
         <input class="amt" inputmode="decimal" placeholder="Πλήρωσε €" title="Ποσό που πλήρωσε ο ασθενής (προαιρετικό)" style="width:92px;padding:6px 8px;border:1px solid var(--hair);border-radius:8px;background:var(--card);font:inherit">
         <button class="btn small primary" data-mark="1">✓ Έγινε</button>
@@ -290,7 +291,7 @@ function renderJourney() {
           <td class="mono">${d && !isNaN(d) ? d.toLocaleDateString('el-GR', { day: 'numeric', month: 'short' }) : '—'}</td>
           <td style="font-size:12.5px;max-width:300px">${leadDetails(l)}</td>
           <td><span class="chip ${st[1]}">${st[0]}</span></td>
-          <td style="font-size:12.5px;color:var(--soft)">${l.status === 'rv' && l.nextAction ? 'Ραντεβού ' + new Date(l.nextAction).toLocaleDateString('el-GR', { day: 'numeric', month: 'short' }) : l.status === 'won' ? (l.amount ? eur(l.amount) : '') : l.status === 'lost' ? '—' : 'Η ομάδα μας επικοινωνεί'}</td></tr>`;
+          <td style="font-size:12.5px;color:var(--soft)">${l.status === 'rv' && l.nextAction ? 'Ραντεβού ' + new Date(l.nextAction).toLocaleDateString('el-GR', { day: 'numeric', month: 'short' }) + (l.apptTime ? ' ' + hhmm(l.apptTime) : '') : l.status === 'won' ? (l.amount ? eur(l.amount) : '') : l.status === 'lost' ? '—' : 'Η ομάδα μας επικοινωνεί'}</td></tr>`;
       }).join('') : '<tr><td colspan="6" class="empty">Τίποτα ακόμα.</td></tr>'}
     </tbody></table></div>`;
   const si = document.getElementById('jSearch');
@@ -383,9 +384,9 @@ async function renderCal() {
   const gc = CAL.cache[mk];
   const byDate = {};
   if (Array.isArray(gc)) gc.forEach((ev) => { (byDate[ev.date] = byDate[ev.date] || []).push({ ...ev, kind: 'g' }); });
-  /* Ραντεβού που έκλεισε η astra από τα leads (ημερομηνία μόνο) — εμφανίζονται ως ένδειξη, δεν επεξεργάζονται εδώ */
+  /* Ραντεβού που έκλεισε η astra από τα leads (ημερομηνία + ώρα αν έχει οριστεί) — εμφανίζονται ως ένδειξη, δεν επεξεργάζονται εδώ */
   D.leads.filter((l) => l.status === 'rv' && l.nextAction && String(l.nextAction).slice(0, 7) === mk)
-    .forEach((l) => { const k = String(l.nextAction).slice(0, 10); (byDate[k] = byDate[k] || []).push({ id: 'lead-' + l.id, title: 'astra: ' + l.name, start: '', kind: 'lead' }); });
+    .forEach((l) => { const k = String(l.nextAction).slice(0, 10); (byDate[k] = byDate[k] || []).push({ id: 'lead-' + l.id, title: (l.apptTime ? hhmm(l.apptTime) + ' ' : '') + 'astra: ' + l.name, start: hhmm(l.apptTime), kind: 'lead' }); });
   const chip = (ev) => ev.kind === 'lead'
     ? `<span class="calev act" title="${esc(ev.title)}">${esc(ev.title)}</span>`
     : `<button class="calev gev" data-gev="${esc(ev.id)}" title="${esc(ev.title + (ev.start ? ' · ' + ev.start : ''))}">${ev.start ? `<span class="mono">${ev.start}</span> ` : ''}${esc(ev.title)}</button>`;
