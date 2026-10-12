@@ -262,6 +262,14 @@ async function updateLead(id, patch, logType, logBody) {
   if (logType) await logAct(id, logType, logBody || '');
   await refresh();
 }
+/* Patch αλλαγής σταδίου: πώληση → ημερομηνία πώλησης· ήρθε/πώληση → ημερομηνία προσέλευσης
+   (attendedAt = η μέρα της επιβεβαίωσης — βάση της χρέωσης ανά ραντεβού, βλ. isBooked/billDate). */
+function statusPatch(st, l) {
+  const p = { status: st };
+  if (st === 'won') p.saleDate = todayISO();
+  if (['show', 'won'].includes(st) && !(l && l.attendedAt)) p.attendedAt = todayISO();
+  return p;
+}
 
 /* ============ Google Sheet / CSV import ============ */
 async function importRows(rows, clinic, label) {
@@ -783,8 +791,7 @@ $('leadModal').addEventListener('click', (e) => { if (e.target === $('leadModal'
 $('lm_status').addEventListener('change', async () => {
   if (!modalLeadId) return;
   const v = $('lm_status').value;
-  const patch = { status: v };
-  if (v === 'won') patch.saleDate = todayISO();
+  const patch = statusPatch(v, leadById(modalLeadId));
   await updateLead(modalLeadId, patch, 'status', 'Στάδιο → ' + STATUS[v]);
   const l = leadById(modalLeadId); if (l) renderTimeline(l);
 });
@@ -1696,7 +1703,7 @@ kb.addEventListener('drop', async (e) => {
   e.preventDefault(); col.classList.remove('dragover');
   const id = e.dataTransfer.getData('text/plain'); const st = col.dataset.status;
   const l = leadById(id); if (!l || l.status === st) return;
-  const patch = { status: st }; if (st === 'won') patch.saleDate = todayISO();
+  const patch = statusPatch(st, l);
   await updateLead(id, patch, 'status', 'Στάδιο → ' + STATUS[st] + ' (kanban)');
 });
 kb.addEventListener('click', (e) => { const c = e.target.closest('.kcard'); if (c) openLeadModal(c.dataset.id); });
@@ -1742,8 +1749,7 @@ async function onLeadRowChange(e) {
   const id = tr.dataset.id, f = t.dataset.f; if (!f) return;
   try {
     if (f === 'status') {
-      const patch = { status: t.value };
-      if (t.value === 'won') patch.saleDate = todayISO();
+      const patch = statusPatch(t.value, leadById(id));
       await updateLead(id, patch, 'status', 'Στάδιο → ' + STATUS[t.value]);
     } else if (f === 'amount') {
       const v = parseNum(t.value);
@@ -2267,10 +2273,13 @@ async function materializeRecurring() {
 }
 
 /* ---- Φορολογία: ΦΠΑ μήνα + φόρος 22% έτους + προκαταβολή ---- */
-/* Μοντέλο εσόδων Astra: 50€ (ρυθμιζόμενο) ανά πληρωμένο ραντεβού — υπολογίζεται
-   αυτόματα από τα leads που έφτασαν σε ραντεβού (rv/show/won), όχι από χειροκίνητες εγγραφές. */
+/* Μοντέλο εσόδων Astra: 50€ (ρυθμιζόμενο) ανά ραντεβού που ΕΓΙΝΕ — υπολογίζεται αυτόματα από τα leads
+   που ήρθαν στο ιατρείο (show/won), όχι από τα απλώς κλεισμένα (rv) ούτε από χειροκίνητες εγγραφές.
+   Ημερομηνία χρέωσης = η μέρα που επιβεβαιώθηκε η προσέλευση (attendedAt), ώστε να πέφτει πάντα
+   σε εβδομάδα που δεν έχει κλείσει ακόμη. */
 const apptFee = () => +SET().appointmentFee || 50;
-const isBooked = (l) => ['rv', 'show', 'won'].includes(l.status);
+const isBooked = (l) => ['show', 'won'].includes(l.status);
+const billDate = (l) => String(l.attendedAt || l.saleDate || l.createdTime || '').slice(0, 10);
 function taxEstimate() {
   const mk = nowMonth();
   const year = mk.slice(0, 4);
@@ -2283,8 +2292,8 @@ function taxEstimate() {
   const incY = S.fin.filter((f) => f.kind === 'income' && inYear(f) && notBilling(f));
   const expY = S.fin.filter((f) => f.kind === 'expense' && inYear(f));
   // Πληρωμένα ραντεβού από leads που ήρθαν τον μήνα / τη χρονιά
-  const apptM = S.leads.filter((l) => isBooked(l) && monthKey(l.createdTime) === mk).length;
-  const apptY = S.leads.filter((l) => isBooked(l) && String(l.createdTime || '').startsWith(year)).length;
+  const apptM = S.leads.filter((l) => isBooked(l) && monthKey(billDate(l)) === mk).length;
+  const apptY = S.leads.filter((l) => isBooked(l) && billDate(l).startsWith(year)).length;
   const revM = apptM * apptFee() + sum(incM, 'net');      // τζίρος μήνα
   const revY = apptY * apptFee() + sum(incY, 'net');
   const expMn = sum(expM, 'net'), expYn = sum(expY, 'net');
@@ -2324,8 +2333,8 @@ function lastWeeks(n) { const out = []; const s = weekStartOf(new Date()); s.set
 const wkLabel = (startIso) => { const r = weekRange(startIso); const f = (x) => new Date(x + 'T12:00:00').toLocaleDateString('el-GR', { day: 'numeric', month: 'short' }); return f(r.start) + ' – ' + f(r.end); };
 function weekLeads(clinicId, startIso) {
   const r = weekRange(startIso);
-  return S.leads.filter((l) => l.clinicId === clinicId && isBooked(l) && l.createdTime && String(l.createdTime).slice(0, 10) >= r.start && String(l.createdTime).slice(0, 10) <= r.end)
-    .sort((a, b) => String(a.createdTime).localeCompare(String(b.createdTime)));
+  return S.leads.filter((l) => l.clinicId === clinicId && isBooked(l) && billDate(l) >= r.start && billDate(l) <= r.end)
+    .sort((a, b) => billDate(a).localeCompare(billDate(b)));
 }
 /* Μοντέλο «ποσοστό επί πωλήσεων»: πωλήσεις της εβδομάδας (ημερομηνία πώλησης) × καθαρό ποσό × ποσοστό. */
 const isShare = (c) => (c.billingModel || 'appointment') === 'share';

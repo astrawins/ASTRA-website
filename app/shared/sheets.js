@@ -114,6 +114,7 @@ export function mapLeads(rows, clinicId) {
       status, amount, notes: '',
       ...(appt ? { nextAction: appt } : {}),
       ...(status === 'won' ? { saleDate: appt || created.slice(0, 10) || new Date().toISOString().slice(0, 10) } : {}),
+      ...(status === 'show' || status === 'won' ? { attendedAt: new Date().toISOString().slice(0, 10) } : {}), // ήρθε ήδη κατά την εισαγωγή → χρεώνεται με ημερομηνία εισαγωγής
       importedAt: new Date().toISOString(),
     });
   }

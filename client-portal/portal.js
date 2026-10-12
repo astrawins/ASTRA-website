@@ -122,6 +122,7 @@ async function load() {
 /* Κέρδος κλινικής (χωρίς ΦΠΑ): έσοδα νέων ασθενών ÷ 1,24 − διαφημιστική δαπάνη − αμοιβή astra. */
 const netRev = (s) => (+s.revenue || 0) / 1.24;
 const profitOf = (s) => +(netRev(s) - (+s.spend || 0) - (+s.agencyIncome || 0)).toFixed(2);
+const profitColor = (p) => (p >= 0 ? 'var(--good)' : 'inherit'); // αρνητικό κέρδος δεν δείχνεται πράσινο
 const roiOf = (s) => { const cost = (+s.spend || 0) + (+s.agencyIncome || 0); return cost > 0 ? profitOf(s) / cost : 0; };
 function profitBlock(list, title) {
   const rev = list.reduce((a, s) => a + netRev(s), 0), spend = list.reduce((a, s) => a + (+s.spend || 0), 0), fee = list.reduce((a, s) => a + (+s.agencyIncome || 0), 0);
@@ -133,7 +134,7 @@ function profitBlock(list, title) {
       ${row('Έσοδα από νέους ασθενείς (χωρίς ΦΠΑ)', eur(rev))}
       ${row('− Διαφημιστική δαπάνη', '− ' + eur(spend))}
       ${row('− Αμοιβή astra', '− ' + eur(fee))}
-      ${row('= Καθαρό κέρδος σας', eur(profit), 'color:var(--good);font-size:16px')}
+      ${row('= Καθαρό κέρδος σας', eur(profit), 'color:' + profitColor(profit) + ';font-size:16px')}
       ${cost > 0 ? row('Για κάθε 1 € που επενδύσατε (δαπάνη + αμοιβή)', 'πήρατε πίσω ' + (1 + profit / cost).toFixed(2) + ' €') : ''}
     </div>`;
 }
@@ -171,7 +172,7 @@ function render() {
       ${tile('Κόστος ανά ενδιαφερόμενο', c.cpl ? eur(c.cpl) : '—', 'Cost per Lead')}
       ${tile('Κόστος ανά ραντεβού', c.rv && c.spend ? eur(c.spend / c.rv) : '—', 'Cost per Booking')}
       ${tile('Απόδοση (ROAS)', c.spend > 0 ? (+c.roas).toFixed(2) + '×' : '—', 'έσοδα ÷ δαπάνη')}
-      ${tile('Καθαρό κέρδος σας · ' + mLabel(mk), `<span style="color:var(--good)">${eur(profitOf(c))}</span>`, 'μετά τη δαπάνη και την αμοιβή astra')}
+      ${tile('Καθαρό κέρδος σας · ' + mLabel(mk), `<span style="color:${profitColor(profitOf(c))}">${eur(profitOf(c))}</span>`, c.revenue ? 'μετά τη δαπάνη και την αμοιβή astra' : 'δεν έχουν καταγραφεί έσοδα ακόμη · έσοδα − δαπάνη − αμοιβή astra')}
       ${(() => { const e = currentWeekEstimate(); const open = D.bills.filter((b) => (b.payStatus || 'pending') !== 'paid').reduce((s, b) => s + (+b.gross || 0), 0); return D.clinic ? tile('Οφειλή προς astra', eur(open + (e ? e.gross : 0)), (open ? eur(open) + ' ανοιχτό' : 'τίποτα ανοιχτό') + (e ? ' · ' + eur(e.gross) + ' τρέχουσα εβδ.' : '')) : ''; })()}
     </div>`;
 
@@ -189,7 +190,7 @@ function render() {
 
   const hist = past.length ? `<h3 class="sectionhead">Ιστορικό ανά μήνα</h3>
     <div class="card tablewrap section"><table><thead><tr><th>Μήνας</th><th class="num">Ενδιαφ.</th><th class="num">Ραντεβού</th><th class="num">Ήρθαν</th><th class="num">Ασθενείς</th><th class="num">Έσοδα</th><th class="num">Κέρδος σας</th><th class="num">Δαπάνη</th><th class="num">€/Lead</th><th class="num">€/Ραντ.</th><th class="num">ROAS</th></tr></thead><tbody>
-      ${past.map((s) => `<tr><td class="mono"><b>${mLabel(s.month)}</b></td><td class="num">${s.leads}</td><td class="num">${s.rv}</td><td class="num">${s.shows}</td><td class="num">${s.sales}</td><td class="num">${eur(s.revenue)}</td><td class="num" style="color:var(--good)"><b>${eur(profitOf(s))}</b></td><td class="num">${eur(s.spend)}</td><td class="num">${s.cpl ? eur(s.cpl) : '—'}</td><td class="num">${s.rv && s.spend ? eur(s.spend / s.rv) : '—'}</td><td class="num">${s.spend > 0 ? (+s.roas).toFixed(2) + '×' : '—'}</td></tr>`).join('')}
+      ${past.map((s) => `<tr><td class="mono"><b>${mLabel(s.month)}</b></td><td class="num">${s.leads}</td><td class="num">${s.rv}</td><td class="num">${s.shows}</td><td class="num">${s.sales}</td><td class="num">${eur(s.revenue)}</td><td class="num" style="color:${profitColor(profitOf(s))}"><b>${eur(profitOf(s))}</b></td><td class="num">${eur(s.spend)}</td><td class="num">${s.cpl ? eur(s.cpl) : '—'}</td><td class="num">${s.rv && s.spend ? eur(s.spend / s.rv) : '—'}</td><td class="num">${s.spend > 0 ? (+s.roas).toFixed(2) + '×' : '—'}</td></tr>`).join('')}
     </tbody></table></div>` : '';
 
   const campsHtml = camps.length ? `<h3 class="sectionhead">Οι καμπάνιες σας</h3>
@@ -216,7 +217,7 @@ function renderAppts() {
       </div></div>`;
   body.innerHTML = `
     <h3 class="sectionhead" style="margin-top:0">Κλεισμένα ραντεβού <span class="chip rv">${rv.length}</span></h3>
-    <p style="color:var(--soft);font-size:13px;margin:-4px 0 12px">Επιβεβαιώστε ποιοι προσήλθαν — έτσι τα στατιστικά σας μένουν ακριβή και η ομάδα μας κάνει follow-up σε όσους δεν ήρθαν.</p>
+    <p style="color:var(--soft);font-size:13px;margin:-4px 0 12px">Επιβεβαιώστε ποιοι προσήλθαν — η αμοιβή της astra χρεώνεται μόνο για τα ραντεβού που έγιναν, και η ομάδα μας κάνει follow-up σε όσους δεν ήρθαν.</p>
     <div class="card section">${rv.length ? rv.map(row).join('') : '<div class="empty">Κανένα εκκρεμές ραντεβού.</div>'}</div>
     ${shown.length ? `<h3 class="sectionhead">Επιβεβαιωμένα — ήρθαν <span class="chip show">${shown.length}</span></h3>
     <div class="card">${shown.map((l) => `<div class="todayrow"><div class="who"><b>${esc(l.name)}</b></div><span class="chip show">Ήρθε ✓</span></div>`).join('')}</div>` : ''}`;
@@ -281,7 +282,7 @@ function currentWeekEstimate() {
   const inWeek = (d) => d && String(d).slice(0, 10) >= w.start && String(d).slice(0, 10) <= w.end;
   const items = share
     ? D.leads.filter((l) => l.status === 'won' && (+l.amount || 0) > 0 && inWeek(l.saleDate || l.createdTime))
-    : D.leads.filter((l) => ['rv', 'show', 'won'].includes(l.status) && inWeek(l.createdTime));
+    : D.leads.filter((l) => ['show', 'won'].includes(l.status) && inWeek(l.attendedAt || l.saleDate || l.createdTime)); // μόνο όσα ΕΓΙΝΑΝ, με ημερομηνία επιβεβαίωσης
   const net = share ? items.reduce((s, l) => s + (+l.amount || 0) / 1.24, 0) * ((+c.sharePct || 50) / 100) : items.length * (+c.fee || 50);
   return { w, share, n: items.length, net: +net.toFixed(2), gross: +(net * 1.24).toFixed(2), pct: +c.sharePct || 50, fee: +c.fee || 50 };
 }
@@ -292,12 +293,12 @@ function renderBills() {
   const due = open.reduce((s, b) => s + (+b.gross || 0), 0);
   const tiles = `<div class="tiles section">
       ${tile('Ανοιχτό υπόλοιπο', eur(due), open.length ? open.length + ' εκκαθαρίσεις προς πληρωμή' : 'Όλα εξοφλημένα ✓')}
-      ${est ? tile('Τρέχουσα εβδομάδα (εκτίμηση)', eur(est.gross), (est.share ? `${est.n} πωλήσεις × ${est.pct}% επί καθαρού` : `${est.n} ραντεβού × ${eur(est.fee)}`) + ' · κλείνει τη Δευτέρα') : ''}
+      ${est ? tile('Τρέχουσα εβδομάδα (εκτίμηση)', eur(est.gross), (est.share ? `${est.n} πωλήσεις × ${est.pct}% επί καθαρού` : `${est.n} ραντεβού που έγιναν × ${eur(est.fee)}`) + ' · κλείνει τη Δευτέρα') : ''}
       ${tile('Πληρωμένα συνολικά', eur(D.bills.filter((b) => b.payStatus === 'paid').reduce((s, b) => s + (+b.gross || 0), 0)), '')}
     </div>`;
   const how = est ? `<p style="color:var(--soft);font-size:13px;margin:-4px 0 14px">${est.share
     ? `Η αμοιβή της astra είναι ${est.pct}% επί του καθαρού ποσού (χωρίς ΦΠΑ) κάθε πώλησης που κλείνει. Κάθε Δευτέρα κλείνει η εκκαθάριση της προηγούμενης εβδομάδας· τα ποσά παρακάτω περιλαμβάνουν ΦΠΑ 24%.`
-    : `Η αμοιβή της astra είναι ${eur(est.fee)} ανά κλεισμένο ραντεβού. Κάθε Δευτέρα κλείνει η εκκαθάριση της προηγούμενης εβδομάδας· τα ποσά παρακάτω περιλαμβάνουν ΦΠΑ 24%.`}</p>` : '';
+    : `Η αμοιβή της astra είναι ${eur(est.fee)} ανά ραντεβού που πραγματοποιήθηκε (το επιβεβαιώνετε με «Έγινε» στην καρτέλα Ραντεβού). Κάθε Δευτέρα κλείνει η εκκαθάριση της προηγούμενης εβδομάδας· τα ποσά παρακάτω περιλαμβάνουν ΦΠΑ 24%.`}</p>` : '';
   const rows = D.bills.map((b) => {
     const pc = PAY[b.payStatus || 'pending'] || PAY.pending;
     const items = b.model === 'share' ? `${b.sales} πωλήσεις × ${+b.sharePct}%` : `${b.appts} ραντεβού × ${eur(+b.fee)}`;
