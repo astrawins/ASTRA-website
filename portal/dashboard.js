@@ -677,11 +677,14 @@ function clinicCallsBlock(due, fresh, upcoming, stale, confirm = []) {
     <div class="callgroups">${rows.map(({ cid, g, calls, c }) => {
       const open = openCallGroups.has(cid);
       const parts = [];
-      if (g.confirm.length) parts.push(`<span class="chip epik">${g.confirm.length} προς επιβεβαίωση</span>`);
       if (g.due.length) parts.push(`<span class="chip lost">${g.due.length} για σήμερα</span>`);
       if (g.fresh.length) parts.push(`<span class="chip epik">${g.fresh.length} νέα</span>`);
       if (g.stale.length) parts.push(`<span class="chip plain">${g.stale.length} ξεχασμένα</span>`);
-      if (g.up.length) parts.push(`<span class="chip rv">${g.up.length} ραντεβού</span>`);
+      /* Ραντεβού (επερχόμενα + σήμερα): πόσα περιμένουν τηλεφωνική επιβεβαίωση και πόσα είναι επιβεβαιωμένα */
+      const appts = [...new Map([...g.confirm, ...g.up].map((l) => [l.id, l])).values()];
+      const unconf = appts.filter((l) => !l.confirmedAt).length, conf = appts.length - unconf;
+      if (unconf) parts.push(`<span class="chip epik">${unconf} ραντεβού προς επιβεβαίωση</span>`);
+      if (conf) parts.push(`<span class="chip show">${conf} ραντεβού επιβεβαιωμέν${conf === 1 ? "ο" : "α"}</span>`);
       return `<div class="card callgroup${open ? ' open' : ''}">
         <button class="cghead" data-cgrp="${cid}" aria-expanded="${open}">
           <span class="cgchev">${open ? '▾' : '▸'}</span>
