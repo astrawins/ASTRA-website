@@ -119,6 +119,23 @@ async function load() {
   renderRoot();
 }
 
+/* Τρέχων μήνας ΖΩΝΤΑΝΑ από τα leads/καμπάνιες (ώστε το «Έγινε» να φαίνεται αμέσως)· η αμοιβή astra από τις
+   εκκαθαρίσεις του μήνα + την εκτίμηση της τρέχουσας εβδομάδας. Έσοδα = ό,τι πλήρωσαν όσοι ήρθαν ή πήραν πακέτο. */
+function liveMonth(mk, base) {
+  const inM = (d) => String(d || '').slice(0, 7) === mk;
+  const ls = D.leads.filter((l) => inM(l.createdTime));
+  const paying = D.leads.filter((l) => ['show', 'won'].includes(l.status) && (+l.amount || 0) > 0 && inM(l.saleDate || l.attendedAt || l.createdTime));
+  const revenue = paying.reduce((s, l) => s + (+l.amount || 0), 0);
+  const cps = D.camps.filter((x) => x.month === mk);
+  const spend = cps.length ? cps.reduce((s, x) => s + (+x.spend || 0), 0) : (base ? +base.spend || 0 : 0);
+  const est = currentWeekEstimate();
+  const agencyIncome = D.bills.filter((b) => inM(b.periodEnd)).reduce((s, b) => s + (+b.total || 0), 0) + (est ? est.net : 0);
+  const rv = ls.filter((l) => ['rv', 'show', 'won'].includes(l.status)).length;
+  return { ...(base || {}), month: mk, leads: ls.length, rv, shows: ls.filter((l) => ['show', 'won'].includes(l.status)).length,
+    sales: D.leads.filter((l) => l.status === 'won' && inM(l.saleDate || l.createdTime)).length,
+    revenue: +revenue.toFixed(2), spend: +spend.toFixed(2), cpl: ls.length && spend ? spend / ls.length : 0, roas: spend > 0 ? revenue / spend : 0,
+    agencyIncome: +agencyIncome.toFixed(2) };
+}
 /* Κέρδος κλινικής (χωρίς ΦΠΑ): έσοδα νέων ασθενών ÷ 1,24 − διαφημιστική δαπάνη − αμοιβή astra. */
 const netRev = (s) => (+s.revenue || 0) / 1.24;
 const profitOf = (s) => +(netRev(s) - (+s.spend || 0) - (+s.agencyIncome || 0)).toFixed(2);
@@ -161,13 +178,13 @@ function render() {
     return;
   }
 
-  const c = cur || { leads: 0, rv: 0, shows: 0, sales: 0, revenue: 0, spend: 0, cpl: 0, roas: 0 };
+  const c = liveMonth(mk, cur);
   const tiles = `<div class="tiles section">
       ${tile('Νέα ενδιαφερόμενα · ' + mLabel(mk), num(c.leads) + delta(c.leads, prev && prev.leads), '')}
       ${tile('Ραντεβού', num(c.rv) + delta(c.rv, prev && prev.rv), c.leads ? Math.round(100 * c.rv / c.leads) + '% των ενδιαφερομένων' : '')}
       ${tile('Ήρθαν στο ιατρείο', num(c.shows), c.rv ? Math.round(100 * c.shows / c.rv) + '% των ραντεβού' : '')}
       ${tile('Νέοι ασθενείς', num(c.sales) + delta(c.sales, prev && prev.sales), '')}
-      ${tile('Έσοδα από νέους ασθενείς', eur(c.revenue), '')}
+      ${tile('Έσοδα από νέους ασθενείς', eur(c.revenue), 'επισκέψεις + πακέτα')}
       ${tile('Διαφημιστική δαπάνη', eur(c.spend), '')}
       ${tile('Κόστος ανά ενδιαφερόμενο', c.cpl ? eur(c.cpl) : '—', 'Cost per Lead')}
       ${tile('Κόστος ανά ραντεβού', c.rv && c.spend ? eur(c.spend / c.rv) : '—', 'Cost per Booking')}
@@ -212,12 +229,13 @@ function renderAppts() {
       <div class="who"><b>${esc(l.name)}</b><div class="sub">${esc(l.phone || '')}</div></div>
       <span class="due ${l.nextAction && l.nextAction < today ? 'over' : ''}">${l.nextAction ? new Date(l.nextAction).toLocaleDateString('el-GR', { weekday: 'short', day: 'numeric', month: 'short' }) : 'χωρίς ημερομηνία'}</span>
       <div class="acts">
+        <input class="amt" inputmode="decimal" placeholder="Πλήρωσε €" title="Ποσό που πλήρωσε ο ασθενής (προαιρετικό)" style="width:92px;padding:6px 8px;border:1px solid var(--hair);border-radius:8px;background:var(--card);font:inherit">
         <button class="btn small primary" data-mark="1">✓ Έγινε</button>
         <button class="btn small" data-mark="0">Δεν ήρθε</button>
       </div></div>`;
   body.innerHTML = `
     <h3 class="sectionhead" style="margin-top:0">Κλεισμένα ραντεβού <span class="chip rv">${rv.length}</span></h3>
-    <p style="color:var(--soft);font-size:13px;margin:-4px 0 12px">Επιβεβαιώστε ποιοι προσήλθαν — η αμοιβή της astra χρεώνεται μόνο για τα ραντεβού που έγιναν, και η ομάδα μας κάνει follow-up σε όσους δεν ήρθαν.</p>
+    <p style="color:var(--soft);font-size:13px;margin:-4px 0 12px">Επιβεβαιώστε ποιοι προσήλθαν — η αμοιβή της astra χρεώνεται μόνο για τα ραντεβού που έγιναν, και η ομάδα μας κάνει follow-up σε όσους δεν ήρθαν. Αν γράψετε και το ποσό που πλήρωσε ο ασθενής, υπολογίζεται το καθαρό σας κέρδος.</p>
     <div class="card section">${rv.length ? rv.map(row).join('') : '<div class="empty">Κανένα εκκρεμές ραντεβού.</div>'}</div>
     ${shown.length ? `<h3 class="sectionhead">Επιβεβαιωμένα — ήρθαν <span class="chip show">${shown.length}</span></h3>
     <div class="card">${shown.map((l) => `<div class="todayrow"><div class="who"><b>${esc(l.name)}</b></div><span class="chip show">Ήρθε ✓</span></div>`).join('')}</div>` : ''}`;
@@ -226,9 +244,11 @@ document.getElementById('pBody').addEventListener('click', async (e) => {
   const b = e.target.closest('[data-mark]'); if (!b) return;
   const id = b.closest('[data-id]').dataset.id;
   const attended = b.dataset.mark === '1';
+  const amtEl = b.closest('[data-id]').querySelector('.amt');
+  const amount = attended && amtEl ? parseFloat(String(amtEl.value).replace(',', '.')) || 0 : 0;
   b.disabled = true; b.textContent = '…';
   try {
-    await rest('rpc/client_mark_attended', { method: 'POST', body: { p_lead_id: id, p_attended: attended } });
+    await rest('rpc/client_mark_attended', { method: 'POST', body: { p_lead_id: id, p_attended: attended, p_amount: amount > 0 ? amount : null } });
     callFunction('push-send', { action: 'attended', leadId: id, attended }).catch(() => { /* η ειδοποίηση είναι προαιρετική */ });
     alertBox(attended ? 'Καταγράφηκε: ήρθε ✓ — η ομάδα της astra ενημερώθηκε.' : 'Καταγράφηκε: δεν ήρθε — η ομάδα της astra θα κάνει follow-up.');
     await load();
@@ -241,6 +261,16 @@ function alertBox(msg) {
   document.body.appendChild(t); setTimeout(() => t.remove(), 4000);
 }
 
+/* Στοιχεία που άφησε το lead στη φόρμα (προσφορά, πότε θέλει να έρθει, αν μπορεί…) + σημείωση της ομάδας astra. */
+function leadDetails(l) {
+  const bits = String(l.sheetNotes || '').split(' · ').map((x) => x.trim()).filter(Boolean)
+    .map((x) => { const i = x.indexOf(': '); return i > 0 ? `<span style="color:var(--soft)">${esc(x.slice(0, i))}:</span> ${esc(x.slice(i + 2))}` : esc(x); });
+  if (l.amount && ['show', 'won'].includes(l.status)) bits.push(`<span style="color:var(--soft)">Πλήρωσε:</span> ${eur(l.amount)}`);
+  const note = String(l.notes || '').trim();
+  return (bits.length ? `<div style="line-height:1.5">${bits.join('<br>')}</div>` : '')
+    + (note ? `<div style="margin-top:4px;padding:5px 8px;border-left:3px solid var(--c2);background:rgba(0,0,0,.035);border-radius:0 6px 6px 0;line-height:1.45"><span style="color:var(--soft);font-size:11px">astra:</span> ${esc(note)}</div>` : '')
+    || '<span style="color:var(--soft)">—</span>';
+}
 /* ---- Tab «Πορεία ενδιαφερομένων» ---- */
 let journeyQ = '';
 function renderJourney() {
@@ -251,16 +281,17 @@ function renderJourney() {
   body.innerHTML = `
     <div class="pill-row">${counts}</div>
     <div class="filters"><input id="jSearch" placeholder="Αναζήτηση ονόματος ή τηλεφώνου…" value="${esc(journeyQ)}" style="min-width:240px"></div>
-    <div class="card tablewrap"><table><thead><tr><th>Ενδιαφερόμενος</th><th>Ήρθε από</th><th>Ημ/νία</th><th>Στάδιο επικοινωνίας</th><th>Επόμενο βήμα</th></tr></thead><tbody>
+    <div class="card tablewrap"><table><thead><tr><th>Ενδιαφερόμενος</th><th>Ήρθε από</th><th>Ημ/νία</th><th>Στοιχεία & σχόλια</th><th>Στάδιο επικοινωνίας</th><th>Επόμενο βήμα</th></tr></thead><tbody>
       ${ls.length ? ls.map((l) => {
         const st = P_STAGE[l.status] || [l.status, 'plain'];
         const d = l.createdTime ? new Date(l.createdTime) : null;
         return `<tr><td><b>${esc(l.name)}</b><div style="font-size:11.5px;color:var(--soft)" class="mono">${esc(l.phone || '')}</div></td>
           <td style="font-size:12.5px">${esc((l.campaign || '—').replace('Demo — ', ''))}</td>
           <td class="mono">${d && !isNaN(d) ? d.toLocaleDateString('el-GR', { day: 'numeric', month: 'short' }) : '—'}</td>
+          <td style="font-size:12.5px;max-width:300px">${leadDetails(l)}</td>
           <td><span class="chip ${st[1]}">${st[0]}</span></td>
           <td style="font-size:12.5px;color:var(--soft)">${l.status === 'rv' && l.nextAction ? 'Ραντεβού ' + new Date(l.nextAction).toLocaleDateString('el-GR', { day: 'numeric', month: 'short' }) : l.status === 'won' ? (l.amount ? eur(l.amount) : '') : l.status === 'lost' ? '—' : 'Η ομάδα μας επικοινωνεί'}</td></tr>`;
-      }).join('') : '<tr><td colspan="5" class="empty">Τίποτα ακόμα.</td></tr>'}
+      }).join('') : '<tr><td colspan="6" class="empty">Τίποτα ακόμα.</td></tr>'}
     </tbody></table></div>`;
   const si = document.getElementById('jSearch');
   si.addEventListener('input', () => { journeyQ = si.value; renderJourney(); const s2 = document.getElementById('jSearch'); s2.focus(); s2.setSelectionRange(s2.value.length, s2.value.length); });

@@ -175,6 +175,7 @@
           <div class="f" style="grid-column:1/-1"><label for="cf_sheet">Google Sheet leads (link)</label><input id="cf_sheet" placeholder="https://docs.google.com/spreadsheets/d/..."></div>
           <div class="f"><label for="cf_metaAd">Meta Ad Account ID</label><input id="cf_metaAd" placeholder="act_1234567890 — για αυτόματο τράβηγμα spend/στατιστικών"></div>
           <div class="f"><label for="cf_metaFilter">Meta μόνο καμπάνιες με όνομα που περιέχει</label><input id="cf_metaFilter" placeholder="π.χ. Astra — κενό = όλες οι καμπάνιες"></div>
+          <div class="f"><label for="cf_spendShare">Μερίδιο διαφημιστικής δαπάνης (%)</label><input id="cf_spendShare" inputmode="numeric" placeholder="100 — π.χ. 50 αν η καμπάνια μοιράζεται"></div>
           <div class="f"><label for="cf_metaSince">Meta στατιστικά από ημερομηνία</label><input id="cf_metaSince" type="date" title="Μετράμε δαπάνη/κλικ μόνο από αυτή τη μέρα (π.χ. έναρξη νέας καμπάνιας)"></div>
           <div class="f" style="grid-column:1/-1"><label for="cf_contacts">Επαφές — μία ανά γραμμή: Όνομα | ρόλος | τηλέφωνο | email</label><textarea id="cf_contacts" placeholder="Μαρία Π. | Γραμματεία | 210... | maria@...&#10;Δρ. Χ | Ιατρός | 69... |"></textarea></div>
           <div class="f" style="grid-column:1/-1"><label for="cf_script">Σενάριο κλήσης (φαίνεται στην καρτέλα κάθε lead)</label><textarea id="cf_script" placeholder="Τι λέμε όταν καλούμε lead αυτής της κλινικής…"></textarea></div>
@@ -558,7 +559,7 @@
       <div class="f"><label for="lm_next">Επόμενη ενέργεια / ραντεβού</label><input id="lm_next" type="date"></div>
       <div class="f"><label for="lm_amount">Ποσό αγοράς (€)</label><input id="lm_amount" inputmode="decimal"></div>
     </div>
-    <div class="f"><label for="lm_notes">Σημείωση καρτέλας</label><textarea id="lm_notes"></textarea></div>
+    <div class="f"><label for="lm_notes">Σημείωση καρτέλας <span style="color:var(--soft);font-weight:400">— τη βλέπει και η κλινική στο portal</span></label><textarea id="lm_notes"></textarea></div>
     <div class="timeline">
       <h4>Ιστορικό</h4>
       <div id="lmTimeline"></div>

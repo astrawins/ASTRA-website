@@ -267,7 +267,8 @@ async function updateLead(id, patch, logType, logBody) {
 function statusPatch(st, l) {
   const p = { status: st };
   if (st === 'won') p.saleDate = todayISO();
-  if (['show', 'won'].includes(st) && !(l && l.attendedAt)) p.attendedAt = todayISO();
+  if (['show', 'won'].includes(st)) { if (!(l && l.attendedAt)) p.attendedAt = todayISO(); }
+  else p.attendedAt = null; // πίσω σε κλεισμένο/επικοινωνία/χαμένο → δεν χρεώνεται, και αν ξαναέρθει παίρνει νέα ημερομηνία
   return p;
 }
 
@@ -1125,7 +1126,7 @@ document.addEventListener('keydown', (e) => {
 let editClinicId = null;
 $('btnNewClinic').onclick = () => {
   editClinicId = null; $('clinicFormTitle').textContent = 'Νέα κλινική';
-  ['cf_name', 'cf_doctor', 'cf_spec', 'cf_phone', 'cf_email', 'cf_portalEmail', 'cf_fee', 'cf_sharePct', 'cf_dailyBudget', 'cf_monthlyBudget', 'cf_goalLeads', 'cf_goalSales', 'cf_contractStart', 'cf_contractEnd', 'cf_nextTouch', 'cf_tags', 'cf_contacts', 'cf_sheet', 'cf_metaAd', 'cf_metaSince', 'cf_metaFilter', 'cf_script', 'cf_templates', 'cf_notes'].forEach((i) => { $(i).value = ''; });
+  ['cf_name', 'cf_doctor', 'cf_spec', 'cf_phone', 'cf_email', 'cf_portalEmail', 'cf_fee', 'cf_sharePct', 'cf_dailyBudget', 'cf_monthlyBudget', 'cf_goalLeads', 'cf_goalSales', 'cf_contractStart', 'cf_contractEnd', 'cf_nextTouch', 'cf_tags', 'cf_contacts', 'cf_sheet', 'cf_metaAd', 'cf_metaSince', 'cf_metaFilter', 'cf_spendShare', 'cf_script', 'cf_templates', 'cf_notes'].forEach((i) => { $(i).value = ''; });
   $('clinicForm').hidden = false; $('cf_name').focus();
 };
 $('btnCancelClinic').onclick = () => { $('clinicForm').hidden = true; };
@@ -1151,7 +1152,7 @@ $('btnSaveClinic').onclick = async () => {
       const i = ln.indexOf(':'); if (i < 1) return null;
       return { t: ln.slice(0, i).trim(), b: ln.slice(i + 1).trim() };
     }).filter((x) => x && x.t && x.b),
-    sheetUrl, sheetId: sheetIdFrom(sheetUrl) || '', metaAdAccount: $('cf_metaAd').value.trim(), metaSince: $('cf_metaSince').value || null, metaFilter: $('cf_metaFilter').value.trim(), notes: $('cf_notes').value.trim(),
+    sheetUrl, sheetId: sheetIdFrom(sheetUrl) || '', metaAdAccount: $('cf_metaAd').value.trim(), metaSince: $('cf_metaSince').value || null, metaFilter: $('cf_metaFilter').value.trim(), spendShare: Math.min(100, Math.max(1, parseNum($('cf_spendShare').value) || 100)), notes: $('cf_notes').value.trim(),
   };
   let saved;
   try {
@@ -1245,7 +1246,7 @@ function openClinicEdit(id) {
   $('cf_contacts').value = (Array.isArray(c.contacts) ? c.contacts : []).map((x) => [x.name, x.role, x.phone, x.email].join(' | ')).join('\n');
   $('cf_script').value = c.script || '';
   $('cf_templates').value = (Array.isArray(c.templates) ? c.templates : []).map((t) => t.t + ': ' + t.b).join('\n');
-  $('cf_sheet').value = c.sheetUrl || ''; $('cf_metaAd').value = c.metaAdAccount || ''; $('cf_metaSince').value = c.metaSince || ''; $('cf_metaFilter').value = c.metaFilter || ''; $('cf_notes').value = c.notes || '';
+  $('cf_sheet').value = c.sheetUrl || ''; $('cf_metaAd').value = c.metaAdAccount || ''; $('cf_metaSince').value = c.metaSince || ''; $('cf_metaFilter').value = c.metaFilter || ''; $('cf_spendShare').value = c.spendShare && +c.spendShare !== 100 ? c.spendShare : ''; $('cf_notes').value = c.notes || '';
   $('clinicForm').hidden = false; window.scrollTo({ top: 0 });
 }
 let confirmDelete = null;
@@ -1271,7 +1272,7 @@ function renderClinics() {
     const lsM = ls.filter((l) => monthKey(l.createdTime) === mk);
     const won = ls.filter((l) => l.status === 'won');
     const wonM = won.filter((l) => monthKey(l.saleDate || l.createdTime) === mk);
-    const rev = won.reduce((s, l) => s + (+l.amount || 0), 0);
+    const rev = ls.filter(isPaying).reduce((s, l) => s + (+l.amount || 0), 0);
     const sync = c.lastSync ? new Date(c.lastSync).toLocaleDateString('el-GR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : null;
     const del = confirmDelete === c.id;
     return `<div class="card cliniccard" data-id="${c.id}">
@@ -1389,7 +1390,7 @@ function renderClinicView() {
   let body = '';
   if (clSub === 'overview') {
     const won = ls.filter((l) => l.status === 'won');
-    const revAll = won.reduce((s, l) => s + (+l.amount || 0), 0);
+    const revAll = ls.filter(isPaying).reduce((s, l) => s + (+l.amount || 0), 0);
     body = `<div class="tiles section">
         <div class="tile"><div class="lb">Leads · ${mLabel(nowMonth())}</div><div class="v">${sNow.leads}</div><div class="d">${ls.length} συνολικά</div></div>
         <div class="tile"><div class="lb">Ραντεβού</div><div class="v">${sNow.rv}</div><div class="d">${sNow.shows} ήρθαν</div></div>
@@ -1437,7 +1438,7 @@ function renderClinicView() {
       <div class="card tablewrap">${cps.length ? `<table><thead><tr><th>Καμπάνια</th><th>Μήνας</th><th class="num">Δαπάνη</th><th class="num">Leads</th><th class="num">CPL</th><th class="num">Πωλήσεις</th><th class="num">Έσοδα</th><th class="num">ROAS</th></tr></thead><tbody>
         ${cps.map((cp) => {
           const cls = campLeads(cp); const w = cls.filter((l) => l.status === 'won');
-          const rev = w.reduce((s, l) => s + (+l.amount || 0), 0);
+          const rev = cls.filter(isPaying).reduce((s, l) => s + (+l.amount || 0), 0);
           const roas = cp.spend > 0 ? rev / cp.spend : 0;
           return `<tr><td><b>${esc(cp.name)}</b></td><td class="mono">${cp.month ? mLabel(cp.month) : '—'}</td><td class="num">${eur(cp.spend)}</td><td class="num">${cls.length}</td><td class="num">${cls.length && cp.spend ? eur(cp.spend / cls.length) : '—'}</td><td class="num">${w.length}</td><td class="num">${eur(rev)}</td><td class="num ${cp.spend > 0 ? (roas >= 2 ? 'pos' : roas < 1 ? 'neg' : '') : ''}">${cp.spend > 0 ? roas.toFixed(2) + '×' : '—'}</td></tr>`;
         }).join('')}</tbody></table>` : '<div class="empty">Καμία καμπάνια για αυτή την κλινική ακόμα.</div>'}</div>`;
@@ -1822,7 +1823,7 @@ function renderCamps() {
   const T = { spend: 0, leads: 0, won: 0, rev: 0, impr: 0, clicks: 0 };
   const rows = cs.map((cp) => {
     const ls = campLeads(cp); const won = ls.filter((l) => l.status === 'won');
-    const rev = won.reduce((s2, l) => s2 + (+l.amount || 0), 0);
+    const rev = ls.filter(isPaying).reduce((s2, l) => s2 + (+l.amount || 0), 0);
     const cpl = ls.length ? cp.spend / ls.length : 0;
     const roas = cp.spend > 0 ? rev / cp.spend : 0;
     const ctr = cp.impressions > 0 ? 100 * cp.clicks / cp.impressions : 0;
@@ -1869,15 +1870,16 @@ async function metaSyncAll(silent) {
   const today = todayISO();
   // metaSince: μετράμε μόνο από αυτή τη μέρα (νέα καμπάνια) — αν είναι στο μέλλον, η κλινική παραλείπεται
   const targets = S.clinics.filter((c) => c.metaAdAccount && !(c.metaSince && c.metaSince > today))
-    .map((c) => ({ account: c.metaAdAccount, clinicId: c.id, name: c.name, since: c.metaSince && c.metaSince > mk + '-01' ? c.metaSince : null, filter: String(c.metaFilter || '').trim().toLowerCase() }));
+    .map((c) => ({ account: c.metaAdAccount, clinicId: c.id, name: c.name, since: c.metaSince && c.metaSince > mk + '-01' ? c.metaSince : null, filter: String(c.metaFilter || '').trim().toLowerCase(), share: (+c.spendShare || 100) / 100 }));
   if (!targets.length && s.metaAccount) targets.push({ account: s.metaAccount, clinicId: null, name: 'γενικό' });
   {
     for (const t of targets) {
       let ins;
       try { ins = await metaInsights(s.metaToken, t.account, t.since); }
       catch (e) { errs.push(t.name + ': ' + e.message); continue; }
-      for (const hit of ins) {
-        if (t.filter && !hit.name.toLowerCase().includes(t.filter)) continue; // μόνο οι καμπάνιες της κλινικής μας
+      for (const hit0 of ins) {
+        if (t.filter && !hit0.name.toLowerCase().includes(t.filter)) continue; // μόνο οι καμπάνιες της κλινικής μας
+        const hit = t.share && t.share < 1 ? { ...hit0, spend: +(hit0.spend * t.share).toFixed(2) } : hit0; // μερίδιο δαπάνης της κλινικής
         const cp = S.camps.find((c) => c.month === mk
           && (t.clinicId ? c.clinicId === t.clinicId : true)
           && c.name.trim().toLowerCase() === hit.name.trim().toLowerCase());
@@ -2279,6 +2281,9 @@ async function materializeRecurring() {
    σε εβδομάδα που δεν έχει κλείσει ακόμη. */
 const apptFee = () => +SET().appointmentFee || 50;
 const isBooked = (l) => ['show', 'won'].includes(l.status);
+/* Έσοδα κλινικής = ποσά που πλήρωσαν όσοι ήρθαν (επίσκεψη) ή ξεκίνησαν θεραπεία (πακέτο). */
+const isPaying = (l) => ['show', 'won'].includes(l.status) && (+l.amount || 0) > 0;
+const revDate = (l) => l.saleDate || l.attendedAt || l.createdTime;
 const billDate = (l) => String(l.attendedAt || l.saleDate || l.createdTime || '').slice(0, 10);
 function taxEstimate() {
   const mk = nowMonth();
@@ -2838,9 +2843,10 @@ function renderReport() {
   if (!c) { el.innerHTML = '<div class="card empty"><div class="big">Καμία κλινική</div>Φτιάξε πρώτα μια κλινική για να βγάλεις αναφορά.</div>'; return; }
   const ls = S.leads.filter((l) => l.clinicId === c.id && monthKey(l.createdTime) === mk);
   const won = S.leads.filter((l) => l.clinicId === c.id && l.status === 'won' && monthKey(l.saleDate || l.createdTime) === mk);
+  const paying = S.leads.filter((l) => l.clinicId === c.id && isPaying(l) && monthKey(revDate(l)) === mk);
   const rv = ls.filter((l) => ['rv', 'show', 'won'].includes(l.status));
   const show = ls.filter((l) => ['show', 'won'].includes(l.status));
-  const rev = won.reduce((s, l) => s + (+l.amount || 0), 0);
+  const rev = paying.reduce((s, l) => s + (+l.amount || 0), 0);
   const cps = S.camps.filter((x) => x.clinicId === c.id && x.month === mk);
   const spend = cps.reduce((s, x) => s + (+x.spend || 0), 0);
   const tile = (lb, v, d) => `<div class="tile"><div class="lb">${lb}</div><div class="v">${v}</div>${d ? `<div class="d">${d}</div>` : ''}</div>`;
@@ -2892,7 +2898,7 @@ function computeStats(m, clinic) {
   const inClinic = (x) => !clinic || x.clinicId === clinic.id;
   const ls = S.leads.filter((l) => monthKey(l.createdTime) === m && inClinic(l));
   const salesLs = S.leads.filter((l) => l.status === 'won' && monthKey(l.saleDate || l.createdTime) === m && inClinic(l));
-  const revenue = salesLs.reduce((s, l) => s + (+l.amount || 0), 0);
+  const revenue = S.leads.filter((l) => isPaying(l) && monthKey(revDate(l)) === m && inClinic(l)).reduce((s, l) => s + (+l.amount || 0), 0);
   const cps = S.camps.filter((c) => c.month === m && inClinic(c));
   const spend = cps.reduce((s, c) => s + (+c.spend || 0), 0);
   const fin = S.fin.filter((f) => monthKey(f.date) === m && inClinic(f));
