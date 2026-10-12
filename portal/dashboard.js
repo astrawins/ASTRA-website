@@ -542,11 +542,15 @@ function todayItems() {
   };
   const stale = open.filter((l) => ['epik', 'rv', 'show'].includes(l.status) && (!l.nextAction || l.nextAction < today) && lastTouch(l) < cutoff21)
     .sort((a, b) => lastTouch(a) - lastTouch(b));
-  return { due, fresh, upcoming, stale };
+  /* Προς επιβεβαίωση: κλεισμένα ραντεβού για σήμερα ή αύριο που δεν έχουν επιβεβαιωθεί τηλεφωνικά (push την προηγούμενη μέρα) */
+  const tomorrow = addDays(1);
+  const confirm = open.filter((l) => l.status === 'rv' && l.nextAction && !l.confirmedAt && l.nextAction >= today && l.nextAction <= tomorrow)
+    .sort((a, b) => String(a.nextAction + (a.apptTime || '')).localeCompare(String(b.nextAction + (b.apptTime || ''))));
+  return { due, fresh, upcoming, stale, confirm };
 }
 function updateTodayBadge() {
-  const { due, fresh } = todayItems();
-  const n = due.length + fresh.length + undoneTasksDue().length;
+  const { due, fresh, confirm } = todayItems();
+  const n = due.length + fresh.length + confirm.length + undoneTasksDue().length;
   const el = $('todayCount');
   el.textContent = n; el.style.display = n ? '' : 'none';
   const mb = $('mtabBadge');
@@ -571,7 +575,8 @@ function todayRow(l, kind) {
       <button class="btn small" data-act="p1">+1μ</button>
       <button class="btn small" data-act="p3">+3μ</button>
       <button class="btn small" data-act="p7">+7μ</button>
-      ${kind !== 'fresh' ? '<button class="btn small" data-act="done">✓ Έγινε</button>' : ''}
+      ${kind !== 'fresh' && kind !== 'confirm' ? '<button class="btn small" data-act="done">✓ Έγινε</button>' : ''}
+      ${['confirm', 'up'].includes(kind) && l.status === 'rv' ? (l.confirmedAt ? '<span class="chip show" title="Επιβεβαιώθηκε τηλεφωνικά">Επιβεβαιωμένο ✓</span>' : '<button class="btn small primary" data-act="confirm" title="Ο ασθενής επιβεβαίωσε τηλεφωνικά ότι θα έρθει">✓ Επιβεβαιώθηκε</button>') : ''}
     </div>
   </div>`;
 }
@@ -636,25 +641,26 @@ function renderToday() {
         + (later.length ? `<div class="taskday">Επόμενα</div>${later.map(taskRow).join('')}` : '')
         + '</div></div>';
     }).join('')}</div>`;
-  $('todayBody').innerHTML = scheduleBlock() + portalBlock + taskBlock + '<div style="height:20px"></div>' + touchBlock + subBlock + clinicCallsBlock(due, fresh, upcoming, stale);
+  $('todayBody').innerHTML = scheduleBlock() + portalBlock + taskBlock + '<div style="height:20px"></div>' + touchBlock + subBlock + clinicCallsBlock(due, fresh, upcoming, stale, todayItems().confirm);
 }
 /* Κλήσεις ημέρας ομαδοποιημένες ανά κλινική — κλειστές κάρτες με σύνοψη, ανοίγουν με κλικ. */
 let openCallGroups = new Set();
 try { openCallGroups = new Set(JSON.parse(localStorage.getItem('astra-today-open') || '[]')); } catch { /* ok */ }
-function clinicCallsBlock(due, fresh, upcoming, stale) {
+function clinicCallsBlock(due, fresh, upcoming, stale, confirm = []) {
   const groups = new Map();
   const add = (l, kind) => {
     const k = l.clinicId || '_none';
-    if (!groups.has(k)) groups.set(k, { due: [], fresh: [], up: [], stale: [] });
+    if (!groups.has(k)) groups.set(k, { due: [], fresh: [], up: [], stale: [], confirm: [] });
     groups.get(k)[kind].push(l);
   };
+  confirm.forEach((l) => add(l, 'confirm'));
   due.forEach((l) => add(l, 'due'));
   fresh.forEach((l) => add(l, 'fresh'));
   upcoming.forEach((l) => add(l, 'up'));
   stale.forEach((l) => add(l, 'stale'));
   if (!groups.size) return `<h3 class="sectionhead">Κλήσεις ανά κλινική</h3><div class="card"><div class="empty">Καμία κλήση για σήμερα. 🎉</div></div>`;
   const rows = [...groups.entries()].map(([cid, g]) => {
-    const calls = g.due.length + g.fresh.length + g.stale.length;
+    const calls = g.due.length + g.fresh.length + g.stale.length + g.confirm.length;
     return { cid, g, calls, c: clinicById(cid) };
   }).sort((a, b) => b.calls - a.calls || b.g.up.length - a.g.up.length);
   const totalCalls = rows.reduce((s, r) => s + r.calls, 0);
@@ -671,6 +677,7 @@ function clinicCallsBlock(due, fresh, upcoming, stale) {
     <div class="callgroups">${rows.map(({ cid, g, calls, c }) => {
       const open = openCallGroups.has(cid);
       const parts = [];
+      if (g.confirm.length) parts.push(`<span class="chip epik">${g.confirm.length} προς επιβεβαίωση</span>`);
       if (g.due.length) parts.push(`<span class="chip lost">${g.due.length} για σήμερα</span>`);
       if (g.fresh.length) parts.push(`<span class="chip epik">${g.fresh.length} νέα</span>`);
       if (g.stale.length) parts.push(`<span class="chip plain">${g.stale.length} ξεχασμένα</span>`);
@@ -683,6 +690,7 @@ function clinicCallsBlock(due, fresh, upcoming, stale) {
           <span class="cgchips">${parts.join('')}</span>
         </button>
         ${open ? `<div class="cgbody">
+          ${sub('Προς επιβεβαίωση · ραντεβού σήμερα/αύριο — κάλεσε τον ασθενή', 'epik', g.confirm, (l) => todayRow(l, 'confirm'))}
           ${sub('Για σήμερα', 'lost', g.due, (l) => todayRow(l, 'due'))}
           ${sub('Νέα χωρίς επικοινωνία (48ω+)', 'epik', g.fresh, (l) => todayRow(l, 'fresh'))}
           ${sub('Ξεχασμένα · 21+ μέρες', 'plain', g.stale, staleRow)}
@@ -733,9 +741,10 @@ $('todayBody').addEventListener('click', async (e) => {
   const id = row.dataset.id; const act = b.dataset.act;
   if (act === 'open') { openLeadModal(id); return; }
   if (act === 'called') { await updateLead(id, { status: 'epik', nextAction: addDays(3) }, 'status', 'Κλήθηκε → Επικοινωνία, επανέλεγχος σε 3 μέρες'); toast('ΟΚ — επανέλεγχος σε 3 μέρες.'); }
-  if (act === 'p1') { await updateLead(id, { nextAction: addDays(1) }, 'next', 'Μετάθεση για αύριο'); }
-  if (act === 'p3') { await updateLead(id, { nextAction: addDays(3) }, 'next', 'Μετάθεση +3 μέρες'); }
-  if (act === 'p7') { await updateLead(id, { nextAction: addDays(7) }, 'next', 'Μετάθεση +7 μέρες'); }
+  if (act === 'confirm') { await updateLead(id, { confirmedAt: new Date().toISOString() }, 'status', 'Το ραντεβού επιβεβαιώθηκε τηλεφωνικά ✓'); toast('Επιβεβαιώθηκε ✓'); }
+  if (act === 'p1') { await updateLead(id, { nextAction: addDays(1), confirmedAt: null }, 'next', 'Μετάθεση για αύριο'); }
+  if (act === 'p3') { await updateLead(id, { nextAction: addDays(3), confirmedAt: null }, 'next', 'Μετάθεση +3 μέρες'); }
+  if (act === 'p7') { await updateLead(id, { nextAction: addDays(7), confirmedAt: null }, 'next', 'Μετάθεση +7 μέρες'); }
   if (act === 'done') { await updateLead(id, { nextAction: null }, 'next', 'Η ενέργεια ολοκληρώθηκε'); }
   if (act === 'marklost') { await updateLead(id, { status: 'lost', nextAction: null }, 'status', 'Έκλεισε ως χαμένο (αδράνεια 21+ ημερών)'); }
 });
@@ -767,9 +776,25 @@ function openLeadModal(id) {
   $('lm_time').value = hhmm(l.apptTime);
   $('lm_amount').value = l.amount || '';
   $('lm_notes').value = l.notes || '';
+  setConfirmBtn(l);
   renderTimeline(l);
   $('leadModal').hidden = false;
 }
+/* Τηλεφωνική επιβεβαίωση ραντεβού (confirmedAt) — κουμπί στο modal, με αναίρεση */
+function setConfirmBtn(l) {
+  const b = $('lm_confirm');
+  const on = !!l.confirmedAt;
+  b.textContent = on ? 'Επιβεβαιωμένο ✓ ' + new Date(l.confirmedAt).toLocaleDateString('el-GR', { day: 'numeric', month: 'short' }) + ' · αναίρεση' : '✓ Επιβεβαιώθηκε τηλεφωνικά';
+  b.classList.toggle('primary', !on);
+  b.closest('.f').hidden = !(l.status === 'rv' && l.nextAction) && !on;
+}
+$('lm_confirm').onclick = async () => {
+  if (!modalLeadId) return;
+  const l = leadById(modalLeadId); if (!l) return;
+  const on = !l.confirmedAt;
+  await updateLead(modalLeadId, { confirmedAt: on ? new Date().toISOString() : null }, 'status', on ? 'Το ραντεβού επιβεβαιώθηκε τηλεφωνικά ✓' : 'Αφαιρέθηκε η επιβεβαίωση ραντεβού');
+  const l2 = leadById(modalLeadId); if (l2) { setConfirmBtn(l2); renderTimeline(l2); }
+};
 function renderTimeline(l) {
   const items = S.act.filter((a) => a.leadId === l.id)
     .sort((a, b) => String(b.at).localeCompare(String(a.at)));
@@ -802,8 +827,8 @@ $('lm_status').addEventListener('change', async () => {
 $('lm_next').addEventListener('change', async () => {
   if (!modalLeadId) return;
   const v = $('lm_next').value || null;
-  await updateLead(modalLeadId, v ? { nextAction: v } : { nextAction: null, apptTime: null }, 'next', v ? 'Επόμενη ενέργεια: ' + v : 'Καθαρίστηκε η επόμενη ενέργεια');
-  const l = leadById(modalLeadId); if (l) renderTimeline(l);
+  await updateLead(modalLeadId, v ? { nextAction: v, confirmedAt: null } : { nextAction: null, apptTime: null, confirmedAt: null }, 'next', v ? 'Επόμενη ενέργεια: ' + v : 'Καθαρίστηκε η επόμενη ενέργεια');
+  const l = leadById(modalLeadId); if (l) { setConfirmBtn(l); renderTimeline(l); }
 });
 $('lm_time').addEventListener('change', async () => {
   if (!modalLeadId) return;
@@ -1765,7 +1790,7 @@ async function onLeadRowChange(e) {
       const v = parseNum(t.value);
       await updateLead(id, { amount: v }, 'amount', 'Ποσό αγοράς: ' + eur(v));
     } else if (f === 'nextAction') {
-      await updateLead(id, t.value ? { nextAction: t.value } : { nextAction: null, apptTime: null }, 'next', t.value ? 'Επόμενη ενέργεια: ' + t.value : 'Καθαρίστηκε');
+      await updateLead(id, t.value ? { nextAction: t.value, confirmedAt: null } : { nextAction: null, apptTime: null, confirmedAt: null }, 'next', t.value ? 'Επόμενη ενέργεια: ' + t.value : 'Καθαρίστηκε');
     } else if (f === 'apptTime') {
       await updateLead(id, { apptTime: t.value || null }, 'next', t.value ? 'Ώρα ραντεβού: ' + t.value : 'Καθαρίστηκε η ώρα');
     }

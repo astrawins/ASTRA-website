@@ -229,6 +229,7 @@ function renderAppts() {
   const row = (l) => `<div class="todayrow" data-id="${l.id}">
       <div class="who"><b>${esc(l.name)}</b><div class="sub">${esc(l.phone || '')}</div></div>
       <span class="due ${l.nextAction && l.nextAction < today ? 'over' : ''}">${l.nextAction ? new Date(l.nextAction).toLocaleDateString('el-GR', { weekday: 'short', day: 'numeric', month: 'short' }) + (l.apptTime ? ' · ' + hhmm(l.apptTime) : '') : 'χωρίς ημερομηνία'}</span>
+      ${l.confirmedAt ? '<span class="chip show" title="Ο ασθενής επιβεβαίωσε τηλεφωνικά">Επιβεβαιωμένο ✓</span>' : ''}
       <div class="acts">
         <input class="amt" inputmode="decimal" placeholder="Πλήρωσε €" title="Ποσό που πλήρωσε ο ασθενής (προαιρετικό)" style="width:92px;padding:6px 8px;border:1px solid var(--hair);border-radius:8px;background:var(--card);font:inherit">
         <button class="btn small primary" data-mark="1">✓ Έγινε</button>
