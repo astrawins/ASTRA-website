@@ -19,7 +19,7 @@ export function lastMonths(n) {
   return out;
 }
 
-export const STATUS = { neo: 'Νέο', epik: 'Επικοινωνία', rv: 'Ραντεβού', show: 'Ήρθε', won: 'Πελάτης', lost: 'Χαμένο' };
+export const STATUS = { neo: 'Νέο', noans: 'Δεν απάντησε', epik: 'Επικοινωνία', rv: 'Ραντεβού', show: 'Ήρθε', won: 'Πελάτης', lost: 'Χαμένο' };
 export const CATS = {
   income: ['Αμοιβή διαχείρισης', 'Χρέωση ad spend', 'Setup fee', 'Δημιουργικό / Παραγωγή', 'Άλλο έσοδο'],
   expense: ['Διαφημιστική δαπάνη (Meta)', 'Διαφημιστική δαπάνη (Google)', 'Εργαλεία / Συνδρομές', 'Μισθοδοσία / Συνεργάτες', 'Λογιστής', 'Ενοίκιο / Λειτουργικά', 'Άλλο έξοδο'],

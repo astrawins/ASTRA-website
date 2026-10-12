@@ -540,7 +540,7 @@ function todayItems() {
     const acts = S.act.filter((a) => a.leadId === l.id).map((a) => new Date(a.at).getTime());
     return Math.max(new Date(l.importedAt || l.createdTime || 0).getTime(), ...(acts.length ? acts : [0]));
   };
-  const stale = open.filter((l) => ['epik', 'rv', 'show'].includes(l.status) && (!l.nextAction || l.nextAction < today) && lastTouch(l) < cutoff21)
+  const stale = open.filter((l) => ['noans', 'epik', 'rv', 'show'].includes(l.status) && (!l.nextAction || l.nextAction < today) && lastTouch(l) < cutoff21)
     .sort((a, b) => lastTouch(a) - lastTouch(b));
   /* Προς επιβεβαίωση: κλεισμένα ραντεβού για σήμερα ή αύριο που δεν έχουν επιβεβαιωθεί τηλεφωνικά (push την προηγούμενη μέρα) */
   const tomorrow = addDays(1);
@@ -572,6 +572,7 @@ function todayRow(l, kind) {
     <span class="mono" style="font-size:12.5px">${esc(l.phone || '')}${l.phone ? `<button class="copybtn" data-copy="${esc(l.phone)}" title="Αντιγραφή">${COPY_ICON}</button>` : ''}</span>
     <div class="acts">
       ${kind === 'fresh' ? '<button class="btn small" data-act="called">Κλήθηκε</button>' : ''}
+      ${['fresh', 'due'].includes(kind) ? '<button class="btn small" data-act="noans" title="Δεν σήκωσε — ξαναπροσπάθεια αύριο">Δεν απάντησε</button>' : ''}
       <button class="btn small" data-act="p1">+1μ</button>
       <button class="btn small" data-act="p3">+3μ</button>
       <button class="btn small" data-act="p7">+7μ</button>
@@ -743,6 +744,14 @@ $('todayBody').addEventListener('click', async (e) => {
   const row = b.closest('.todayrow'); if (!row) return;
   const id = row.dataset.id; const act = b.dataset.act;
   if (act === 'open') { openLeadModal(id); return; }
+  if (act === 'noans') {
+    /* Δεν απάντησε: μετρά τις προσπάθειες, ξανά αύριο. Κλεισμένα ραντεβού κρατούν το στάδιό τους. */
+    const l = leadById(id);
+    const tries = S.act.filter((a) => a.leadId === id && a.type === 'status' && String(a.body).startsWith('Δεν απάντησε')).length + 1;
+    const keep = l && ['rv', 'show'].includes(l.status);
+    await updateLead(id, { ...(keep ? {} : { status: 'noans' }), nextAction: addDays(1) }, 'status', `Δεν απάντησε (${tries}η προσπάθεια) → ξανά αύριο`);
+    toast(`Δεν απάντησε (${tries}η) — ξανά αύριο.`);
+  }
   if (act === 'called') { await updateLead(id, { status: 'epik', nextAction: addDays(3) }, 'status', 'Κλήθηκε → Επικοινωνία, επανέλεγχος σε 3 μέρες'); toast('ΟΚ — επανέλεγχος σε 3 μέρες.'); }
   if (act === 'confirm') { await updateLead(id, { confirmedAt: new Date().toISOString() }, 'status', 'Το ραντεβού επιβεβαιώθηκε τηλεφωνικά ✓'); toast('Επιβεβαιώθηκε ✓'); }
   if (act === 'p1') { await updateLead(id, { nextAction: addDays(1), confirmedAt: null }, 'next', 'Μετάθεση για αύριο'); }
@@ -1247,7 +1256,7 @@ function clinicHealth(c) {
   if (st.spend > 100 && st.roas < 1 && st.leads > 0) bump('r', 'ROAS ' + st.roas.toFixed(2) + '× αυτόν τον μήνα');
   if (+c.monthlyBudget > 0 && st.spend > +c.monthlyBudget) bump('y', 'Υπέρβαση budget');
   if (c.sheetId && c.lastSync && Date.now() - new Date(c.lastSync).getTime() > 7 * 86400000) bump('y', 'Sync leads πάνω από 7 μέρες');
-  const stale = S.leads.filter((l) => l.clinicId === c.id && ['epik', 'rv', 'show'].includes(l.status) && (!l.nextAction || l.nextAction < todayISO()));
+  const stale = S.leads.filter((l) => l.clinicId === c.id && ['noans', 'epik', 'rv', 'show'].includes(l.status) && (!l.nextAction || l.nextAction < todayISO()));
   if (stale.length > 5) bump('y', stale.length + ' leads χωρίς προγραμματισμένη ενέργεια');
   if (c.status === 'paused') bump('y', 'Σε παύση');
   if (!reasons.length) reasons.push('Όλα καλά');
@@ -1652,7 +1661,7 @@ function fillClinicSelect(sel, withEmpty) {
 }
 ['flClinic', 'flStatus', 'flSearch'].forEach((i) => $(i).addEventListener('input', renderLeads));
 function funnelHTML(leads) {
-  const order = ['neo', 'epik', 'rv', 'show', 'won', 'lost'];
+  const order = ['neo', 'noans', 'epik', 'rv', 'show', 'won', 'lost'];
   return order.map((k) => `<span class="chip ${k}">${STATUS[k]} · ${leads.filter((l) => l.status === k).length}</span>`).join('')
     + `<span class="chip plain">Σύνολο ${leads.length}</span>`;
 }
