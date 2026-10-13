@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>astra · Version C</title>
+  <meta name="robots" content="noindex, nofollow">
+  <meta name="theme-color" content="#EDDBC4">
+  <link rel="icon" href="/assets/img/favicon.svg" type="image/svg+xml">
+  <link rel="preload" href="/assets/fonts/archivo.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="/assets/fonts/spline-sans-mono.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="/assets/css/main.css">
+  <style>
+
+    .hero { height: auto; min-height: 0; display: block; }
+    .hero .wrap { align-items: center; text-align: center; padding-top: clamp(60px, 11vh, 150px); padding-bottom: clamp(44px, 7vh, 90px); }
+    .hero .mark { width: clamp(22px, 2.4vw, 32px); color: var(--display); filter: drop-shadow(0 6px 14px rgba(107,69,38,0.35)); margin-bottom: clamp(26px, 4vh, 44px); }
+    .hero h1 { margin: 0; max-width: 18ch; font-weight: 300; font-stretch: 100%; letter-spacing: -0.02em; line-height: 1.06;
+      font-size: clamp(2.2rem, 4.6vw, 4.4rem); color: var(--ink); text-shadow: none; }
+    .hero h1 em { font-style: normal; font-weight: 500; color: var(--display); text-shadow: var(--logo-shadow); }
+    .hero .kicker-line { margin-top: clamp(22px, 3vh, 34px); color: var(--soft); }
+    .hero .hero-cta { margin-top: clamp(30px, 4.5vh, 52px); padding: 0; }
+    .gallery .strip { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 8px; }
+    .tile { text-decoration: none; }
+    .tile img { aspect-ratio: 4/5; object-fit: cover; width: 100%; transition: transform 600ms var(--ease-out); }
+    .tile:hover img { transform: translateY(-4px); }
+    .tile .mono { display: block; margin-top: 10px; color: var(--soft); font-size: 0.6rem; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    @media (max-width: 899px) { .gallery .strip { grid-template-columns: repeat(4, 1fr); } .tile:nth-child(n+5) { display: none; } }
+    .logos { padding-top: clamp(70px, 12vh, 140px); padding-bottom: clamp(60px, 10vh, 120px); }
+    .logos .wrap { text-align: center; }
+    .logos .row { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: clamp(24px, 3vw, 48px) clamp(28px, 3.6vw, 56px); max-width: 1100px; margin: 0 auto; }
+    .logos .row img { height: 26px; width: auto; opacity: 0.5; filter: grayscale(1) brightness(0.55); }
+    .logos .mono { color: var(--soft); margin-bottom: clamp(26px, 4vh, 44px); display: block; }
+    .seal { text-align: center; padding-bottom: clamp(80px, 14vh, 180px); }
+    .seal .wrap { border-top: 1px solid var(--hair); padding-top: clamp(60px, 10vh, 130px); }
+    .seal h2 { font-weight: 300; font-stretch: 100%; color: var(--ink); text-shadow: none; font-size: clamp(1.8rem, 3.4vw, 3rem); margin: 0 auto; max-width: 22ch; }
+    .seal p { margin: clamp(26px, 4vh, 40px) auto 0; }
+
+  </style>
+  <script src="/assets/js/lenis.min.js" defer></script>
+  <script src="/assets/js/main.js" defer></script>
+</head>
+<body>
+  <header class="frame-top">
+    <div class="cell brand-cell"><a href="/" aria-label="astra, home"><img src="/assets/img/logo-white.webp" alt="astra" width="96" height="37"></a></div>
+    <button class="menu-btn" aria-expanded="false" aria-controls="site-nav">Menu
+      <svg width="16" height="10" viewBox="0 0 16 10" fill="none" aria-hidden="true"><path d="M0 1h16M0 9h16" stroke="currentColor" stroke-width="1.5"/></svg>
+    </button>
+    <nav class="nav-cells" id="site-nav" aria-label="Main">
+      <a href="/clients/">Clients</a>
+      <a href="/about/">About</a>
+      <a href="/el/" lang="el" hreflang="el" class="lang-switch" aria-label="Ελληνικά">ΕΛ</a>
+    </nav>
+    <a class="cta-cell" href="/booking/">Book a call</a>
+  </header>
+
+  <main>
+    <section class="hero shell">
+      <div class="wrap">
+        <svg class="mark star-drift" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 0C12.9 7.4 16.6 11.1 24 12c-7.4.9-11.1 4.6-12 12-.9-7.4-4.6-11.1-12-12 7.4-.9 11.1-4.6 12-12Z"/></svg>
+        <h1>Marketing for aesthetic clinics. <em>We bring patients.</em></h1>
+        <p class="kicker-line mono">Helping clinics reach the stars</p>
+        <p class="hero-cta"><a class="btn" href="/booking/">Book a call</a></p>
+      </div>
+    </section>
+    <section class="gallery shell" aria-label="Recent clients">
+      <div class="wrap">
+        <div class="strip"><a class="tile" href="https://www.instagram.com/p/DeaFNbcjrBC/" target="_blank" rel="noopener"><img src="/assets/img/posts/fresh-med-1.webp" alt="astra × Fresh Med" width="800" height="1000" loading="lazy" decoding="async"><span class="mono">Fresh Med</span></a><a class="tile" href="https://www.instagram.com/p/DeaDLSdDhBf/" target="_blank" rel="noopener"><img src="/assets/img/posts/artista-medico-1.webp" alt="astra × Artista Medico" width="800" height="1000" loading="lazy" decoding="async"><span class="mono">Artista Medico</span></a><a class="tile" href="https://www.instagram.com/p/DeMg7RPjoYq/" target="_blank" rel="noopener"><img src="/assets/img/posts/facemed-clinic-1.webp" alt="astra × FaceMed Clinic" width="800" height="1000" loading="lazy" decoding="async"><span class="mono">FaceMed Clinic</span></a><a class="tile" href="https://www.instagram.com/p/DeJuVGujnJJ/" target="_blank" rel="noopener"><img src="/assets/img/posts/healthy-derma-clinics-1.webp" alt="astra × Healthy Derma Clinics" width="800" height="1000" loading="lazy" decoding="async"><span class="mono">Healthy Derma Clinics</span></a><a class="tile" href="https://www.instagram.com/p/DeJszVDjhNN/" target="_blank" rel="noopener"><img src="/assets/img/posts/karma-beauty-clinic-1.webp" alt="astra × Karma Beauty Clinic" width="800" height="1000" loading="lazy" decoding="async"><span class="mono">Karma Beauty Clinic</span></a><a class="tile" href="https://www.instagram.com/p/DeCm5QJDtN4/" target="_blank" rel="noopener"><img src="/assets/img/posts/pearlspa-1.webp" alt="astra × PearlSpa" width="800" height="1000" loading="lazy" decoding="async"><span class="mono">PearlSpa</span></a><a class="tile" href="https://www.instagram.com/p/DeClUqkjrEG/" target="_blank" rel="noopener"><img src="/assets/img/posts/forever-laser-clinic-1.webp" alt="astra × Forever Laser Clinic" width="800" height="1000" loading="lazy" decoding="async"><span class="mono">Forever Laser Clinic</span></a></div>
+      </div>
+    </section>
+    <section class="logos shell" aria-label="Clinics we work with">
+      <div class="wrap">
+        <span class="mono">Trusted by 34 clinics &amp; practices</span>
+        <div class="row">
+<img src="/assets/img/clients/dentall.webp" alt="Dent All" width="180" height="54" loading="lazy" decoding="async">
+          <img src="/assets/img/clients/drmountzouridi.webp" alt="Dr. Mountzouridi" width="92" height="54" loading="lazy" decoding="async">
+          <img src="/assets/img/clients/careloft.webp" alt="Careloft" width="87" height="54" loading="lazy" decoding="async">
+          <img src="/assets/img/clients/dporthopedics.webp" alt="DP Orthopedics" width="187" height="54" loading="lazy" decoding="async">
+          <img src="/assets/img/clients/matsoukatidis.svg" alt="Matsoukatidis" width="54" height="54" loading="lazy" decoding="async">
+          <img src="/assets/img/clients/epafipsychology.webp" alt="Epafi Psychology" width="45" height="54" loading="lazy" decoding="async">
+          <img src="/assets/img/clients/drmantikos.webp" alt="Dr. Mantikos" width="54" height="54" loading="lazy" decoding="async">
+          <img src="/assets/img/clients/drvasilikifalaina.webp" alt="Maroussi Neoped Clinic" width="89" height="54" loading="lazy" decoding="async">
+          <img src="/assets/img/clients/kourmpetimentalhealth.webp" alt="Kourmpeti Mental Health" width="54" height="54" loading="lazy" decoding="async">
+          <img src="/assets/img/clients/georgiostsirakopoulos.webp" alt="Dr. Tsirakopoulos" width="53" height="54" loading="lazy" decoding="async">
+          <img src="/assets/img/clients/01dentalclinic.webp" alt="01 Dental Clinic" width="76" height="54" loading="lazy" decoding="async">
+          <img src="/assets/img/clients/meniakaranasiou.webp" alt="Menia Karanasiou" width="90" height="54" loading="lazy" decoding="async">
+          <img src="/assets/img/clients/orthopedic-skiathos.webp" alt="Dr. Kontomanis" width="54" height="54" loading="lazy" decoding="async">
+          <img src="/assets/img/clients/memoryandspeech.webp" alt="Mnimi & Logos" width="54" height="54" loading="lazy" decoding="async">
+          <img src="/assets/img/clients/menelaoslambropoulos.svg" alt="Menelaos Lambropoulos" width="110" height="54" loading="lazy" decoding="async">
+          <img src="/assets/img/clients/dentalharmonyclinic.webp" alt="Dental Harmony Clinic" width="54" height="54" loading="lazy" decoding="async">
+          <img src="/assets/img/clients/kalliopihealthsupport.webp" alt="Kalliopi Health Support" width="52" height="54" loading="lazy" decoding="async">
+          <img src="/assets/img/clients/giannislis.webp" alt="Smile360 Odontiatreio" width="225" height="54" loading="lazy" decoding="async">
+          <img src="/assets/img/clients/benou.webp" alt="Beat the Diet" width="255" height="54" loading="lazy" decoding="async">
+          <img src="/assets/img/clients/enso.webp" alt="Enso Foot Clinic" width="184" height="54" loading="lazy" decoding="async">
+          <img src="/assets/img/clients/mammi.webp" alt="Maria Mammi" width="93" height="54" loading="lazy" decoding="async">
+          <img src="/assets/img/clients/felesakis.webp" alt="Felesakis" width="32" height="54" loading="lazy" decoding="async">
+          <img src="/assets/img/clients/taousani.webp" alt="Biolab Taousani" width="184" height="54" loading="lazy" decoding="async">
+          <img src="/assets/img/clients/rotas.webp" alt="Michalis Rotas" width="174" height="54" loading="lazy" decoding="async">
+          <img src="/assets/img/clients/sorra.svg" alt="Sorra Dental" width="54" height="54" loading="lazy" decoding="async">
+          <img src="/assets/img/clients/tzanetakou.webp" alt="Marilena Tzannetatou" width="253" height="54" loading="lazy" decoding="async">
+          <img src="/assets/img/clients/miltos.webp" alt="Miltos" width="49" height="54" loading="lazy" decoding="async">
+          <img src="/assets/img/clients/papadopoulou.webp" alt="Derma Papadopoulou" width="65" height="54" loading="lazy" decoding="async">
+          <img src="/assets/img/clients/stamatopoulou.webp" alt="Christina Stamatopoulou" width="189" height="54" loading="lazy" decoding="async">
+          <img src="/assets/img/clients/spyridaki.webp" alt="Spyridaki" width="41" height="54" loading="lazy" decoding="async">
+          <img src="/assets/img/clients/kontosi.webp" alt="Kontosi Nutrition" width="80" height="54" loading="lazy" decoding="async">
+          <img src="/assets/img/clients/pearlspa.webp" alt="Pearl Beauty n Spa" width="101" height="54" loading="lazy" decoding="async">
+          <img src="/assets/img/clients/kmyrillas.webp" alt="Konstantinos Myrillas" width="268" height="54" loading="lazy" decoding="async">
+          <img src="/assets/img/clients/lvri.webp" alt="LVRI Athens" width="173" height="54" loading="lazy" decoding="async">
+        </div>
+      </div>
+    </section>
+    <section class="seal shell">
+      <div class="wrap">
+        <h2>One call. We tell you honestly whether we can bring you patients.</h2>
+        <p><a class="btn" href="/booking/">Book a call</a></p>
+      </div>
+    </section>
+  </main>
+  <footer class="frame-bottom">
+    <div class="cells">
+      <span class="cell">© 2026 astra</span>
+      <span class="cell"><a href="/clients/">Clients</a></span>
+      <span class="cell"><a href="/about/">About</a></span>
+      <span class="cell"><a href="/booking/">Book a call</a></span>
+      <span class="cell grow"></span>
+      <span class="cell"><a href="/el/" lang="el" hreflang="el">Ελληνικά</a></span>
+      <span class="cell"><a href="/privacy/">Privacy</a></span>
+      <span class="cell"><a href="/terms/">Terms</a></span>
+      <span class="cell"><a href="/cookies/">Cookies</a></span>
+    </div>
+    <div class="fine"><span>Marketing for aesthetic clinics</span><span>astramarketing.gr</span></div>
+  </footer>
+</body>
+</html>
