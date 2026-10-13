@@ -293,13 +293,11 @@
           <div class="f"><label for="ff_desc">Περιγραφή</label><input id="ff_desc"></div>
           <div class="f"><label for="ff_net">Καθαρό ποσό (€) *</label><input id="ff_net" inputmode="decimal"></div>
           <div class="f"><label for="ff_vat">ΦΠΑ</label><select id="ff_vat"><option value="24">24%</option><option value="13">13%</option><option value="6">6%</option><option value="0">0% / απαλλαγή</option></select></div>
-          <div class="f"><label>Μικτό (€)</label><div class="mono" id="ff_gross" style="padding:8px 2px;font-size:15px">—</div></div>
+          <div class="f"><label>Μικτό</label><div class="mono" id="ff_gross" style="padding:8px 2px;font-size:15px">—</div></div>
           <div class="f" data-exp><label for="ff_doc">Παραστατικό</label><select id="ff_doc"><option value="invoice">Τιμολόγιο στο όνομά μας → ο λογιστής παίρνει το αρχείο</option><option value="receipt">Απόδειξη χωρίς τιμολόγιο → γραμμή στο Excel του λογιστή</option></select></div>
           <div class="f" data-exp><label for="ff_supplier">Προμηθευτής</label><input id="ff_supplier" placeholder="π.χ. Google, Aegean, εστιατόριο…"></div>
           <div class="f" data-exp><label for="ff_country">Χώρα</label><input id="ff_country" value="Greece"></div>
           <div class="f" data-exp><label for="ff_pay">Τρόπος πληρωμής</label><select id="ff_pay"></select></div>
-          <div class="f" data-exp><label for="ff_cur">Νόμισμα</label><select id="ff_cur"><option>EUR</option><option>USD</option><option>GBP</option><option>RSD</option></select></div>
-          <div class="f" data-exp id="ff_rateWrap" hidden><label for="ff_rate">Ισοτιμία → EUR</label><input id="ff_rate" inputmode="decimal"></div>
           <div class="f" id="ff_fileWrap"><label for="ff_file">Απόδειξη / τιμολόγιο (φωτογραφία ή PDF)</label><input id="ff_file" type="file" accept="image/*,.pdf"></div>
         </div>
         <div class="factions"><button class="btn primary" id="btnSaveFin">Αποθήκευση</button><button class="btn" id="btnCancelFin">Άκυρο</button></div>

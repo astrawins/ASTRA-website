@@ -2047,28 +2047,47 @@ $('btnNewFin').onclick = () => {
 $('btnCancelFin').onclick = () => { $('finForm').hidden = true; };
 function fillFinCats() {
   const k = $('ff_kind').value; $('ff_cat').innerHTML = CATS[k].map((c) => `<option>${c}</option>`).join('');
-  document.querySelectorAll('#finForm [data-exp]').forEach((el) => { el.hidden = k !== 'expense' || (el.id === 'ff_rateWrap' && $('ff_cur').value === 'EUR'); });
+  document.querySelectorAll('#finForm [data-exp]').forEach((el) => { el.hidden = k !== 'expense'; });
   if (!$('ff_pay').options.length) $('ff_pay').innerHTML = PAY_METHODS.map((m) => `<option>${m}</option>`).join('');
-  finCurrencyUI();
-}
-/* Ξένο νόμισμα: το ποσό γράφεται στο πρωτότυπο νόμισμα (μικτό), ΦΠΑ 0, μετατροπή με την ισοτιμία του λογιστή. */
-function finCurrencyUI() {
-  const cur = $('ff_cur').value || 'EUR'; const foreign = cur !== 'EUR' && $('ff_kind').value === 'expense';
-  $('ff_rateWrap').hidden = !foreign;
-  if (foreign && !$('ff_rate').value) $('ff_rate').value = FX_RATES[cur] || '';
-  document.querySelector('label[for=ff_net]').textContent = foreign ? `Ποσό που πληρώθηκε (${cur}) *` : 'Καθαρό ποσό (€) *';
-  if (foreign) $('ff_vat').value = '0';
   updGross();
 }
-$('ff_cur').addEventListener('change', finCurrencyUI);
-$('ff_rate').addEventListener('input', updGross);
 $('ff_kind').addEventListener('change', fillFinCats);
 function updGross() {
   const v = parseNum($('ff_net').value); const vat = +$('ff_vat').value || 0;
-  const cur = $('ff_cur') ? ($('ff_cur').value || 'EUR') : 'EUR'; const foreign = cur !== 'EUR' && $('ff_kind').value === 'expense';
-  const rate = foreign ? (parseNum($('ff_rate').value) || FX_RATES[cur] || 1) : 1;
-  const gross = foreign ? v * rate : v * (1 + vat / 100);
-  $('ff_gross').textContent = v ? eur(gross) + (foreign ? ` (${v} ${cur} × ${rate})` : '') : '—';
+  $('ff_gross').textContent = v ? eur(v * (1 + vat / 100)) : '—';
+}
+$('ff_net').addEventListener('input', updGross);
+$('ff_vat').addEventListener('change', updGross);
+$('btnSaveFin').onclick = async () => {
+  const net = parseNum($('ff_net').value);
+  if (!net) { toast('Γράψε καθαρό ποσό.'); return; }
+  const vatRate = +$('ff_vat').value;
+  const file = $('ff_file').files[0];
+  const isExp = $('ff_kind').value === 'expense';
+  // Όλα σε ευρώ: Amount (Original) = μικτό €, Currency EUR, ισοτιμία 1.
+  const gross = +(net * (1 + vatRate / 100)).toFixed(2);
+  let row;
+  try {
+    row = await data.create('finance', {
+      kind: $('ff_kind').value, date: $('ff_date').value || todayISO(),
+      category: $('ff_cat').value, clinicId: $('ff_clinic').value || null, description: $('ff_desc').value.trim(),
+      net, vatRate, vat: +(gross - net).toFixed(2), gross,
+      ...(isExp ? {
+        docType: $('ff_doc').value, supplier: $('ff_supplier').value.trim(), country: $('ff_country').value.trim() || 'Greece',
+        paymentMethod: $('ff_pay').value, currency: 'EUR', fxRate: 1, amountOrig: gross,
+      } : { docType: 'invoice', currency: 'EUR', fxRate: 1, amountOrig: gross }),
+    });
+  } catch (e) { toast('Η αποθήκευση απέτυχε: ' + e.message); return; }
+  $('ff_net').value = ''; $('ff_desc').value = ''; $('ff_file').value = ''; $('ff_supplier').value = ''; updGross();
+  $('finForm').hidden = true;
+  let msg = 'Η εγγραφή αποθηκεύτηκε.';
+  if (file) {
+    toast('Η εγγραφή αποθηκεύτηκε — ανεβαίνει το παραστατικό…');
+    try { await attachReceipt(row, file); msg = 'Η εγγραφή αποθηκεύτηκε με το παραστατικό της ✓'; }
+    catch (e) { msg = 'Η εγγραφή αποθηκεύτηκε, αλλά το παραστατικό δεν ανέβηκε: ' + e.message; }
+  }
+  toast(msg);
+  await refresh();
 };
 /* Ανεβάζει το παραστατικό στο Drive (φάκελος του μήνα της εγγραφής), το δένει με την εγγραφή
    και το προσθέτει στη λίστα αποδείξεων του μήνα. */
@@ -2125,7 +2144,7 @@ function renderFin() {
         return `<tr data-id="${f.id}">
         <td class="mono">${new Date(f.date).toLocaleDateString('el-GR', { day: '2-digit', month: '2-digit', year: '2-digit' })}</td>
         <td><span class="chip ${f.kind === 'income' ? 'won' : 'lost'}">${f.kind === 'income' ? 'Έσοδο' : 'Έξοδο'}</span>${f.recurringId ? ' <span class="chip plain" title="Από πάγια εγγραφή">↻</span>' : ''}${f.kind === 'expense' ? ` <span class="chip plain" title="${DOC_TYPES[f.docType] || DOC_TYPES.receipt}">${f.docType === 'invoice' ? 'Τιμ.' : 'Απόδ.'}</span>` : ''}</td>
-        <td>${esc(f.category || '')}</td><td>${f.supplier ? '<b>' + esc(f.supplier) + '</b>' + (f.description ? ' · ' : '') : ''}${esc(f.description || '')}${f.currency && f.currency !== 'EUR' ? ` <span class="chip plain" title="Ισοτιμία ${f.fxRate}">${f.amountOrig} ${esc(f.currency)}</span>` : ''}</td><td>${esc(c ? c.name : '')}</td>
+        <td>${esc(f.category || '')}</td><td>${f.supplier ? '<b>' + esc(f.supplier) + '</b>' + (f.description ? ' · ' : '') : ''}${esc(f.description || '')}</td><td>${esc(c ? c.name : '')}</td>
         <td class="num">${eur(f.net)}</td><td class="num" title="${f.vatRate}%">${eur(f.vat)}</td><td class="num"><b>${eur(f.gross)}</b></td>${rc}
         <td><button class="btn small danger" data-act="delfin">✕</button></td></tr>`;
       }).join('') + '</tbody></table>';
@@ -2675,7 +2694,7 @@ function expenseReportBlob(m) {
   const SETTINGS = [['Currency', 'EUR Rate'], ...Object.entries(FX_RATES).map(([c, r]) => [c, r])];
   const CATEGORIES = [['Category'], ...ACC_CATEGORIES.map((c) => [c])];
   const EXPENSES = [['Date', 'Supplier', 'Country', 'Category', 'Description', 'Amount (Original)', 'Currency', 'EUR Rate', 'Amount EUR', 'Payment Method'],
-    ...rows.map((f) => [{ date: String(f.date).slice(0, 10) }, f.supplier || '', f.country || 'Greece', accCategory(f.category), f.description || '', +(f.amountOrig ?? f.gross) || 0, f.currency || 'EUR', +f.fxRate || 1, +f.gross || 0, f.paymentMethod || ''])];
+    ...rows.map((f) => [{ date: String(f.date).slice(0, 10) }, f.supplier || '', f.country || 'Greece', accCategory(f.category), f.description || '', +f.gross || 0, 'EUR', 1, +f.gross || 0, f.paymentMethod || ''])]; // όλα σε ευρώ
   return { rows, blob: buildXlsx([{ name: 'SETTINGS', rows: SETTINGS, widths: [12, 10] }, { name: 'CATEGORIES', rows: CATEGORIES, widths: [20] }, { name: 'EXPENSES', rows: EXPENSES, widths: [12, 24, 12, 18, 36, 16, 10, 10, 12, 18] }]) };
 }
 const safeName = (t) => String(t || '').replace(/[\\/:*?"<>|]+/g, '-').trim().slice(0, 60);
