@@ -24,6 +24,16 @@ const S = { clinics: [], leads: [], camps: [], fin: [], rec: [], act: [], tasks:
 let activeTab = 'overview';
 const $ = (id) => document.getElementById(id);
 const clinicById = (id) => S.clinics.find((c) => c.id === id);
+/* Χτύπος ζωής του Apps Script του sheet (clinics.sheet_last_ping, κάθε 1′ μέσω lead-intake): ζωντανό / σιωπηλό / σφάλμα Meta sync. */
+function sheetPulse(c) {
+  if (!c.sheetId || !c.sheetLastPing) return '';
+  const mins = Math.round((Date.now() - new Date(c.sheetLastPing).getTime()) / 60000);
+  const st = c.sheetStatus || {};
+  const when = mins < 60 ? `πριν ${mins}′` : mins < 2880 ? `πριν ${Math.round(mins / 60)} ώρες` : `πριν ${Math.round(mins / 1440)} μέρες`;
+  if (mins > 60) return ` · <span class="chip lost" title="Το script του sheet δεν έχει στείλει χτύπο ζωής ${when}">Script σιωπηλό ${when}</span>`;
+  if (st.metaLastError) return ` · <span class="chip epik" title="${String(st.metaLastError).replace(/"/g, '&quot;')}">Script ζωντανό · σφάλμα Meta</span>`;
+  return ` · <span class="chip won" title="Τελευταίος χτύπος ${when}${st.metaLastRun ? ' · Meta sync ' + new Date(st.metaLastRun).toLocaleTimeString('el-GR', { hour: '2-digit', minute: '2-digit' }) : ''}">Script ζωντανό</span>`;
+}
 const COPY_ICON = '<svg width="12" height="12" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><rect x="4.5" y="4.5" width="8" height="8" rx="1.5"/><path d="M9.5 4.5v-2a1 1 0 0 0-1-1h-6a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2"/></svg>';
 const leadById = (id) => S.leads.find((l) => l.id === id);
 const userEmail = () => { const s = currentSession(); return s ? s.email || '' : ''; };
@@ -1332,7 +1342,7 @@ function renderClinics() {
       </div>
       ${goalBar('Leads', lsM.length, c.goalLeads)}${goalBar('Πωλήσεις', wonM.length, c.goalSales)}
       ${(() => { const st = obState(c); const done = st.filter((x) => x[2]).length; return done < st.length ? goalBar('Setup', done, st.length) : ''; })()}
-      <div class="meta">${c.fee ? 'Αμοιβή ' + eur(c.fee) + '/μήνα' : 'Χωρίς αμοιβή'}${c.sheetId ? (sync ? ' · Sync ' + sync : ' · Sheet συνδεδεμένο') : ' · Χωρίς sheet'}${contractMeta(c)}</div>
+      <div class="meta">${c.fee ? 'Αμοιβή ' + eur(c.fee) + '/μήνα' : 'Χωρίς αμοιβή'}${c.sheetId ? (sync ? ' · Sync ' + sync : ' · Sheet συνδεδεμένο') : ' · Χωρίς sheet'}${sheetPulse(c)}${contractMeta(c)}</div>
       <div class="foot">
         <button class="btn small primary" data-act="view">Άνοιγμα</button>
         ${contractDays(c) !== null && contractDays(c) <= 45 ? '<button class="btn small" data-act="renew" title="Μετάθεση λήξης +12 μήνες">Ανανέωση +12μ</button>' : ''}
