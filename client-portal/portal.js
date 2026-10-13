@@ -316,8 +316,8 @@ function currentWeekEstimate() {
   const items = share
     ? D.leads.filter((l) => l.status === 'won' && (+l.amount || 0) > 0 && inWeek(l.saleDate || l.createdTime))
     : D.leads.filter((l) => ['show', 'won'].includes(l.status) && inWeek(l.attendedAt || l.saleDate || l.createdTime)); // μόνο όσα ΕΓΙΝΑΝ, με ημερομηνία επιβεβαίωσης
-  const net = share ? items.reduce((s, l) => s + (+l.amount || 0) / 1.24, 0) * ((+c.sharePct || 50) / 100) : items.length * (+c.fee || 50);
-  return { w, share, n: items.length, net: +net.toFixed(2), gross: +(net * 1.24).toFixed(2), pct: +c.sharePct || 50, fee: +c.fee || 50 };
+  const net = share ? items.reduce((s, l) => s + (+l.amount || 0) / 1.24, 0) * ((+c.sharePct || 50) / 100) : items.length * (+c.apptFee || 50);
+  return { w, share, n: items.length, net: +net.toFixed(2), gross: +(net * 1.24).toFixed(2), pct: +c.sharePct || 50, fee: +c.apptFee || 50 };
 }
 function renderBills() {
   const body = document.getElementById('pBody');

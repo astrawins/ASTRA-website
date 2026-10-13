@@ -115,7 +115,7 @@ async function maybeMonthlyReportEmails() {
     const st = computeStats(pm, c);
     if (!st.leads && !st.spend) continue;
     try {
-      await sendEmail(gcalClient(), { to: c.email, ...reportEmail({ clinicName: c.name, monthLabel: mLabel(pm), s: st, fee: apptFee(), portalUrl: location.origin + '/client-portal/' }) });
+      await sendEmail(gcalClient(), { to: c.email, ...reportEmail({ clinicName: c.name, monthLabel: mLabel(pm), s: st, fee: clinicFee(c), portalUrl: location.origin + '/client-portal/' }) });
       sent++;
     } catch { break; }
   }
@@ -1172,7 +1172,7 @@ document.addEventListener('keydown', (e) => {
 let editClinicId = null;
 $('btnNewClinic').onclick = () => {
   editClinicId = null; $('clinicFormTitle').textContent = 'Νέα κλινική';
-  ['cf_name', 'cf_doctor', 'cf_spec', 'cf_phone', 'cf_email', 'cf_portalEmail', 'cf_fee', 'cf_sharePct', 'cf_dailyBudget', 'cf_monthlyBudget', 'cf_goalLeads', 'cf_goalSales', 'cf_contractStart', 'cf_contractEnd', 'cf_nextTouch', 'cf_tags', 'cf_contacts', 'cf_sheet', 'cf_metaAd', 'cf_metaSince', 'cf_metaFilter', 'cf_spendShare', 'cf_script', 'cf_templates', 'cf_notes'].forEach((i) => { $(i).value = ''; });
+  ['cf_name', 'cf_doctor', 'cf_spec', 'cf_phone', 'cf_email', 'cf_portalEmail', 'cf_fee', 'cf_apptFee', 'cf_sharePct', 'cf_dailyBudget', 'cf_monthlyBudget', 'cf_goalLeads', 'cf_goalSales', 'cf_contractStart', 'cf_contractEnd', 'cf_nextTouch', 'cf_tags', 'cf_contacts', 'cf_sheet', 'cf_metaAd', 'cf_metaSince', 'cf_metaFilter', 'cf_spendShare', 'cf_script', 'cf_templates', 'cf_notes'].forEach((i) => { $(i).value = ''; });
   $('clinicForm').hidden = false; $('cf_name').focus();
 };
 $('btnCancelClinic').onclick = () => { $('clinicForm').hidden = true; };
@@ -1183,7 +1183,7 @@ $('btnSaveClinic').onclick = async () => {
   const d = {
     name, doctor: $('cf_doctor').value.trim(), specialty: $('cf_spec').value.trim(),
     phone: $('cf_phone').value.trim(), email: $('cf_email').value.trim(), portalEmail: $('cf_portalEmail').value.trim(), fee: parseNum($('cf_fee').value),
-    billingModel: $('cf_billingModel').value, sharePct: parseNum($('cf_sharePct').value) || 50,
+    billingModel: $('cf_billingModel').value, apptFee: parseNum($('cf_apptFee').value) || null, sharePct: parseNum($('cf_sharePct').value) || 50,
     dailyBudget: parseNum($('cf_dailyBudget').value), monthlyBudget: parseNum($('cf_monthlyBudget').value),
     goalLeads: Math.round(parseNum($('cf_goalLeads').value)), goalSales: Math.round(parseNum($('cf_goalSales').value)),
     contractStart: $('cf_contractStart').value || null, contractEnd: $('cf_contractEnd').value || null,
@@ -1283,7 +1283,7 @@ function openClinicEdit(id) {
   editClinicId = id; $('clinicFormTitle').textContent = 'Επεξεργασία κλινικής';
   $('cf_name').value = c.name || ''; $('cf_doctor').value = c.doctor || ''; $('cf_spec').value = c.specialty || '';
   $('cf_phone').value = c.phone || ''; $('cf_email').value = c.email || ''; $('cf_portalEmail').value = c.portalEmail || ''; $('cf_fee').value = c.fee || '';
-  $('cf_billingModel').value = c.billingModel || 'appointment'; $('cf_sharePct').value = c.sharePct ?? 50;
+  $('cf_billingModel').value = c.billingModel || 'appointment'; $('cf_apptFee').value = c.apptFee || ''; $('cf_sharePct').value = c.sharePct ?? 50;
   $('cf_dailyBudget').value = c.dailyBudget || ''; $('cf_monthlyBudget').value = c.monthlyBudget || '';
   $('cf_goalLeads').value = c.goalLeads || ''; $('cf_goalSales').value = c.goalSales || '';
   $('cf_contractStart').value = c.contractStart || ''; $('cf_contractEnd').value = c.contractEnd || '';
@@ -2328,6 +2328,8 @@ async function materializeRecurring() {
    Ημερομηνία χρέωσης = η μέρα που επιβεβαιώθηκε η προσέλευση (attendedAt), ώστε να πέφτει πάντα
    σε εβδομάδα που δεν έχει κλείσει ακόμη. */
 const apptFee = () => +SET().appointmentFee || 50;
+/* Αμοιβή ανά ολοκληρωμένο ραντεβού: ανά κλινική (clinics.appt_fee) ή η γενική ρύθμιση. */
+const clinicFee = (c) => +(c && c.apptFee) || apptFee();
 const isBooked = (l) => ['show', 'won'].includes(l.status);
 /* Έσοδα κλινικής = ποσά που πλήρωσαν όσοι ήρθαν (επίσκεψη) ή ξεκίνησαν θεραπεία (πακέτο). */
 const isPaying = (l) => ['show', 'won'].includes(l.status) && (+l.amount || 0) > 0;
@@ -2345,15 +2347,17 @@ function taxEstimate() {
   const incY = S.fin.filter((f) => f.kind === 'income' && inYear(f) && notBilling(f));
   const expY = S.fin.filter((f) => f.kind === 'expense' && inYear(f));
   // Πληρωμένα ραντεβού από leads που ήρθαν τον μήνα / τη χρονιά
-  const apptM = S.leads.filter((l) => isBooked(l) && monthKey(billDate(l)) === mk).length;
-  const apptY = S.leads.filter((l) => isBooked(l) && billDate(l).startsWith(year)).length;
-  const revM = apptM * apptFee() + sum(incM, 'net');      // τζίρος μήνα
-  const revY = apptY * apptFee() + sum(incY, 'net');
+  const apptLM = S.leads.filter((l) => isBooked(l) && monthKey(billDate(l)) === mk);
+  const apptLY = S.leads.filter((l) => isBooked(l) && billDate(l).startsWith(year));
+  const apptM = apptLM.length, apptY = apptLY.length;
+  const feeOf = (ls) => ls.reduce((s, l) => s + clinicFee(clinicById(l.clinicId)), 0); // αμοιβή ανά κλινική
+  const revM = feeOf(apptLM) + sum(incM, 'net');      // τζίρος μήνα
+  const revY = feeOf(apptLY) + sum(incY, 'net');
   const expMn = sum(expM, 'net'), expYn = sum(expY, 'net');
   const profitM = revM - expMn;                            // ξεκινά αρνητικό από τα πάγια
   const profitY = revY - expYn;
   // ΦΠΑ: 24% πάνω στα τιμολόγια ραντεβού + χειροκίνητα έσοδα − εισροές
-  const vatMonth = apptM * apptFee() * 0.24 + sum(incM, 'vat') - sum(expM, 'vat');
+  const vatMonth = feeOf(apptLM) * 0.24 + sum(incM, 'vat') - sum(expM, 'vat');
   const tax = Math.max(0, profitY) * 0.22;
   const prepayPct = +SET().taxPrepayPct || 80;             // ΙΚΕ: 80%
   const prepay = tax * prepayPct / 100;
@@ -2398,13 +2402,13 @@ function weekSales(clinicId, startIso) {
 }
 const weekItems = (c, w) => (isShare(c) ? weekSales(c.id, w) : weekLeads(c.id, w));
 const shareNet = (c, ls) => +(ls.reduce((s, l) => s + (+l.amount || 0) / 1.24, 0) * ((+c.sharePct || 50) / 100)).toFixed(2);
-const weekNet = (c, ls) => (isShare(c) ? shareNet(c, ls) : ls.length * apptFee());
+const weekNet = (c, ls) => (isShare(c) ? shareNet(c, ls) : ls.length * clinicFee(c));
 const SEPA_CHIP = { active: ['Εντολή ενεργή', 'won'], pending: ['Αναμονή υπογραφής', 'epik'], '': ['Χωρίς εντολή', 'plain'] };
 const PAY_CHIP = { pending: ['Προς χρέωση', 'epik'], processing: ['Σε επεξεργασία', 'rv'], paid: ['Πληρώθηκε ✓', 'won'], failed: ['Απέτυχε', 'lost'] };
 async function closeWeek(clinicId, startIso) {
   const c = clinicById(clinicId); const r = weekRange(startIso);
   const ls = weekItems(c, startIso); if (!ls.length) return null;
-  const share = isShare(c); const fee = apptFee(); const total = weekNet(c, ls); const vat = +(total * 0.24).toFixed(2);
+  const share = isShare(c); const fee = clinicFee(c); const total = weekNet(c, ls); const vat = +(total * 0.24).toFixed(2);
   const id = 'W' + startIso + '_' + clinicId;
   if (S.billing.some((x) => x.id === id)) return id;
   await data.create('billing', {
@@ -2857,7 +2861,7 @@ $('btnEmailReport').onclick = async () => {
   const b = $('btnEmailReport'); b.disabled = true; b.textContent = 'Αποστολή…';
   try {
     const st = computeStats(mk, c);
-    await sendEmail(gcalClient(), { to: c.email, ...reportEmail({ clinicName: c.name, monthLabel: mLabel(mk), s: st, fee: apptFee(), portalUrl: location.origin + '/client-portal/' }) });
+    await sendEmail(gcalClient(), { to: c.email, ...reportEmail({ clinicName: c.name, monthLabel: mLabel(mk), s: st, fee: clinicFee(c), portalUrl: location.origin + '/client-portal/' }) });
     toast('Η αναφορά ' + mLabel(mk) + ' στάλθηκε στο ' + c.email + ' ✓');
   } catch (e) { toast(e.message); }
   b.disabled = false; b.textContent = '📧 Email στον πελάτη';
