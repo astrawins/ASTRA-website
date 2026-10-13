@@ -791,3 +791,22 @@ html.night-ink {
   --bronze-text: #E8C49A;
 }
 html.night-ink body, html.night-ink .frame-top, html.night-ink .frame-bottom { transition: color 600ms ease; }
+
+/* ---------- Clients: the welcome posts, two slides each ---------- */
+.posts-section .wrap { padding-top: clamp(56px, 9vh, 110px); }
+.posts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: clamp(36px, 5vw, 72px) clamp(20px, 3vw, 48px);
+}
+@media (max-width: 899px) { .posts { grid-template-columns: 1fr; } }
+.post .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; text-decoration: none; }
+.post img {
+  display: block; width: 100%; height: auto; aspect-ratio: 4 / 5; object-fit: cover;
+  transition: transform 600ms var(--ease-out);
+}
+.post .pair:hover img { transform: translateY(-4px); }
+.post-meta {
+  margin-top: 14px; display: flex; justify-content: space-between; gap: 12px;
+  font-size: 0.6875rem; letter-spacing: 0.14em; text-transform: uppercase; color: var(--soft);
+}

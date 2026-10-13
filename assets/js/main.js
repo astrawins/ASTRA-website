@@ -356,6 +356,7 @@
       '.band h2', '.band .prose', '.band .muted',
       '.steps .step',
       '.inclusions li',
+      '.posts .post',
       '.form-grid form', '.form-grid h2'
     ].join(',');
     var seen = [];
@@ -467,7 +468,7 @@
   }
 
   /* Space crossing: scrolling to the services turns the site into night sky */
-  var svcZone = document.querySelector('.services');
+  var svcZone = document.querySelector('.services') || document.querySelector('.space-zone');
   var deck404 = document.querySelector('.notfound');
   var spaceOK = (svcZone || deck404) && !window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   if (spaceOK) {

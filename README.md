@@ -5,9 +5,8 @@ Static site for astra, a marketing practice for aesthetic clinics. Plain HTML/CS
 ## Structure
 
 ```
-index.html                      Home
-services/paid-ads/index.html    Paid Ads (Meta & Google)
-services/social-media/index.html Social Media Management
+index.html                      Home (hero, statement, client marquee, CTA)
+clients/index.html              Clients (grid of clinics we bring patients to; el/pelates/)
 about/index.html                About
 contact/index.html              Contact form ("Book a call")
 privacy/index.html              Privacy policy (noindex)
