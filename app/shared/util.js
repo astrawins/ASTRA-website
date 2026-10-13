@@ -22,8 +22,20 @@ export function lastMonths(n) {
 export const STATUS = { neo: 'Νέο', noans: 'Δεν απάντησε', epik: 'Επικοινωνία', rv: 'Ραντεβού', show: 'Ήρθε', won: 'Πελάτης', lost: 'Χαμένο' };
 export const CATS = {
   income: ['Αμοιβή διαχείρισης', 'Χρέωση ad spend', 'Setup fee', 'Δημιουργικό / Παραγωγή', 'Άλλο έσοδο'],
-  expense: ['Διαφημιστική δαπάνη (Meta)', 'Διαφημιστική δαπάνη (Google)', 'Εργαλεία / Συνδρομές', 'Μισθοδοσία / Συνεργάτες', 'Λογιστής', 'Ενοίκιο / Λειτουργικά', 'Άλλο έξοδο'],
+  expense: ['Διαφημιστική δαπάνη (Meta)', 'Διαφημιστική δαπάνη (Google)', 'Εργαλεία / Συνδρομές', 'Μισθοδοσία / Συνεργάτες', 'Λογιστής', 'Ενοίκιο / Λειτουργικά', 'Γραφείο / Αναλώσιμα', 'Ταξίδι', 'Διαμονή', 'Μετακίνηση', 'Γεύματα', 'Επαγγελματικά γεύματα', 'Άλλο έξοδο'],
 };
+
+/* Expense report του λογιστή (ένα Excel ανά μήνα): οι 9 κατηγορίες του και η αντιστοίχιση από τις δικές μας. */
+export const ACC_CATEGORIES = ['Accommodation', 'Meals', 'Business Meals', 'Travel', 'Transport', 'Office Expenses', 'Software', 'Marketing', 'Other'];
+export const ACC_CAT_MAP = {
+  'Διαφημιστική δαπάνη (Meta)': 'Marketing', 'Διαφημιστική δαπάνη (Google)': 'Marketing', 'Εργαλεία / Συνδρομές': 'Software',
+  'Μισθοδοσία / Συνεργάτες': 'Other', 'Λογιστής': 'Office Expenses', 'Ενοίκιο / Λειτουργικά': 'Office Expenses', 'Γραφείο / Αναλώσιμα': 'Office Expenses',
+  'Ταξίδι': 'Travel', 'Διαμονή': 'Accommodation', 'Μετακίνηση': 'Transport', 'Γεύματα': 'Meals', 'Επαγγελματικά γεύματα': 'Business Meals', 'Άλλο έξοδο': 'Other',
+};
+export const accCategory = (c) => ACC_CAT_MAP[c] || 'Other';
+export const PAY_METHODS = ['Εταιρική κάρτα', 'Προσωπική κάρτα', 'Μετρητά', 'Τραπεζική μεταφορά', 'PayPal', 'Άλλο'];
+export const FX_RATES = { EUR: 1, USD: 0.92, GBP: 1.17, RSD: 0.0085 }; // από το SETTINGS του λογιστή — ισοτιμία προς EUR
+export const DOC_TYPES = { invoice: 'Τιμολόγιο στο όνομά μας', receipt: 'Απόδειξη χωρίς τιμολόγιο' };
 
 export const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
 

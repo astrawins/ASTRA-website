@@ -5,13 +5,14 @@ import { storageUpload, storageDownload, storageDelete, callFunction, updatePass
 import * as data from '/app/shared/data.js';
 import { sheetIdFrom, gidFrom, fetchSheetCSV, parseCSV, mapLeads } from '/app/shared/sheets.js';
 import { spreadsheetIdFrom, writeToSheet, readSheetValues } from '/app/shared/gsheets.js';
-import { uploadJsonToDrive, uploadReceipt, trashReceipt, RECEIPTS_FOLDER } from '/app/shared/gdrive.js';
+import { uploadJsonToDrive, uploadReceipt, trashReceipt, downloadDriveFile, RECEIPTS_FOLDER } from '/app/shared/gdrive.js';
+import { buildXlsx, makeZip, downloadBlob } from '/app/shared/xlsx.js';
 import { sendEmail, welcomeEmail, billingEmail, reportEmail } from '/app/shared/gmail.js';
 import { metaInsights } from '/app/shared/integrations.js';
 import * as gcal from '/app/shared/gcal.js';
 import {
   esc, eur, num, parseNum, todayISO, monthKey, nowMonth, mLabel, lastMonths,
-  STATUS, CATS, uid, toast, quarterOf, addDays, downloadCSV,
+  STATUS, CATS, uid, toast, quarterOf, addDays, downloadCSV, ACC_CATEGORIES, accCategory, PAY_METHODS, FX_RATES, DOC_TYPES,
 } from '/app/shared/util.js';
 
 /* ---- auth guard: η σελίδα μένει αόρατη μέχρι να επιβεβαιωθεί η σύνδεση ---- */
@@ -2044,34 +2045,30 @@ $('btnNewFin').onclick = () => {
   fillFinCats(); fillClinicSelect($('ff_clinic'), '—'); updGross(); $('ff_net').focus();
 };
 $('btnCancelFin').onclick = () => { $('finForm').hidden = true; };
-function fillFinCats() { const k = $('ff_kind').value; $('ff_cat').innerHTML = CATS[k].map((c) => `<option>${c}</option>`).join(''); }
+function fillFinCats() {
+  const k = $('ff_kind').value; $('ff_cat').innerHTML = CATS[k].map((c) => `<option>${c}</option>`).join('');
+  document.querySelectorAll('#finForm [data-exp]').forEach((el) => { el.hidden = k !== 'expense' || (el.id === 'ff_rateWrap' && $('ff_cur').value === 'EUR'); });
+  if (!$('ff_pay').options.length) $('ff_pay').innerHTML = PAY_METHODS.map((m) => `<option>${m}</option>`).join('');
+  finCurrencyUI();
+}
+/* Ξένο νόμισμα: το ποσό γράφεται στο πρωτότυπο νόμισμα (μικτό), ΦΠΑ 0, μετατροπή με την ισοτιμία του λογιστή. */
+function finCurrencyUI() {
+  const cur = $('ff_cur').value || 'EUR'; const foreign = cur !== 'EUR' && $('ff_kind').value === 'expense';
+  $('ff_rateWrap').hidden = !foreign;
+  if (foreign && !$('ff_rate').value) $('ff_rate').value = FX_RATES[cur] || '';
+  document.querySelector('label[for=ff_net]').textContent = foreign ? `Ποσό που πληρώθηκε (${cur}) *` : 'Καθαρό ποσό (€) *';
+  if (foreign) $('ff_vat').value = '0';
+  updGross();
+}
+$('ff_cur').addEventListener('change', finCurrencyUI);
+$('ff_rate').addEventListener('input', updGross);
 $('ff_kind').addEventListener('change', fillFinCats);
-function updGross() { const n = parseNum($('ff_net').value), v = +$('ff_vat').value; $('ff_gross').textContent = n ? eur(n * (1 + v / 100)) : '—'; }
-$('ff_net').addEventListener('input', updGross);
-$('ff_vat').addEventListener('change', updGross);
-$('btnSaveFin').onclick = async () => {
-  const net = parseNum($('ff_net').value);
-  if (!net) { toast('Γράψε καθαρό ποσό.'); return; }
-  const vatRate = +$('ff_vat').value;
-  const file = $('ff_file').files[0];
-  let row;
-  try {
-    row = await data.create('finance', {
-      kind: $('ff_kind').value, date: $('ff_date').value || todayISO(),
-      category: $('ff_cat').value, clinicId: $('ff_clinic').value || null, description: $('ff_desc').value.trim(),
-      net, vatRate, vat: +(net * vatRate / 100).toFixed(2), gross: +(net * (1 + vatRate / 100)).toFixed(2),
-    });
-  } catch (e) { toast('Η αποθήκευση απέτυχε: ' + e.message); return; }
-  $('ff_net').value = ''; $('ff_desc').value = ''; $('ff_file').value = ''; updGross();
-  $('finForm').hidden = true;
-  let msg = 'Η εγγραφή αποθηκεύτηκε.';
-  if (file) {
-    toast('Η εγγραφή αποθηκεύτηκε — ανεβαίνει το παραστατικό…');
-    try { await attachReceipt(row, file); msg = 'Η εγγραφή αποθηκεύτηκε με το παραστατικό της ✓'; }
-    catch (e) { msg = 'Η εγγραφή αποθηκεύτηκε, αλλά το παραστατικό δεν ανέβηκε: ' + e.message; }
-  }
-  toast(msg);
-  await refresh();
+function updGross() {
+  const v = parseNum($('ff_net').value); const vat = +$('ff_vat').value || 0;
+  const cur = $('ff_cur') ? ($('ff_cur').value || 'EUR') : 'EUR'; const foreign = cur !== 'EUR' && $('ff_kind').value === 'expense';
+  const rate = foreign ? (parseNum($('ff_rate').value) || FX_RATES[cur] || 1) : 1;
+  const gross = foreign ? v * rate : v * (1 + vat / 100);
+  $('ff_gross').textContent = v ? eur(gross) + (foreign ? ` (${v} ${cur} × ${rate})` : '') : '—';
 };
 /* Ανεβάζει το παραστατικό στο Drive (φάκελος του μήνα της εγγραφής), το δένει με την εγγραφή
    και το προσθέτει στη λίστα αποδείξεων του μήνα. */
@@ -2127,8 +2124,8 @@ function renderFin() {
           : `<button class="btn small" data-act="attfin" title="Ανέβασε φωτογραφία ή PDF">⇪ ${f.kind === 'expense' ? '<span class="neg">Λείπει</span>' : 'Προσθήκη'}</button>`) + '</td>';
         return `<tr data-id="${f.id}">
         <td class="mono">${new Date(f.date).toLocaleDateString('el-GR', { day: '2-digit', month: '2-digit', year: '2-digit' })}</td>
-        <td><span class="chip ${f.kind === 'income' ? 'won' : 'lost'}">${f.kind === 'income' ? 'Έσοδο' : 'Έξοδο'}</span>${f.recurringId ? ' <span class="chip plain" title="Από πάγια εγγραφή">↻</span>' : ''}</td>
-        <td>${esc(f.category || '')}</td><td>${esc(f.description || '')}</td><td>${esc(c ? c.name : '')}</td>
+        <td><span class="chip ${f.kind === 'income' ? 'won' : 'lost'}">${f.kind === 'income' ? 'Έσοδο' : 'Έξοδο'}</span>${f.recurringId ? ' <span class="chip plain" title="Από πάγια εγγραφή">↻</span>' : ''}${f.kind === 'expense' ? ` <span class="chip plain" title="${DOC_TYPES[f.docType] || DOC_TYPES.receipt}">${f.docType === 'invoice' ? 'Τιμ.' : 'Απόδ.'}</span>` : ''}</td>
+        <td>${esc(f.category || '')}</td><td>${f.supplier ? '<b>' + esc(f.supplier) + '</b>' + (f.description ? ' · ' : '') : ''}${esc(f.description || '')}${f.currency && f.currency !== 'EUR' ? ` <span class="chip plain" title="Ισοτιμία ${f.fxRate}">${f.amountOrig} ${esc(f.currency)}</span>` : ''}</td><td>${esc(c ? c.name : '')}</td>
         <td class="num">${eur(f.net)}</td><td class="num" title="${f.vatRate}%">${eur(f.vat)}</td><td class="num"><b>${eur(f.gross)}</b></td>${rc}
         <td><button class="btn small danger" data-act="delfin">✕</button></td></tr>`;
       }).join('') + '</tbody></table>';
@@ -2168,7 +2165,11 @@ $('btnNewRec').onclick = () => {
   fillRecCats(); fillClinicSelect($('rf_clinic'), '—'); $('rf_net').focus();
 };
 $('btnCancelRec').onclick = () => { $('recForm').hidden = true; };
-function fillRecCats() { const k = $('rf_kind').value; $('rf_cat').innerHTML = CATS[k].map((c) => `<option>${c}</option>`).join(''); }
+function fillRecCats() {
+  const k = $('rf_kind').value; $('rf_cat').innerHTML = CATS[k].map((c) => `<option>${c}</option>`).join('');
+  document.querySelectorAll('#recForm [data-exp]').forEach((el) => { el.hidden = k !== 'expense'; });
+  if (!$('rf_pay').options.length) $('rf_pay').innerHTML = PAY_METHODS.map((m) => `<option>${m}</option>`).join('');
+}
 $('rf_kind').addEventListener('change', fillRecCats);
 $('btnSaveRec').onclick = async () => {
   const net = parseNum($('rf_net').value);
@@ -2179,6 +2180,7 @@ $('btnSaveRec').onclick = async () => {
       clinicId: $('rf_clinic').value || null, net, vatRate: +$('rf_vat').value,
       day: Math.min(28, Math.max(1, Math.round(parseNum($('rf_day').value)) || 1)),
       active: true, createdAt: new Date().toISOString(),
+      ...($('rf_kind').value === 'expense' ? { docType: $('rf_doc').value, supplier: $('rf_supplier').value.trim(), paymentMethod: $('rf_pay').value } : {}),
     });
   } catch (e) { toast('Η αποθήκευση απέτυχε: ' + e.message); return; }
   $('rf_net').value = ''; $('rf_desc').value = '';
@@ -2325,6 +2327,8 @@ async function materializeRecurring() {
         description: (r.description || r.category) + ' · ' + mLabel(mk),
         net, vatRate: r.vatRate, vat: +(net * r.vatRate / 100).toFixed(2), gross: +(net * (1 + r.vatRate / 100)).toFixed(2),
         recurringId: r.id, month: mk,
+        docType: r.docType || 'invoice', supplier: r.supplier || '', paymentMethod: r.paymentMethod || '', country: 'Greece', currency: 'EUR', fxRate: 1,
+        amountOrig: +(net * (1 + r.vatRate / 100)).toFixed(2),
       });
       made++;
     } catch { /* θα ξαναδοκιμάσει στο επόμενο άνοιγμα */ }
@@ -2645,6 +2649,9 @@ $('billingTable').addEventListener('click', async (e) => {
 const acctRow = (m) => S.acct.find((a) => a.id === m);
 function acctMonths() { const out = []; let m = nowMonth(); for (let i = 0; i < 12; i++) { out.push(m); m = prevMonth(m); } return out; }
 function prevMonth(m) { const [y, mo] = m.split('-').map(Number); return mo === 1 ? (y - 1) + '-12' : y + '-' + String(mo - 1).padStart(2, '0'); }
+/* Ο λογιστής παίρνει ανά μήνα: Excel (πρότυπό του) με τα έξοδα «απόδειξη χωρίς τιμολόγιο» + τα αρχεία των εξόδων με τιμολόγιο. */
+const acctExpenses = (m) => S.fin.filter((f) => f.kind === 'expense' && monthKey(f.date) === m).sort((a, b) => String(a.date).localeCompare(String(b.date)));
+const isInvoice = (f) => (f.docType || 'receipt') === 'invoice';
 function renderAccountant() {
   const sel = $('ac_month'); const cur = sel.value;
   const months = acctMonths();
@@ -2652,15 +2659,63 @@ function renderAccountant() {
   sel.value = cur && months.includes(cur) ? cur : months[0];
   const m = sel.value;
   const a = acctRow(m);
-  $('ac_sheet').value = a ? (a.sheetUrl || '') : '';
-  $('acOpen').hidden = !(a && a.sheetUrl);
-  const rows = S.fin.filter((f) => monthKey(f.date) === m);
-  const exp = rows.filter((f) => f.kind === 'expense');
-  $('acStatus').innerHTML = (a && a.status === 'sent')
-    ? `<span class="chip won">Στάλθηκε ${a.sentAt ? new Date(a.sentAt).toLocaleDateString('el-GR', { day: 'numeric', month: 'short' }) : ''}</span> ${exp.length} έξοδα · ${rows.length - exp.length} έσοδα`
-    : `<span class="chip epik">Εκκρεμεί</span> ${exp.length} έξοδα · ${rows.length - exp.length} έσοδα του μήνα`;
+  const exp = acctExpenses(m);
+  const inv = exp.filter(isInvoice), rc = exp.filter((f) => !isInvoice(f));
+  const invNoFile = inv.filter((f) => !driveLink(f.receiptLink));
+  const sum = (ls) => ls.reduce((s, f) => s + (+f.gross || 0), 0);
+  $('acStatus').innerHTML = [
+    a && a.status === 'sent' ? `<span class="chip won">Παραδόθηκε ${a.sentAt ? new Date(a.sentAt).toLocaleDateString('el-GR', { day: 'numeric', month: 'short' }) : ''}</span>` : `<span class="chip epik">Εκκρεμεί</span>`,
+    `📄 <b>${rc.length}</b> έξοδα χωρίς τιμολόγιο → γραμμές στο Excel (${eur(sum(rc))})`,
+    `🧾 <b>${inv.length}</b> έξοδα με τιμολόγιο → αρχεία (${eur(sum(inv))})` + (invNoFile.length ? ` · <span class="neg">${invNoFile.length} χωρίς ανεβασμένο αρχείο: ${esc(invNoFile.slice(0, 3).map((f) => f.supplier || f.description || f.category).join(', '))}${invNoFile.length > 3 ? '…' : ''}</span>` : ' · όλα με αρχείο ✓'),
+  ].join('<br>');
   renderReceipts(m);
 }
+function expenseReportBlob(m) {
+  const rows = acctExpenses(m).filter((f) => !isInvoice(f));
+  const SETTINGS = [['Currency', 'EUR Rate'], ...Object.entries(FX_RATES).map(([c, r]) => [c, r])];
+  const CATEGORIES = [['Category'], ...ACC_CATEGORIES.map((c) => [c])];
+  const EXPENSES = [['Date', 'Supplier', 'Country', 'Category', 'Description', 'Amount (Original)', 'Currency', 'EUR Rate', 'Amount EUR', 'Payment Method'],
+    ...rows.map((f) => [{ date: String(f.date).slice(0, 10) }, f.supplier || '', f.country || 'Greece', accCategory(f.category), f.description || '', +(f.amountOrig ?? f.gross) || 0, f.currency || 'EUR', +f.fxRate || 1, +f.gross || 0, f.paymentMethod || ''])];
+  return { rows, blob: buildXlsx([{ name: 'SETTINGS', rows: SETTINGS, widths: [12, 10] }, { name: 'CATEGORIES', rows: CATEGORIES, widths: [20] }, { name: 'EXPENSES', rows: EXPENSES, widths: [12, 24, 12, 18, 36, 16, 10, 10, 12, 18] }]) };
+}
+const safeName = (t) => String(t || '').replace(/[\\/:*?"<>|]+/g, '-').trim().slice(0, 60);
+$('acXlsx').onclick = () => {
+  const m = $('ac_month').value;
+  const { rows, blob } = expenseReportBlob(m);
+  downloadBlob(`Expense report ${m}.xlsx`, blob);
+  toast(rows.length ? `Excel με ${rows.length} έξοδα χωρίς τιμολόγιο ✓` : 'Excel χωρίς γραμμές (κανένα έξοδο χωρίς τιμολόγιο τον μήνα).');
+};
+$('acPackage').onclick = async () => {
+  const m = $('ac_month').value; const b = $('acPackage');
+  const { rows, blob } = expenseReportBlob(m);
+  const files = acctFiles(m);
+  const withFile = acctExpenses(m).filter((f) => driveLink(f.receiptLink));
+  b.disabled = true; b.textContent = `Πακέτο… (${withFile.length} αρχεία)`;
+  try {
+    const entries = [{ name: `Expense report ${m}.xlsx`, data: new Uint8Array(await blob.arrayBuffer()) }];
+    let missing = 0;
+    for (const f of withFile) {
+      const meta = files.find((x) => x.finId === f.id) || {};
+      const ext = (meta.name || '').includes('.') ? meta.name.slice(meta.name.lastIndexOf('.')) : '';
+      const fname = `${isInvoice(f) ? 'Τιμολόγια' : 'Αποδείξεις'}/${String(f.date).slice(0, 10)} ${safeName(f.supplier || f.description || f.category)} ${eur(f.gross).replace(/\s/g, '')}${ext}`;
+      try { entries.push({ name: fname, data: await downloadDriveFile(gcalClient(), f.receiptId || meta.driveId) }); }
+      catch { missing++; }
+    }
+    downloadBlob(`Λογιστής ${m}.zip`, makeZip(entries));
+    toast(`Πακέτο: Excel (${rows.length} γραμμές) + ${entries.length - 1} αρχεία` + (missing ? ` · ${missing} δεν κατέβηκαν από το Drive` : '') + ' ✓');
+  } catch (e) {
+    if (e.code === 'connect_needed') toast('Πάτα πρώτα «Σύνδεση Google» στο Ημερολόγιο (μία φορά).'); else toast('Αποτυχία: ' + e.message);
+  }
+  b.disabled = false; b.textContent = '⤓ Πακέτο μήνα (Excel + παραστατικά, zip)';
+};
+$('acSent').onclick = async () => {
+  const m = $('ac_month').value;
+  try {
+    if (acctRow(m)) await data.update('accountant', m, { status: 'sent', sentAt: new Date().toISOString() });
+    else await data.create('accountant', { sheetUrl: '', sheetId: '', status: 'sent', sentAt: new Date().toISOString(), notes: '' }, m);
+    await refresh(); toast(`Ο ${mLabel(m)} σημειώθηκε ως παραδομένος ✓`);
+  } catch (e) { toast('Αποτυχία: ' + e.message); }
+};
 /* ---- αποδείξεις/τιμολόγια ανά μήνα: φωτογραφίες & PDF στο Google Drive, φάκελος «Αποδείξεις / Τιμολόγια»/YYYY-MM ---- */
 const driveLink = (u) => (/^https:\/\/(drive|docs)\.google\.com\//.test(u || '') ? u : '');
 const acctFiles = (m) => { const a = acctRow(m); return a && Array.isArray(a.files) ? a.files : []; };
@@ -2733,42 +2788,11 @@ function acctMatrix(m) {
   return { rows, matrix: [head, ...body, ...foot] };
 }
 $('ac_month').addEventListener('input', renderAccountant);
-$('acSaveLink').onclick = async () => {
-  const m = $('ac_month').value;
-  const url = $('ac_sheet').value.trim();
-  const sid = spreadsheetIdFrom(url);
-  if (url && !sid) { toast('Το link δεν μοιάζει με Google Sheet.'); return; }
-  try {
-    const a = acctRow(m);
-    if (a) await data.update('accountant', m, { sheetUrl: url, sheetId: sid || '' });
-    else await data.create('accountant', { sheetUrl: url, sheetId: sid || '', status: 'open', notes: '' }, m);
-    await refresh(); toast('Το sheet του ' + mLabel(m) + ' αποθηκεύτηκε.');
-  } catch (e) { toast('Αποτυχία: ' + e.message); }
-};
-$('acOpen').onclick = () => { const a = acctRow($('ac_month').value); if (a && a.sheetUrl) window.open(a.sheetUrl, '_blank', 'noopener'); };
 $('acExport').onclick = () => {
   const m = $('ac_month').value;
   const { rows, matrix } = acctMatrix(m);
   if (!rows.length) { toast('Καμία εγγραφή στον μήνα.'); return; }
   downloadCSV('astra-logistis-' + m + '.csv', matrix[0], matrix.slice(1));
-};
-$('acSend').onclick = async () => {
-  const m = $('ac_month').value;
-  const a = acctRow(m);
-  if (!a || !a.sheetId) { toast('Αποθήκευσε πρώτα το link του sheet για τον ' + mLabel(m) + '.'); return; }
-  const { rows, matrix } = acctMatrix(m);
-  if (!rows.length) { toast('Καμία εγγραφή στον μήνα — δεν στάλθηκε τίποτα.'); return; }
-  const b = $('acSend'); b.disabled = true; b.textContent = 'Αποστολή…';
-  try {
-    await writeToSheet(gcalClient(), a.sheetId, matrix);
-    await data.update('accountant', m, { status: 'sent', sentAt: new Date().toISOString() });
-    await refresh();
-    toast(`Γράφτηκαν ${rows.length} εγγραφές στο sheet του λογιστή ✓`);
-  } catch (e) {
-    if (e.code === 'connect_needed') toast('Πάτα πρώτα «Σύνδεση Google» στο Ημερολόγιο (μία φορά).');
-    else toast(e.message);
-  }
-  b.disabled = false; b.textContent = '➤ Αποστολή εξόδων στο sheet';
 };
 
 /* ---- πρόβλεψη 3 μηνών ---- */

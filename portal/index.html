@@ -293,7 +293,13 @@
           <div class="f"><label for="ff_desc">Περιγραφή</label><input id="ff_desc"></div>
           <div class="f"><label for="ff_net">Καθαρό ποσό (€) *</label><input id="ff_net" inputmode="decimal"></div>
           <div class="f"><label for="ff_vat">ΦΠΑ</label><select id="ff_vat"><option value="24">24%</option><option value="13">13%</option><option value="6">6%</option><option value="0">0% / απαλλαγή</option></select></div>
-          <div class="f"><label>Μικτό</label><div class="mono" id="ff_gross" style="padding:8px 2px;font-size:15px">—</div></div>
+          <div class="f"><label>Μικτό (€)</label><div class="mono" id="ff_gross" style="padding:8px 2px;font-size:15px">—</div></div>
+          <div class="f" data-exp><label for="ff_doc">Παραστατικό</label><select id="ff_doc"><option value="invoice">Τιμολόγιο στο όνομά μας → ο λογιστής παίρνει το αρχείο</option><option value="receipt">Απόδειξη χωρίς τιμολόγιο → γραμμή στο Excel του λογιστή</option></select></div>
+          <div class="f" data-exp><label for="ff_supplier">Προμηθευτής</label><input id="ff_supplier" placeholder="π.χ. Google, Aegean, εστιατόριο…"></div>
+          <div class="f" data-exp><label for="ff_country">Χώρα</label><input id="ff_country" value="Greece"></div>
+          <div class="f" data-exp><label for="ff_pay">Τρόπος πληρωμής</label><select id="ff_pay"></select></div>
+          <div class="f" data-exp><label for="ff_cur">Νόμισμα</label><select id="ff_cur"><option>EUR</option><option>USD</option><option>GBP</option><option>RSD</option></select></div>
+          <div class="f" data-exp id="ff_rateWrap" hidden><label for="ff_rate">Ισοτιμία → EUR</label><input id="ff_rate" inputmode="decimal"></div>
           <div class="f" id="ff_fileWrap"><label for="ff_file">Απόδειξη / τιμολόγιο (φωτογραφία ή PDF)</label><input id="ff_file" type="file" accept="image/*,.pdf"></div>
         </div>
         <div class="factions"><button class="btn primary" id="btnSaveFin">Αποθήκευση</button><button class="btn" id="btnCancelFin">Άκυρο</button></div>
@@ -320,6 +326,9 @@
           <div class="f"><label for="rf_net">Καθαρό ποσό (€) *</label><input id="rf_net" inputmode="decimal"></div>
           <div class="f"><label for="rf_vat">ΦΠΑ</label><select id="rf_vat"><option value="24">24%</option><option value="13">13%</option><option value="6">6%</option><option value="0">0%</option></select></div>
           <div class="f"><label for="rf_day">Ημέρα μήνα</label><input id="rf_day" inputmode="numeric" value="1"></div>
+          <div class="f" data-exp><label for="rf_doc">Παραστατικό</label><select id="rf_doc"><option value="invoice">Τιμολόγιο στο όνομά μας</option><option value="receipt">Απόδειξη χωρίς τιμολόγιο</option></select></div>
+          <div class="f" data-exp><label for="rf_supplier">Προμηθευτής</label><input id="rf_supplier" placeholder="π.χ. Google Workspace"></div>
+          <div class="f" data-exp><label for="rf_pay">Τρόπος πληρωμής</label><select id="rf_pay"></select></div>
         </div>
         <div class="factions"><button class="btn primary" id="btnSaveRec">Αποθήκευση</button><button class="btn" id="btnCancelRec">Άκυρο</button></div>
       </div>
@@ -357,21 +366,19 @@
       <div class="filters"><select id="bl_month"></select></div>
       <div class="card tablewrap section" id="billingTable"></div>
 
-      <h3 class="sectionhead">Λογιστής <span class="chip plain">κάθε μήνας με το sheet του — αποστολή με ένα κλικ</span></h3>
+      <h3 class="sectionhead">Λογιστής <span class="chip plain">ένα Excel ανά μήνα στο πρότυπό του + τα παραστατικά</span></h3>
       <div class="card formpanel" style="margin-bottom:14px">
         <div class="fgrid">
           <div class="f"><label for="ac_month">Μήνας</label><select id="ac_month"></select></div>
-          <div class="f" style="grid-column:span 2"><label for="ac_sheet">Google Sheet λογιστή (link του μήνα)</label><input id="ac_sheet" placeholder="Επικόλλησε το link που σου έστειλε…"></div>
-          <div class="f"><label>&nbsp;</label><div style="display:flex;gap:8px;flex-wrap:wrap">
-            <button class="btn small" id="acSaveLink">Αποθήκευση link</button>
-            <button class="btn small" id="acOpen" hidden>Άνοιγμα ↗</button>
-          </div></div>
+          <div class="f" style="grid-column:span 3"><label>Τι παίρνει ο λογιστής για τον μήνα</label><div id="acStatus" style="padding:6px 0;line-height:1.6;font-size:13px"></div></div>
         </div>
         <div class="factions" style="margin-top:6px">
-          <button class="btn primary" id="acSend">➤ Αποστολή εξόδων στο sheet</button>
-          <button class="btn" id="acExport">⤓ Export CSV μήνα</button>
-          <span class="fhint" id="acStatus"></span>
+          <button class="btn primary" id="acXlsx">⤓ Excel μήνα (Expense report)</button>
+          <button class="btn" id="acPackage">⤓ Πακέτο μήνα (Excel + παραστατικά, zip)</button>
+          <button class="btn" id="acExport">⤓ CSV</button>
+          <button class="btn" id="acSent">✓ Παραδόθηκε</button>
         </div>
+        <div class="fhint" style="margin-top:8px">Στο Excel (SETTINGS / CATEGORIES / EXPENSES, όπως το πρότυπο του λογιστή) μπαίνουν μόνο τα έξοδα «Απόδειξη χωρίς τιμολόγιο». Τα έξοδα με τιμολόγιο πάνε ως αρχεία — το πακέτο τα περιέχει σε φάκελο «Τιμολόγια». Ανέβασε τα περιεχόμενα στον φάκελο του μήνα στο OneDrive του λογιστή.</div>
       </div>
       <div class="filters">
         <button class="btn small primary" id="acAddFiles">⇪ Αποδείξεις / τιμολόγια μήνα</button>

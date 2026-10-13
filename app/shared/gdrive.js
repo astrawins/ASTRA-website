@@ -75,3 +75,11 @@ export async function trashReceipt(clientId, fileId) {
   const token = await ensureToken(clientId);
   await gd(token, `${API}/${encodeURIComponent(fileId)}?${ALL}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ trashed: true }) });
 }
+
+/* Κατέβασμα αρχείου του Drive (π.χ. παραστατικό) ως bytes — για το πακέτο του λογιστή. */
+export async function downloadDriveFile(clientId, fileId) {
+  const token = await ensureToken(clientId);
+  const r = await fetch(`https://www.googleapis.com/drive/v3/files/${encodeURIComponent(fileId)}?alt=media&supportsAllDrives=true`, { headers: { Authorization: 'Bearer ' + token } });
+  if (!r.ok) throw new Error('Drive ' + r.status + ' για το αρχείο');
+  return new Uint8Array(await r.arrayBuffer());
+}
