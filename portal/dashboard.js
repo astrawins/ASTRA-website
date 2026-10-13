@@ -3055,9 +3055,31 @@ $('statsTable').addEventListener('click', async (e) => {
 });
 
 /* ============ SETTINGS ============ */
+/* Υγεία συστήματος (health-check function): τελευταία αναφορά από settings.health_* + «Έλεγχος τώρα» (χωρίς email). */
+function renderHealth(res) {
+  const s = SET();
+  const at = res ? res.at : s.healthLastAt;
+  const ok = res ? res.ok && !res.warns : s.healthLastOk;
+  const text = res ? res.report : s.healthLastReport;
+  const when = at ? new Date(at).toLocaleString('el-GR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '';
+  $('healthWhen').innerHTML = at ? `<span class="chip ${ok ? 'won' : 'lost'}">${ok ? '✓ Όλα εντάξει' : '⚠ Θέλει προσοχή'}</span> τελευταίος έλεγχος ${when}` : 'Δεν έχει τρέξει ακόμη.';
+  const esc = (t) => String(t || '').replace(/&/g, '&amp;').replace(/</g, '&lt;');
+  $('healthReport').innerHTML = esc(text).replace(/^✗ .*$/gm, (m) => `<span style="color:#9C2B1F">${m}</span>`).replace(/^⚠ .*$/gm, (m) => `<span style="color:#9C6B3F">${m}</span>`).replace(/^✓ .*$/gm, (m) => `<span style="color:#4A8430">${m}</span>`);
+  $('btnHealthNow').onclick = async () => {
+    const b = $('btnHealthNow'); b.disabled = true; b.textContent = 'Έλεγχος…';
+    try {
+      const r = await callFunction('health-check', { action: 'report' });
+      S.settings = { ...SET(), healthLastAt: r.at, healthLastOk: r.ok && !r.warns, healthLastReport: r.report };
+      renderHealth(r); toast(r.ok ? (r.warns ? `Εντάξει, ${r.warns} προειδοποιήσεις` : 'Όλα εντάξει ✓') : `${r.errors} προβλήματα`);
+    } catch (e) { toast('Ο έλεγχος απέτυχε: ' + e.message); }
+    b.disabled = false; b.textContent = 'Έλεγχος τώρα';
+  };
+}
+
 function renderSettings() {
   const s = SET();
   renderPush();
+  try { renderHealth(); } catch (e) { console.warn('health', e); }
   const perm = typeof Notification !== 'undefined' ? Notification.permission : 'unsupported';
   $('notifState').textContent = perm === 'unsupported' ? 'Ο browser δεν υποστηρίζει ειδοποιήσεις.'
     : notifOn() ? '✓ Ενεργές σε αυτή τη συσκευή.'
