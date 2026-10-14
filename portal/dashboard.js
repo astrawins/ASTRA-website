@@ -12,7 +12,7 @@ import { metaInsights } from '/app/shared/integrations.js';
 import * as gcal from '/app/shared/gcal.js';
 import {
   esc, eur, num, parseNum, todayISO, monthKey, nowMonth, mLabel, lastMonths,
-  STATUS, CATS, uid, toast, quarterOf, addDays, downloadCSV, ACC_CATEGORIES, accCategory, PAY_METHODS, FX_RATES, DOC_TYPES,
+  STATUS, CATS, uid, toast, quarterOf, addDays, downloadCSV, ACC_CATEGORIES, accCategory, PAY_METHODS, FX_RATES, DOC_TYPES, deductibleVat,
 } from '/app/shared/util.js';
 
 /* ---- auth guard: η σελίδα μένει αόρατη μέχρι να επιβεβαιωθεί η σύνδεση ---- */
@@ -2139,7 +2139,7 @@ function renderFin() {
   const inQ = monthRows(mk);
   const inc = inQ.filter((f) => f.kind === 'income'), exp = inQ.filter((f) => f.kind === 'expense');
   const sum = (a, k) => a.reduce((s, f) => s + (+f[k] || 0), 0);
-  const vatOut = sum(inc, 'vat'), vatIn = sum(exp, 'vat'), vatDue = vatOut - vatIn;
+  const vatOut = sum(inc, 'vat'), vatIn = exp.reduce((t, f) => t + deductibleVat(f), 0), vatDue = vatOut - vatIn; // εστίαση/διαμονή: ΦΠΑ μη εκπιπτόμενος
   const cloud = CONFIG.backend === 'supabase';
   const noRc = exp.filter((f) => !driveLink(f.receiptLink)).length;
   $('finTiles').innerHTML = `
@@ -2411,7 +2411,7 @@ function taxEstimate() {
   const profitM = revM - expMn;                            // ξεκινά αρνητικό από τα πάγια
   const profitY = revY - expYn;
   // ΦΠΑ: 24% πάνω στα τιμολόγια ραντεβού + χειροκίνητα έσοδα − εισροές
-  const vatMonth = feeOf(apptLM) * 0.24 + sum(incM, 'vat') - sum(expM, 'vat');
+  const vatMonth = feeOf(apptLM) * 0.24 + sum(incM, 'vat') - expM.reduce((t, f) => t + deductibleVat(f), 0);
   const tax = Math.max(0, profitY) * 0.22;
   const prepayPct = +SET().taxPrepayPct || 80;             // ΙΚΕ: 80%
   const prepay = tax * prepayPct / 100;

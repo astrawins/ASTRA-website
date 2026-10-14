@@ -35,6 +35,9 @@ export const ACC_CAT_MAP = {
 export const accCategory = (c) => ACC_CAT_MAP[c] || 'Other';
 export const PAY_METHODS = ['Εταιρική κάρτα', 'Προσωπική κάρτα', 'Μετρητά', 'Τραπεζική μεταφορά', 'PayPal', 'Άλλο'];
 export const FX_RATES = { EUR: 1, USD: 0.92, GBP: 1.17, RSD: 0.0085 }; // από το SETTINGS του λογιστή — ισοτιμία προς EUR
+/* Κώδικας ΦΠΑ άρθρο 30 παρ. 4: ο ΦΠΑ σε εστίαση, φιλοξενία/διαμονή και διασκέδαση ΔΕΝ εκπίπτει (μετράει ως κόστος). */
+export const NO_VAT_DEDUCT = ['Γεύματα', 'Επαγγελματικά γεύματα', 'Διαμονή'];
+export const deductibleVat = (f) => (NO_VAT_DEDUCT.includes(f.category) ? 0 : (+f.vat || 0));
 export const DOC_TYPES = { invoice: 'Τιμολόγιο στο όνομά μας', receipt: 'Απόδειξη χωρίς τιμολόγιο' };
 
 export const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
