@@ -271,6 +271,8 @@ svg text { font-family: var(--mono); font-size: 11px; fill: var(--soft); }
 .todayrow .who { min-width: 180px; }
 .todayrow .who b { cursor: pointer; }
 .todayrow .who b:hover { color: var(--bronze-deep); text-decoration: underline; }
+.todayrow .todaynote { font-size: 12.5px; color: var(--ink-2, #5a4b3a); margin-top: 3px; max-width: 520px; line-height: 1.35; white-space: pre-wrap; }
+.todayrow .todaynote .tmeta { opacity: .7; font-size: 11px; }
 .todayrow .who .sub { font-size: 11.5px; color: var(--soft); }
 .todayrow .due { font-family: var(--mono); font-size: 12px; }
 .todayrow .due.over { color: var(--crit); font-weight: 600; }

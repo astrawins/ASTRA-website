@@ -557,7 +557,21 @@ function todayItems() {
   const tomorrow = addDays(1);
   const confirm = open.filter((l) => l.status === 'rv' && l.nextAction && !l.confirmedAt && l.nextAction >= today && l.nextAction <= tomorrow)
     .sort((a, b) => String(a.nextAction + (a.apptTime || '')).localeCompare(String(b.nextAction + (b.apptTime || ''))));
-  return { due, fresh, upcoming, stale, confirm };
+  /* Σε εξέλιξη: ό,τι άλλο είναι ανοιχτό και δεν μπήκε πουθενά (π.χ. «Επικοινωνία» χωρίς επόμενη ενέργεια, ή ενέργεια
+     προγραμματισμένη για μελλοντική μέρα) — ώστε ΚΑΝΕΝΑ τηλέφωνο να μη χάνεται από την οθόνη. */
+  const seen = new Set([...due, ...fresh, ...upcoming, ...stale, ...confirm].map((l) => l.id));
+  const inProgress = open.filter((l) => !seen.has(l.id))
+    .sort((a, b) => String(a.nextAction || '9999').localeCompare(String(b.nextAction || '9999')) || lastTouch(b) - lastTouch(a));
+  return { due, fresh, upcoming, stale, confirm, inProgress };
+}
+/* Τελευταία σημείωση για ένα lead: η καρτέλα (notes) ή η πιο πρόσφατη καταγραφή που έγραψε άνθρωπος. */
+function lastNote(l) {
+  const note = String(l.notes || '').trim().split('\n').filter(Boolean).pop();
+  const acts = S.act.filter((a) => a.leadId === l.id && a.type !== 'import' && a.body).sort((a, b) => String(b.at).localeCompare(String(a.at)));
+  const a = acts[0];
+  if (note) return { text: note, at: null };
+  if (a) return { text: a.body, at: a.at };
+  return null;
 }
 function updateTodayBadge() {
   const { due, fresh, confirm } = todayItems();
@@ -576,14 +590,17 @@ function todayRow(l, kind) {
   const dueTxt = kind === 'fresh'
     ? 'χωρίς επικοινωνία από ' + new Date(l.createdTime).toLocaleDateString('el-GR', { day: 'numeric', month: 'short' })
     : (l.status === 'rv' ? 'ραντεβού ' : 'ενέργεια ') + new Date(l.nextAction).toLocaleDateString('el-GR', { day: 'numeric', month: 'short' }) + (l.apptTime ? ' ' + hhmm(l.apptTime) : '');
+  const note = lastNote(l);
+  const noteTxt = note ? `<div class="todaynote" title="${esc(note.text)}">📝 ${esc(note.text.slice(0, 140))}${note.text.length > 140 ? '…' : ''}${note.at ? ` <span class="tmeta">${new Date(note.at).toLocaleDateString('el-GR', { day: 'numeric', month: 'short' })}</span>` : ''}</div>` : '';
+  const when = kind === 'open' ? (l.nextAction ? dueTxt : 'χωρίς επόμενη ενέργεια') : dueTxt;
   return `<div class="todayrow" data-id="${l.id}">
-    <div class="who"><b data-act="open">${esc(l.name)}</b><div class="sub">${esc(c ? c.name : '—')}${l.campaign ? ' · ' + esc(l.campaign) : ''}</div></div>
+    <div class="who"><b data-act="open">${esc(l.name)}</b><div class="sub">${esc(c ? c.name : '—')}${l.campaign ? ' · ' + esc(l.campaign) : ''}</div>${noteTxt}</div>
     <span class="chip ${l.status}">${STATUS[l.status]}</span>
-    <span class="due ${over ? 'over' : ''}">${dueTxt}</span>
+    <span class="due ${over ? 'over' : ''}">${when}</span>
     <span class="mono" style="font-size:12.5px">${esc(l.phone || '')}${l.phone ? `<button class="copybtn" data-copy="${esc(l.phone)}" title="Αντιγραφή">${COPY_ICON}</button>` : ''}</span>
     <div class="acts">
       ${kind === 'fresh' ? '<button class="btn small" data-act="called">Κλήθηκε</button>' : ''}
-      ${['fresh', 'due'].includes(kind) ? '<button class="btn small" data-act="noans" title="Δεν σήκωσε — ξαναπροσπάθεια αύριο">Δεν απάντησε</button>' : ''}
+      ${['fresh', 'due', 'open'].includes(kind) ? '<button class="btn small" data-act="noans" title="Δεν σήκωσε — ξαναπροσπάθεια αύριο">Δεν απάντησε</button>' : ''}
       <button class="btn small" data-act="p1">+1μ</button>
       <button class="btn small" data-act="p3">+3μ</button>
       <button class="btn small" data-act="p7">+7μ</button>
@@ -653,36 +670,38 @@ function renderToday() {
         + (later.length ? `<div class="taskday">Επόμενα</div>${later.map(taskRow).join('')}` : '')
         + '</div></div>';
     }).join('')}</div>`;
-  $('todayBody').innerHTML = scheduleBlock() + portalBlock + taskBlock + '<div style="height:20px"></div>' + touchBlock + subBlock + clinicCallsBlock(due, fresh, upcoming, stale, todayItems().confirm);
+  const ti = todayItems();
+  $('todayBody').innerHTML = scheduleBlock() + portalBlock + taskBlock + '<div style="height:20px"></div>' + touchBlock + subBlock + clinicCallsBlock(due, fresh, upcoming, stale, ti.confirm, ti.inProgress);
 }
 /* Κλήσεις ημέρας ομαδοποιημένες ανά κλινική — κλειστές κάρτες με σύνοψη, ανοίγουν με κλικ. */
 let openCallGroups = new Set();
 try { openCallGroups = new Set(JSON.parse(localStorage.getItem('astra-today-open') || '[]')); } catch { /* ok */ }
-function clinicCallsBlock(due, fresh, upcoming, stale, confirm = []) {
+function clinicCallsBlock(due, fresh, upcoming, stale, confirm = [], inProgress = []) {
   const groups = new Map();
   const add = (l, kind) => {
     const k = l.clinicId || '_none';
-    if (!groups.has(k)) groups.set(k, { due: [], fresh: [], up: [], stale: [], confirm: [] });
+    if (!groups.has(k)) groups.set(k, { due: [], fresh: [], up: [], stale: [], confirm: [], open: [] });
     groups.get(k)[kind].push(l);
   };
   confirm.forEach((l) => add(l, 'confirm'));
+  inProgress.forEach((l) => add(l, 'open'));
   due.forEach((l) => add(l, 'due'));
   fresh.forEach((l) => add(l, 'fresh'));
   upcoming.forEach((l) => add(l, 'up'));
   stale.forEach((l) => add(l, 'stale'));
-  if (!groups.size) return `<h3 class="sectionhead">Κλήσεις ανά κλινική</h3><div class="card"><div class="empty">Καμία κλήση για σήμερα. 🎉</div></div>`;
+  if (!groups.size) return `<h3 class="sectionhead">Κλήσεις ανά κλινική</h3><div class="card"><div class="empty">Κανένα ανοιχτό lead. 🎉</div></div>`;
   const rows = [...groups.entries()].map(([cid, g]) => {
-    const calls = g.due.length + g.fresh.length + g.stale.length + g.confirm.length;
+    const calls = g.due.length + g.fresh.length + g.stale.length + g.confirm.length + g.open.length;
     return { cid, g, calls, c: clinicById(cid) };
   }).sort((a, b) => b.calls - a.calls || b.g.up.length - a.g.up.length);
   const totalCalls = rows.reduce((s, r) => s + r.calls, 0);
-  const staleRow = (l) => `<div class="todayrow" data-id="${l.id}">
-      <div class="who"><b data-act="open">${esc(l.name)}</b><div class="sub">${esc(l.phone || '')}</div></div>
+  const staleRow = (l) => { const n = lastNote(l); return `<div class="todayrow" data-id="${l.id}">
+      <div class="who"><b data-act="open">${esc(l.name)}</b><div class="sub">${esc(l.phone || '')}</div>${n ? `<div class="todaynote">📝 ${esc(n.text.slice(0, 140))}</div>` : ''}</div>
       <span class="chip ${l.status}">${STATUS[l.status]}</span>
       <div class="acts">
         <button class="btn small" data-act="p3">Ξαναπάρε +3μ</button>
         <button class="btn small danger" data-act="marklost">Κλείσε ως χαμένο</button>
-      </div></div>`;
+      </div></div>`; };
   const sub = (title, chip, arr, render) => arr.length
     ? `<div class="taskday" style="display:flex;gap:6px;align-items:center">${title} <span class="chip ${chip}" style="font-size:10px">${arr.length}</span></div>${arr.map(render).join('')}` : '';
   return `<h3 class="sectionhead">Κλήσεις ανά κλινική <span class="chip ${totalCalls ? 'epik' : 'plain'}">${totalCalls} τηλέφωνα</span></h3>
@@ -692,6 +711,7 @@ function clinicCallsBlock(due, fresh, upcoming, stale, confirm = []) {
       if (g.due.length) parts.push(`<span class="chip lost">${g.due.length} για σήμερα</span>`);
       if (g.fresh.length) parts.push(`<span class="chip epik">${g.fresh.length} νέα</span>`);
       if (g.stale.length) parts.push(`<span class="chip plain">${g.stale.length} ξεχασμένα</span>`);
+      if (g.open.length) parts.push(`<span class="chip plain">${g.open.length} σε εξέλιξη</span>`);
       /* Ραντεβού (επερχόμενα + σήμερα): πόσα περιμένουν τηλεφωνική επιβεβαίωση και πόσα είναι επιβεβαιωμένα */
       const appts = [...new Map([...g.confirm, ...g.up].map((l) => [l.id, l])).values()];
       const unconf = appts.filter((l) => !l.confirmedAt).length, conf = appts.length - unconf;
@@ -709,6 +729,7 @@ function clinicCallsBlock(due, fresh, upcoming, stale, confirm = []) {
           ${sub('Για σήμερα', 'lost', g.due, (l) => todayRow(l, 'due'))}
           ${sub('Νέα χωρίς επικοινωνία (48ω+)', 'epik', g.fresh, (l) => todayRow(l, 'fresh'))}
           ${sub('Ξεχασμένα · 21+ μέρες', 'plain', g.stale, staleRow)}
+          ${sub('Σε εξέλιξη · μιλήσαμε, περιμένουμε ή χωρίς επόμενη ενέργεια', 'plain', g.open, (l) => todayRow(l, 'open'))}
           ${sub('Επερχόμενα ραντεβού', 'rv', g.up.slice(0, 15), (l) => todayRow(l, 'up'))}
         </div>` : ''}
       </div>`;
