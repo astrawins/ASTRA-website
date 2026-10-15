@@ -564,6 +564,66 @@ function todayItems() {
     .sort((a, b) => String(a.nextAction || '9999').localeCompare(String(b.nextAction || '9999')) || lastTouch(b) - lastTouch(a));
   return { due, fresh, upcoming, stale, confirm, inProgress };
 }
+/* ===== Follow-up ακολουθία (όρισε ο χρήστης): μήνυμα γνωριμίας → 3 κλήσεις → μήνυμα. ===== */
+const FOLLOW = [
+  { k: 0, short: 'Νέο', label: 'Νέο, τίποτα ακόμα' },
+  { k: 1, short: '✉ 1', label: 'Στάλθηκε μήνυμα γνωριμίας' },
+  { k: 2, short: '☎ 1', label: '1η κλήση αναπάντητη' },
+  { k: 3, short: '☎ 2', label: '2η κλήση αναπάντητη' },
+  { k: 4, short: '☎ 3', label: '3η κλήση αναπάντητη' },
+  { k: 5, short: '✉ 2', label: 'Στάλθηκε μήνυμα μετά τις κλήσεις' },
+];
+const DEF_MSG1 = 'Γεια σας {όνομα}! Είμαι ο {εγώ} από την {κλινική}. Λάβαμε το αίτημά σας για την προσφορά και θα σας καλέσω σε λίγα λεπτά από αυτόν τον αριθμό, για να βρούμε μαζί μια ώρα για ραντεβού. 😊';
+const DEF_MSG2 = 'Γεια σας {όνομα}, είμαι ο {εγώ} από την {κλινική}. Προσπάθησα να σας καλέσω για το αίτημά σας αλλά δεν σας βρήκα. Πείτε μου πότε σας βολεύει να μιλήσουμε, ή γράψτε μου εδώ ποια μέρα θέλετε να έρθετε και σας κλείνω ραντεβού. 😊';
+function followText(l, which) {
+  const c = clinicById(l.clinicId); const st = SET();
+  const tpl = (which === 2 ? st.followMsg2 : st.followMsg1) || (which === 2 ? DEF_MSG2 : DEF_MSG1);
+  const first = (l.name || '').trim().split(/\s+/)[0] || '';
+  return tpl.replaceAll('{όνομα}', first).replaceAll('{κλινική}', c ? c.name : 'την κλινική').replaceAll('{εγώ}', st.followSender || 'Πέτρος');
+}
+const intlPhone = (p) => { const d = String(p || '').replace(/[^\d]/g, '').replace(/^00/, ''); return d.length === 10 && /^[26]/.test(d) ? '30' + d : d; };
+/* Επόμενο βήμα: τι κάνεις τώρα και πότε ξαναβγαίνει στο «Σήμερα». */
+const FOLLOW_NEXT = { 1: 0, 2: 0, 3: 1, 4: 0, 5: 2 }; // μέρες μέχρι την επόμενη ενέργεια
+const inFollow = (l) => ['neo', 'noans'].includes(l.status);
+function followStrip(l) {
+  if (!inFollow(l)) return '';
+  const cur = +l.followStep || 0;
+  const dots = FOLLOW.slice(1).map((f) => `<button class="fstep${cur >= f.k ? ' done' : ''}${cur + 1 === f.k ? ' next' : ''}" data-fstep="${f.k}" title="${f.label} — πάτα για να ορίσεις αυτό το στάδιο">${f.short}</button>`).join('');
+  let action = '';
+  if (cur === 0 || cur === 4) {
+    const w = cur === 0 ? 1 : 2; const ph = intlPhone(l.phone);
+    action = `<span class="fmsg" data-fmsg="${w}">
+      ${ph ? `<a class="btn small primary" href="https://wa.me/${ph}?text=${encodeURIComponent(followText(l, w))}" target="_blank" rel="noopener" data-fsent="${w}">WhatsApp</a>
+      <a class="btn small" href="sms:+${ph}&body=${encodeURIComponent(followText(l, w))}" data-fsent="${w}">SMS</a>` : ''}
+      <button class="btn small" data-fcopy="${w}" title="Αντιγραφή κειμένου">Αντιγραφή</button></span>`;
+  } else if (cur >= 1 && cur <= 3) {
+    action = `<button class="btn small" data-fnoans="1">☎ Κλήση ${cur} αναπάντητη</button>`;
+  } else if (cur === 5) {
+    action = `<button class="btn small danger" data-flost="1" title="Δεν απάντησε σε τίποτα">Κλείσε ως χαμένο</button>`;
+  }
+  return `<div class="followstrip"><span class="ftitle">Follow-up</span>${dots}${action}<span class="fnow">${esc(FOLLOW[cur].label)}</span></div>`;
+}
+async function setFollow(id, step, why) {
+  const l = leadById(id); if (!l) return;
+  const days = FOLLOW_NEXT[step]; const patch = { followStep: step, followAt: new Date().toISOString() };
+  if (step >= 2 && l.status === 'neo') patch.status = 'noans';
+  if (days !== undefined) patch.nextAction = addDays(days);
+  await updateLead(id, patch, 'status', `Follow-up: ${FOLLOW[step].label}${why ? ' · ' + why : ''}`);
+}
+async function followClick(e) {
+  const row = e.target.closest('[data-id], #leadModal'); const id = row && row.dataset && row.dataset.id ? row.dataset.id : modalLeadId;
+  const l = id && leadById(id); if (!l) return false;
+  const st = e.target.closest('[data-fstep]');
+  if (st) { const k = +st.dataset.fstep; await setFollow(id, (+l.followStep || 0) === k ? k - 1 : k, 'χειροκίνητα'); return true; }
+  const sent = e.target.closest('[data-fsent]');
+  if (sent) { const w = +sent.dataset.fsent; setTimeout(() => setFollow(id, w === 1 ? 1 : 5, sent.textContent.trim()), 300); return true; } // το link ανοίγει κανονικά
+  const cp = e.target.closest('[data-fcopy]');
+  if (cp) { e.preventDefault(); const w = +cp.dataset.fcopy; const t = followText(l, w); try { await navigator.clipboard.writeText(t); } catch { /* ok */ } await setFollow(id, w === 1 ? 1 : 5, 'αντιγραφή κειμένου'); toast('Αντιγράφηκε — στείλ\' το από το κινητό.'); return true; }
+  if (e.target.closest('[data-fnoans]')) { e.preventDefault(); await setFollow(id, Math.min(4, (+l.followStep || 0) + 1)); return true; }
+  if (e.target.closest('[data-flost]')) { e.preventDefault(); await updateLead(id, { status: 'lost', nextAction: null }, 'status', 'Δεν απάντησε σε μήνυμα και 3 κλήσεις → χαμένο'); return true; }
+  return false;
+}
+
 /* Τελευταία σημείωση για ένα lead: η καρτέλα (notes) ή η πιο πρόσφατη καταγραφή που έγραψε άνθρωπος. */
 function lastNote(l) {
   const note = String(l.notes || '').trim().split('\n').filter(Boolean).pop();
@@ -594,13 +654,13 @@ function todayRow(l, kind) {
   const noteTxt = note ? `<div class="todaynote" title="${esc(note.text)}">📝 ${esc(note.text.slice(0, 140))}${note.text.length > 140 ? '…' : ''}${note.at ? ` <span class="tmeta">${new Date(note.at).toLocaleDateString('el-GR', { day: 'numeric', month: 'short' })}</span>` : ''}</div>` : '';
   const when = kind === 'open' ? (l.nextAction ? dueTxt : 'χωρίς επόμενη ενέργεια') : dueTxt;
   return `<div class="todayrow" data-id="${l.id}">
-    <div class="who"><b data-act="open">${esc(l.name)}</b><div class="sub">${esc(c ? c.name : '—')}${l.campaign ? ' · ' + esc(l.campaign) : ''}</div>${noteTxt}</div>
+    <div class="who"><b data-act="open">${esc(l.name)}</b><div class="sub">${esc(c ? c.name : '—')}${l.campaign ? ' · ' + esc(l.campaign) : ''}</div>${noteTxt}${followStrip(l)}</div>
     <span class="chip ${l.status}">${STATUS[l.status]}</span>
     <span class="due ${over ? 'over' : ''}">${when}</span>
     <span class="mono" style="font-size:12.5px">${esc(l.phone || '')}${l.phone ? `<button class="copybtn" data-copy="${esc(l.phone)}" title="Αντιγραφή">${COPY_ICON}</button>` : ''}</span>
     <div class="acts">
       ${kind === 'fresh' ? '<button class="btn small" data-act="called">Κλήθηκε</button>' : ''}
-      ${['fresh', 'due', 'open'].includes(kind) ? '<button class="btn small" data-act="noans" title="Δεν σήκωσε — ξαναπροσπάθεια αύριο">Δεν απάντησε</button>' : ''}
+      ${['fresh', 'due', 'open'].includes(kind) && !inFollow(l) ? '<button class="btn small" data-act="noans" title="Δεν σήκωσε — ξαναπροσπάθεια αύριο">Δεν απάντησε</button>' : ''}
       <button class="btn small" data-act="p1">+1μ</button>
       <button class="btn small" data-act="p3">+3μ</button>
       <button class="btn small" data-act="p7">+7μ</button>
@@ -737,6 +797,7 @@ function clinicCallsBlock(due, fresh, upcoming, stale, confirm = [], inProgress 
 }
 $('btnTodayRefresh').onclick = refresh;
 $('todayBody').addEventListener('click', async (e) => {
+  if (e.target.closest('[data-fstep],[data-fsent],[data-fcopy],[data-fnoans],[data-flost]')) { await followClick(e); return; }
   const tg = e.target.closest('[data-cgrp]');
   if (tg) {
     const k = tg.dataset.cgrp;
@@ -815,6 +876,7 @@ function openLeadModal(id) {
   $('lmTemplates').hidden = !tpls.length;
   $('lmTemplates').innerHTML = tpls.map((t, i) => `<button class="btn small" data-tpl="${i}" title="Αντιγραφή μηνύματος">${esc(t.t)}</button>`).join('');
   $('lmTemplates').dataset.clinic = c ? c.id : '';
+  $('lmFollow').innerHTML = followStrip(l); $('lmFollow').hidden = !inFollow(l);
   $('lm_status').innerHTML = Object.entries(STATUS).map(([k, v]) => `<option value="${k}"${l.status === k ? ' selected' : ''}>${v}</option>`).join('');
   $('lm_next').value = l.nextAction || '';
   $('lm_time').value = hhmm(l.apptTime);
@@ -859,6 +921,7 @@ $('lmTemplates').addEventListener('click', (e) => {
   const text = t.b.replaceAll('{όνομα}', first).replaceAll('{name}', first);
   try { navigator.clipboard.writeText(text).then(() => toast('Αντιγράφηκε το μήνυμα «' + t.t + '».')).catch(() => toast(text)); } catch { toast(text); }
 });
+$('lmFollow').addEventListener('click', async (e) => { if (await followClick(e)) { const l = leadById(modalLeadId); if (l) { $('lmFollow').innerHTML = followStrip(l); $('lmFollow').hidden = !inFollow(l); renderTimeline(l); } } });
 $('lmClose').onclick = () => { $('leadModal').hidden = true; modalLeadId = null; };
 $('leadModal').addEventListener('click', (e) => { if (e.target === $('leadModal')) { $('leadModal').hidden = true; modalLeadId = null; } });
 $('lm_status').addEventListener('change', async () => {
@@ -3164,6 +3227,9 @@ function renderSettings() {
   renderTrash();
   $('st_metaToken').value = s.metaToken || '';
   $('st_metaAccount').value = s.metaAccount || '';
+  $('st_followSender').value = s.followSender || 'Πέτρος';
+  $('st_followMsg1').value = s.followMsg1 || DEF_MSG1;
+  $('st_followMsg2').value = s.followMsg2 || DEF_MSG2;
 }
 $('btnSaveSettings').onclick = async () => {
   const d = {
@@ -3181,6 +3247,9 @@ $('btnSaveSettings').onclick = async () => {
     autoCharge: $('st_autoCharge').checked,
     metaToken: $('st_metaToken').value.trim(),
     metaAccount: $('st_metaAccount').value.trim(),
+    followSender: $('st_followSender').value.trim() || 'Πέτρος',
+    followMsg1: $('st_followMsg1').value.trim() || null,
+    followMsg2: $('st_followMsg2').value.trim() || null,
   };
   try {
     if (S.settings) await data.update('settings', 'main', d);

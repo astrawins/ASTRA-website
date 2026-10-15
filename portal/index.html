@@ -497,6 +497,13 @@
           </div>
           <div class="fhint" id="pushState" style="margin-top:8px"></div>
         </div>
+        <div class="card setcard">
+          <h3>Follow-up μηνύματα</h3>
+          <div class="desc">Ακολουθία για κάθε νέο lead: μήνυμα γνωριμίας αμέσως → 3 κλήσεις → μήνυμα. Μεταβλητές: {όνομα} {κλινική} {εγώ}. Στέλνονται με WhatsApp ή SMS από το κινητό σου.</div>
+          <div class="f"><label for="st_followSender">Υπογραφή ({εγώ})</label><input id="st_followSender" placeholder="Πέτρος"></div>
+          <div class="f"><label for="st_followMsg1">Μήνυμα γνωριμίας (μόλις έρθει το lead)</label><textarea id="st_followMsg1" rows="4"></textarea></div>
+          <div class="f"><label for="st_followMsg2">Μήνυμα μετά από 3 αναπάντητες</label><textarea id="st_followMsg2" rows="4"></textarea></div>
+        </div>
         <div class="card setcard" id="healthCard">
           <h3>Υγεία συστήματος</h3>
           <div class="desc">Αυτόματος έλεγχος κάθε 8 ώρες: scripts των sheets, Meta token και ad accounts, portal λογαριασμοί, push, σύνδεση Google, leads που περιμένουν. Email στο info@ μόνο όταν κάτι δεν είναι εντάξει.</div>
@@ -569,6 +576,7 @@
     <div class="mmeta" id="lmMeta"></div>
     <div class="scriptbox" id="lmScript" hidden></div>
     <div class="tmplrow" id="lmTemplates" hidden></div>
+    <div id="lmFollow" hidden style="margin:6px 0 10px"></div>
     <div class="mgrid">
       <div class="f"><label for="lm_status">Στάδιο</label><select id="lm_status"></select></div>
       <div class="f"><label for="lm_next">Επόμενη ενέργεια / ραντεβού</label><input id="lm_next" type="date"></div>
