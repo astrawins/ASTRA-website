@@ -581,6 +581,13 @@ function followText(l, which) {
   const first = (l.name || '').trim().split(/\s+/)[0] || '';
   return tpl.replaceAll('{όνομα}', first).replaceAll('{κλινική}', c ? c.name : 'την κλινική').replaceAll('{εγώ}', st.followSender || 'Πέτρος');
 }
+/* Gmail: στο iPhone/iPad ανοίγει την εφαρμογή Gmail (googlegmail://), αλλού το Gmail στο web — όχι το Mail της Apple. */
+function gmailLink(l, w) {
+  const c = clinicById(l.clinicId); const su = (c ? c.name : 'Astra') + ' — το αίτημά σας'; const body = followText(l, w);
+  const ios = /iPhone|iPad|iPod/.test(navigator.userAgent);
+  return ios ? `googlegmail:///co?to=${encodeURIComponent(l.email)}&subject=${encodeURIComponent(su)}&body=${encodeURIComponent(body)}`
+    : `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(l.email)}&su=${encodeURIComponent(su)}&body=${encodeURIComponent(body)}`;
+}
 const intlPhone = (p) => { const d = String(p || '').replace(/[^\d]/g, '').replace(/^00/, ''); return d.length === 10 && /^[26]/.test(d) ? '30' + d : d; };
 /* Επόμενο βήμα: τι κάνεις τώρα και πότε ξαναβγαίνει στο «Σήμερα». */
 const FOLLOW_NEXT = { 1: 0, 2: 0, 3: 1, 4: 0, 5: 2 }; // μέρες μέχρι την επόμενη ενέργεια
@@ -593,8 +600,9 @@ function followStrip(l) {
   if (cur === 0 || cur === 4) {
     const w = cur === 0 ? 1 : 2; const ph = intlPhone(l.phone);
     action = `<span class="fmsg" data-fmsg="${w}">
-      ${ph ? `<a class="btn small primary" href="https://wa.me/${ph}?text=${encodeURIComponent(followText(l, w))}" target="_blank" rel="noopener" data-fsent="${w}">WhatsApp</a>
-      <a class="btn small" href="sms:+${ph}&body=${encodeURIComponent(followText(l, w))}" data-fsent="${w}">SMS</a>` : ''}
+      ${ph ? `<a class="btn small primary" href="sms:+${ph}&body=${encodeURIComponent(followText(l, w))}" data-fsent="${w}">SMS</a>
+      <a class="btn small" href="https://wa.me/${ph}?text=${encodeURIComponent(followText(l, w))}" target="_blank" rel="noopener" data-fsent="${w}">WhatsApp</a>` : ''}
+      ${l.email ? `<a class="btn small" href="${gmailLink(l, w)}" target="_blank" rel="noopener" data-fsent="${w}" title="Για όσους έδωσαν λάθος τηλέφωνο">Gmail</a>` : ''}
       <button class="btn small" data-fcopy="${w}" title="Αντιγραφή κειμένου">Αντιγραφή</button></span>`;
   } else if (cur >= 1 && cur <= 3) {
     action = `<button class="btn small" data-fnoans="1">☎ Κλήση ${cur} αναπάντητη</button>`;
@@ -661,9 +669,9 @@ function todayRow(l, kind) {
     <div class="acts">
       ${kind === 'fresh' ? '<button class="btn small" data-act="called">Κλήθηκε</button>' : ''}
       ${['fresh', 'due', 'open'].includes(kind) && !inFollow(l) ? '<button class="btn small" data-act="noans" title="Δεν σήκωσε — ξαναπροσπάθεια αύριο">Δεν απάντησε</button>' : ''}
-      <button class="btn small" data-act="p1">+1μ</button>
-      <button class="btn small" data-act="p3">+3μ</button>
-      <button class="btn small" data-act="p7">+7μ</button>
+      <button class="btn small" data-act="p1" title="Μετάθεση της επόμενης ενέργειας για αύριο">Αύριο</button>
+      <button class="btn small" data-act="p3" title="Μετάθεση της επόμενης ενέργειας σε 3 μέρες">+3 μέρες</button>
+      <button class="btn small" data-act="p7" title="Μετάθεση της επόμενης ενέργειας σε μία εβδομάδα">+1 εβδ.</button>
       ${kind !== 'fresh' && kind !== 'confirm' ? '<button class="btn small" data-act="done">✓ Έγινε</button>' : ''}
       ${['confirm', 'up'].includes(kind) && l.status === 'rv' ? (l.confirmedAt ? '<span class="chip show" title="Επιβεβαιώθηκε τηλεφωνικά">Επιβεβαιωμένο ✓</span>' : '<button class="btn small primary" data-act="confirm" title="Ο ασθενής επιβεβαίωσε τηλεφωνικά ότι θα έρθει">✓ Επιβεβαιώθηκε</button>') : ''}
     </div>
@@ -700,7 +708,7 @@ function renderToday() {
       <div class="who"><b data-tact2="openclinic">${esc(c.name)}</b><div class="sub">${esc(c.phone || '')}</div></div>
       <span class="due ${c.nextTouch < todayISO() ? 'over' : ''}">${new Date(c.nextTouch).toLocaleDateString('el-GR', { day: 'numeric', month: 'short' })}</span>
       <div class="acts">
-        <button class="btn small" data-tact2="t7">+7μ</button>
+        <button class="btn small" data-tact2="t7">+1 εβδ.</button>
         <button class="btn small" data-tact2="t30">+30μ</button>
         <button class="btn small" data-tact2="tdone">✓ Έγινε</button>
       </div></div>`).join('')}</div>` : '';
@@ -759,7 +767,7 @@ function clinicCallsBlock(due, fresh, upcoming, stale, confirm = [], inProgress 
       <div class="who"><b data-act="open">${esc(l.name)}</b><div class="sub">${esc(l.phone || '')}</div>${n ? `<div class="todaynote">📝 ${esc(n.text.slice(0, 140))}</div>` : ''}</div>
       <span class="chip ${l.status}">${STATUS[l.status]}</span>
       <div class="acts">
-        <button class="btn small" data-act="p3">Ξαναπάρε +3μ</button>
+        <button class="btn small" data-act="p3">Ξαναπάρε σε 3 μέρες</button>
         <button class="btn small danger" data-act="marklost">Κλείσε ως χαμένο</button>
       </div></div>`; };
   const sub = (title, chip, arr, render) => arr.length
