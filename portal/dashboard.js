@@ -594,8 +594,25 @@ function gmailLink(l, w) {
     : `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(l.email)}&su=${encodeURIComponent(su)}&body=${encodeURIComponent(body)}`;
 }
 const intlPhone = (p) => { const d = String(p || '').replace(/[^\d]/g, '').replace(/^00/, ''); return d.length === 10 && /^[26]/.test(d) ? '30' + d : d; };
-/* Επόμενο βήμα: τι κάνεις τώρα και πότε ξαναβγαίνει στο «Σήμερα». */
-const FOLLOW_NEXT = { 1: 0, 2: 0, 3: 1, 4: 0, 5: 2 }; // μέρες μέχρι την επόμενη ενέργεια
+/* Πότε γίνεται το επόμενο βήμα (όρισε ο χρήστης):
+   μήνυμα → 1η κλήση αμέσως · 1η αναπάντητη το πρωί → 2η το ίδιο απόγευμα, το απόγευμα → 2η το επόμενο πρωί ·
+   3η την επόμενη μέρα από τη 2η, στο ΑΝΤΙΘΕΤΟ μέρος της ημέρας · 3η αναπάντητη → τελικό μήνυμα αμέσως · μετά +2 μέρες. */
+const AM = 10, PM = 17, NOON = 14; // πρωί 10:00, απόγευμα 17:00, όριο 14:00
+const at = (d, h) => { const x = new Date(d); x.setHours(h, 0, 0, 0); return x; };
+function followDue(step, when = new Date()) {
+  const pm = when.getHours() >= NOON; const tomorrow = new Date(when); tomorrow.setDate(when.getDate() + 1);
+  if (step === 1 || step === 4) return when;                         // κλήση / τελικό μήνυμα τώρα
+  if (step === 2) return pm ? at(tomorrow, AM) : at(when, PM);       // 2η κλήση
+  if (step === 3) return at(tomorrow, pm ? AM : PM);                 // 3η κλήση: επόμενη μέρα, αντίθετο μέρος
+  if (step === 5) { const d = new Date(when); d.setDate(d.getDate() + 2); return at(d, AM); }
+  return null;
+}
+const NEXT_LABEL = { 1: '☎ 1η κλήση', 2: '☎ 2η κλήση', 3: '☎ 3η κλήση', 4: '✉ τελικό μήνυμα', 5: 'έλεγχος απάντησης' };
+function dueText(iso) {
+  if (!iso) return ''; const d = new Date(iso); const t = d.toLocaleTimeString('el-GR', { hour: '2-digit', minute: '2-digit' });
+  const day = isoDate(d) === todayISO() ? 'σήμερα' : isoDate(d) === addDays(1) ? 'αύριο' : d.toLocaleDateString('el-GR', { weekday: 'short', day: 'numeric', month: 'short' });
+  return (d.getTime() <= Date.now() ? 'τώρα' : day + ' ' + t);
+}
 const inFollow = (l) => ['neo', 'noans'].includes(l.status);
 function followStrip(l) {
   if (!inFollow(l)) return '';
@@ -614,13 +631,14 @@ function followStrip(l) {
   } else if (cur === 5) {
     action = `<button class="btn small danger" data-flost="1" title="Δεν απάντησε σε τίποτα">Κλείσε ως χαμένο</button>`;
   }
-  return `<div class="followstrip"><span class="ftitle">Follow-up</span>${dots}${action}<span class="fnow">${esc(FOLLOW[cur].label)}</span></div>`;
+  const nxt = cur >= 1 && l.followDue ? ` · επόμενο: <b>${NEXT_LABEL[cur]} ${esc(dueText(l.followDue))}</b>` : '';
+  return `<div class="followstrip"><span class="ftitle">Follow-up</span>${dots}${action}<span class="fnow">${esc(FOLLOW[cur].label)}${nxt}</span></div>`;
 }
 async function setFollow(id, step, why) {
   const l = leadById(id); if (!l) return;
-  const days = FOLLOW_NEXT[step]; const patch = { followStep: step, followAt: new Date().toISOString() };
+  const due = followDue(step); const patch = { followStep: step, followAt: new Date().toISOString(), followDue: due ? due.toISOString() : null };
   if (step >= 2 && l.status === 'neo') patch.status = 'noans';
-  if (days !== undefined) patch.nextAction = addDays(days);
+  if (due) patch.nextAction = isoDate(due);
   await updateLead(id, patch, 'status', `Follow-up: ${FOLLOW[step].label}${why ? ' · ' + why : ''}`);
 }
 async function followClick(e) {
