@@ -3643,7 +3643,6 @@ function renderCallStats() {
       triesToContact: ans ? calls.indexOf(ans) + 1 : null };
   });
   const withCall = info.filter((x) => x.first);
-  const attempted = info.filter((x) => x.touch || x.contacted);
   const fm = withCall.map((x) => x.firstMin);
   /* 1. ταχύτητα 1ης κλήσης */
   const SPEED = [['< 5′', 0, 5], ['5–10′', 5, 10], ['10–30′', 10, 30], ['30′–2 ώρες', 30, 120], ['> 2 ώρες', 120, 1e9]];
@@ -3651,7 +3650,7 @@ function renderCallStats() {
   const tiles = `<div class="tiles" style="margin-bottom:18px">
     <div class="tile"><div class="lb">Leads περιόδου</div><div class="v">${leads.length}</div><div class="d">${withCall.length} με καταγεγραμμένη κλήση</div></div>
     <div class="tile"><div class="lb">1η κλήση · διάμεσος</div><div class="v">${csMins(csMedian(fm))}</div><div class="d">σε &lt;5′: ${csPct(fm.filter((m) => m < 5).length, fm.length)} · &lt;10′: ${csPct(fm.filter((m) => m < 10).length, fm.length)} · &lt;30′: ${csPct(fm.filter((m) => m < 30).length, fm.length)}</div></div>
-    <div class="tile"><div class="lb">Contact rate</div><div class="v">${csPct(attempted.filter((x) => x.contacted).length, attempted.length)}</div><div class="d">μιλήσαμε · μ.ό. ${(() => { const t = info.map((x) => x.triesToContact).filter(Boolean); return t.length ? (t.reduce((s, v) => s + v, 0) / t.length).toFixed(1) : '—'; })()} κλήσεις μέχρι να σηκώσει</div></div>
+    <div class="tile"><div class="lb">Contact rate</div><div class="v">${csPct(info.filter((x) => x.contacted).length, leads.length)}</div><div class="d">μιλήσαμε (από όλα τα leads) · μ.ό. ${(() => { const t = info.map((x) => x.triesToContact).filter(Boolean); return t.length ? (t.reduce((s, v) => s + v, 0) / t.length).toFixed(1) : '—'; })()} κλήσεις μέχρι να σηκώσει</div></div>
     <div class="tile"><div class="lb">Απάντηση 1ης κλήσης</div><div class="v">${csPct(withCall.filter((x) => x.first.outcome === 'answered').length, withCall.length)}</div><div class="d">${logs.filter((x) => x.kind === 'call').length} κλήσεις συνολικά</div></div>
     <div class="tile"><div class="lb">Ραντεβού / leads</div><div class="v">${csPct(info.filter((x) => x.booked).length, leads.length)}</div><div class="d">ήρθαν ${csPct(info.filter((x) => x.showed).length, info.filter((x) => x.booked).length)} των ραντεβού</div></div>
     <div class="tile"><div class="lb">Ξεχασμένα τώρα</div><div class="v ${(() => { const n = S.leads.filter((l) => (!cid || l.clinicId === cid) && l.status === 'neo' && !(+l.followStep) && Date.now() - t0(l) > 36e5 && Date.now() - t0(l) < 7 * 864e5).length; return n ? 'neg' : 'pos'; })()}">${S.leads.filter((l) => (!cid || l.clinicId === cid) && l.status === 'neo' && !(+l.followStep) && Date.now() - t0(l) > 36e5 && Date.now() - t0(l) < 7 * 864e5).length}</div><div class="d">νέα leads &gt;1 ώρα χωρίς καμία επαφή</div></div>
