@@ -39,7 +39,14 @@ function sheetPulse(c) {
 const telHref = (p) => { const d = String(p || '').replace(/[^\d+]/g, '').replace(/^00/, '+'); return d.startsWith('+') ? d : (d.length === 10 && /^[26]/.test(d) ? '+30' + d : d); };
 const telLink = (p, cls = '') => p ? `<a class="tellink ${cls}" href="tel:${esc(telHref(p))}" data-tel="1" title="Κλήση">📞 ${esc(p)}</a>` : '';
 // κλικ σε τηλέφωνο: ανοίγει μόνο την κλήση — δεν ανοίγει και την καρτέλα/γραμμή από κάτω
-document.addEventListener('click', (e) => { if (e.target.closest && e.target.closest('[data-tel]')) e.stopPropagation(); }, true);
+document.addEventListener('click', (e) => {
+  const t = e.target.closest && e.target.closest('[data-tel]'); if (!t) return;
+  e.stopPropagation();
+  /* Πάτημα στο τηλέφωνο = η στιγμή της κλήσης: γράφεται στο call_log (kind 'dial') και το αποτέλεσμα που θα πατηθεί
+     μετά (Απάντησε / Δεν σήκωσε…) παίρνει αυτή την ώρα — έτσι ο «χρόνος μέχρι την 1η κλήση» είναι ακριβής. */
+  const row = t.closest('[data-id]'); const id = row && row.dataset.id ? row.dataset.id : (t.closest('#leadModal') ? modalLeadId : null);
+  const l = id && leadById(id); if (l) logCall(l, { kind: 'dial', channel: 'phone', outcome: '' });
+}, true);
 const COPY_ICON = '<svg width="12" height="12" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><rect x="4.5" y="4.5" width="8" height="8" rx="1.5"/><path d="M9.5 4.5v-2a1 1 0 0 0-1-1h-6a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2"/></svg>';
 const leadById = (id) => S.leads.find((l) => l.id === id);
 const userEmail = () => { const s = currentSession(); return s ? s.email || '' : ''; };
@@ -658,7 +665,9 @@ async function followClick(e) {
   const fc = e.target.closest('[data-fcall]');
   if (fc) {
     e.preventDefault(); const out = fc.dataset.fcall; const cur = +l.followStep || 0; const n = Math.max(1, cur);
-    await logCall(l, { kind: 'call', attempt: n, channel: 'phone', outcome: out });
+    const dial = S.calls.find((x) => x.leadId === id && x.kind === 'dial' && Date.now() - new Date(x.at).getTime() < 60 * 60000
+      && !S.calls.some((y) => y.leadId === id && y.kind === 'call' && new Date(y.at) >= new Date(x.at))); // τελευταίο πάτημα τηλεφώνου που δεν έχει ακόμη αποτέλεσμα
+    await logCall(l, { kind: 'call', attempt: n, channel: 'phone', outcome: out, ...(dial ? { at: dial.at } : {}) });
     if (out === 'answered') { await updateLead(id, { status: 'epik', nextAction: todayISO(), followDue: null }, 'status', `☎ Απάντησε στην ${n}η κλήση → Επικοινωνία`); toast('Απάντησε ✓ — όρισε στάδιο / ραντεβού.'); openLeadModal(id); }
     else if (out === 'wrong') { await updateLead(id, { status: 'lost', lostReason: 'Λάθος νούμερο', nextAction: null, followDue: null }, 'status', '☎ Λάθος νούμερο → Χαμένο'); }
     else await setFollow(id, Math.min(4, Math.max(cur, 1) + 1), out === 'closed' ? 'κλειστό τηλέφωνο' : 'δεν σήκωσε');
@@ -3632,8 +3641,8 @@ function renderCallStats() {
   const actsOf = (id) => S.act.filter((a) => a.leadId === id);
   const info = leads.map((l) => {
     const lg = by[l.id] || []; const calls = lg.filter((x) => x.kind === 'call');
-    const first = calls[0]; const msg1 = lg.find((x) => x.kind === 'msg' && +x.attempt === 1); const msg2 = lg.find((x) => x.kind === 'msg' && +x.attempt === 2);
-    const touch = lg.find((x) => x.kind === 'call' || x.kind === 'msg');
+    const first = calls[0]; const dialed = lg.find((x) => x.kind === 'call' || x.kind === 'dial'); const msg1 = lg.find((x) => x.kind === 'msg' && +x.attempt === 1); const msg2 = lg.find((x) => x.kind === 'msg' && +x.attempt === 2);
+    const touch = lg.find((x) => ['call', 'dial', 'msg'].includes(x.kind));
     const ans = calls.find((x) => x.outcome === 'answered'); const reply = lg.find((x) => x.kind === 'reply');
     const contacted = !!(ans || reply) || ['epik', 'rv', 'show', 'won'].includes(l.status);
     const rvAct = actsOf(l.id).filter((a) => /Στάδιο → Ραντεβού/.test(a.body || '')).sort((a, b) => String(a.at).localeCompare(String(b.at)))[0];
@@ -3641,11 +3650,11 @@ function renderCallStats() {
     const showed = ['show', 'won'].includes(l.status) || !!l.attendedAt;
     const noshow = actsOf(l.id).some((a) => /δεν έγινε|Δεν ήρθε/i.test(a.body || ''));
     return { l, lg, calls, first, msg1, msg2, touch, ans, reply, contacted, booked, showed, noshow, rvAct,
-      firstMin: first ? (ms(first) - t0(l)) / 60000 : null, touchMin: touch ? (ms(touch) - t0(l)) / 60000 : null,
+      firstMin: dialed ? (ms(dialed) - t0(l)) / 60000 : null, touchMin: touch ? (ms(touch) - t0(l)) / 60000 : null,
       triesToContact: ans ? calls.indexOf(ans) + 1 : null };
   });
   const withCall = info.filter((x) => x.first);
-  const fm = withCall.map((x) => x.firstMin);
+  const fm = info.map((x) => x.firstMin).filter((m) => m != null); // από το πάτημα στο τηλέφωνο (ή το αποτέλεσμα, αν δεν πατήθηκε)
   /* 1. ταχύτητα 1ης κλήσης */
   const SPEED = [['< 5′', 0, 5], ['5–10′', 5, 10], ['10–30′', 10, 30], ['30′–2 ώρες', 30, 120], ['> 2 ώρες', 120, 1e9]];
   const inB = (m, b) => m >= b[1] && m < b[2];
