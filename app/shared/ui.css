@@ -736,3 +736,8 @@ html, body { touch-action: manipulation; }  /* zoom lock */
 .followstrip .fmsg { display: inline-flex; gap: 5px; }
 .followstrip .fmsg a.btn { text-decoration: none; }
 .followstrip .fnow { font-size: 12px; opacity: .7; }
+
+/* τηλέφωνο = κλήση με ένα πάτημα */
+.tellink { color: var(--bronze-deep); text-decoration: none; font-weight: 600; white-space: nowrap; padding: 4px 0; }
+.tellink:active { opacity: .6; }
+@media (hover: hover) { .tellink:hover { text-decoration: underline; } }

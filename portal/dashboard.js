@@ -35,6 +35,11 @@ function sheetPulse(c) {
   if (st.metaLastError) return ` · <span class="chip epik" title="${String(st.metaLastError).replace(/"/g, '&quot;')}">Script ζωντανό · σφάλμα Meta</span>`;
   return ` · <span class="chip won" title="Τελευταίος χτύπος ${when}${st.metaLastRun ? ' · Meta sync ' + new Date(st.metaLastRun).toLocaleTimeString('el-GR', { hour: '2-digit', minute: '2-digit' }) : ''}">Script ζωντανό</span>`;
 }
+/* Τηλέφωνο ως link κλήσης (tel:) — με ένα πάτημα καλεί από το κινητό. */
+const telHref = (p) => { const d = String(p || '').replace(/[^\d+]/g, '').replace(/^00/, '+'); return d.startsWith('+') ? d : (d.length === 10 && /^[26]/.test(d) ? '+30' + d : d); };
+const telLink = (p, cls = '') => p ? `<a class="tellink ${cls}" href="tel:${esc(telHref(p))}" data-tel="1" title="Κλήση">📞 ${esc(p)}</a>` : '';
+// κλικ σε τηλέφωνο: ανοίγει μόνο την κλήση — δεν ανοίγει και την καρτέλα/γραμμή από κάτω
+document.addEventListener('click', (e) => { if (e.target.closest && e.target.closest('[data-tel]')) e.stopPropagation(); }, true);
 const COPY_ICON = '<svg width="12" height="12" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><rect x="4.5" y="4.5" width="8" height="8" rx="1.5"/><path d="M9.5 4.5v-2a1 1 0 0 0-1-1h-6a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2"/></svg>';
 const leadById = (id) => S.leads.find((l) => l.id === id);
 const userEmail = () => { const s = currentSession(); return s ? s.email || '' : ''; };
@@ -665,7 +670,7 @@ function todayRow(l, kind) {
     <div class="who"><b data-act="open">${esc(l.name)}</b><div class="sub">${esc(c ? c.name : '—')}${l.campaign ? ' · ' + esc(l.campaign) : ''}</div>${noteTxt}${followStrip(l)}</div>
     <span class="chip ${l.status}">${STATUS[l.status]}</span>
     <span class="due ${over ? 'over' : ''}">${when}</span>
-    <span class="mono" style="font-size:12.5px">${esc(l.phone || '')}${l.phone ? `<button class="copybtn" data-copy="${esc(l.phone)}" title="Αντιγραφή">${COPY_ICON}</button>` : ''}</span>
+    <span class="mono" style="font-size:12.5px">${telLink(l.phone)}${l.phone ? `<button class="copybtn" data-copy="${esc(l.phone)}" title="Αντιγραφή">${COPY_ICON}</button>` : ''}</span>
     <div class="acts">
       ${kind === 'fresh' ? '<button class="btn small" data-act="called">Κλήθηκε</button>' : ''}
       ${['fresh', 'due', 'open'].includes(kind) && !inFollow(l) ? '<button class="btn small" data-act="noans" title="Δεν σήκωσε — ξαναπροσπάθεια αύριο">Δεν απάντησε</button>' : ''}
@@ -705,7 +710,7 @@ function renderToday() {
     .sort((a, b) => String(a.nextTouch).localeCompare(String(b.nextTouch)));
   const touchBlock = touches.length ? `<h3 class="sectionhead" style="margin-top:0">Πελάτες — επόμενη επαφή <span class="chip epik">${touches.length}</span></h3>
     <div class="card" style="margin-bottom:20px">${touches.map((c) => `<div class="todayrow" data-clinic="${c.id}">
-      <div class="who"><b data-tact2="openclinic">${esc(c.name)}</b><div class="sub">${esc(c.phone || '')}</div></div>
+      <div class="who"><b data-tact2="openclinic">${esc(c.name)}</b><div class="sub">${telLink(c.phone)}</div></div>
       <span class="due ${c.nextTouch < todayISO() ? 'over' : ''}">${new Date(c.nextTouch).toLocaleDateString('el-GR', { day: 'numeric', month: 'short' })}</span>
       <div class="acts">
         <button class="btn small" data-tact2="t7">+1 εβδ.</button>
@@ -764,7 +769,7 @@ function clinicCallsBlock(due, fresh, upcoming, stale, confirm = [], inProgress 
   }).sort((a, b) => b.calls - a.calls || b.g.up.length - a.g.up.length);
   const totalCalls = rows.reduce((s, r) => s + r.calls, 0);
   const staleRow = (l) => { const n = lastNote(l); return `<div class="todayrow" data-id="${l.id}">
-      <div class="who"><b data-act="open">${esc(l.name)}</b><div class="sub">${esc(l.phone || '')}</div>${n ? `<div class="todaynote">📝 ${esc(n.text.slice(0, 140))}</div>` : ''}</div>
+      <div class="who"><b data-act="open">${esc(l.name)}</b><div class="sub">${telLink(l.phone)}</div>${n ? `<div class="todaynote">📝 ${esc(n.text.slice(0, 140))}</div>` : ''}</div>
       <span class="chip ${l.status}">${STATUS[l.status]}</span>
       <div class="acts">
         <button class="btn small" data-act="p3">Ξαναπάρε σε 3 μέρες</button>
@@ -872,7 +877,7 @@ function openLeadModal(id) {
   const d = l.createdTime ? new Date(l.createdTime) : null;
   $('lmMeta').innerHTML = [
     c ? esc(c.name) : null,
-    l.phone ? `<span class="mono">${esc(l.phone)}</span> <button class="copybtn" data-copy="${esc(l.phone)}" title="Αντιγραφή">${COPY_ICON}</button>` : null,
+    l.phone ? `<span class="mono">${telLink(l.phone)}</span> <button class="copybtn" data-copy="${esc(l.phone)}" title="Αντιγραφή">${COPY_ICON}</button>` : null,
     l.email ? esc(l.email) : null,
     l.campaign ? 'Καμπάνια: ' + esc(l.campaign) : null,
     d && !isNaN(d) ? 'Ήρθε ' + d.toLocaleDateString('el-GR', { day: 'numeric', month: 'long' }) : null,
@@ -1568,7 +1573,7 @@ function renderClinicView() {
     const overdue = ls.filter((l) => l.nextAction && l.nextAction < today && !['won', 'lost'].includes(l.status))
       .sort((a, b) => String(a.nextAction).localeCompare(String(b.nextAction)));
     const row = (l, over) => `<div class="todayrow" data-id="${l.id}">
-        <div class="who"><b data-act="open">${esc(l.name)}</b><div class="sub">${esc(l.phone || '')}</div></div>
+        <div class="who"><b data-act="open">${esc(l.name)}</b><div class="sub">${telLink(l.phone)}</div></div>
         <span class="chip ${l.status}">${STATUS[l.status]}</span>
         <span class="due ${over ? 'over' : ''}">${new Date(l.nextAction).toLocaleDateString('el-GR', { weekday: 'short', day: 'numeric', month: 'short' })}${l.apptTime ? ' ' + hhmm(l.apptTime) : ''}</span>
       </div>`;
@@ -1885,7 +1890,7 @@ function leadRowHTML(l) {
   return `<tr data-id="${l.id}">
     <td class="mono" title="${esc(l.createdTime)}">${dstr}</td>
     <td><b data-act="open" style="cursor:pointer">${esc(l.name)}</b>${l.notes ? `<div style="font-size:11.5px;color:var(--soft)">${esc(l.notes)}</div>` : ''}${l.sheetNotes && !l.notes ? `<div style="font-size:11.5px;color:var(--soft)" title="Σημείωση από το sheet"><span class="srctag">sheet</span> ${esc(l.sheetNotes)}</div>` : ''}</td>
-    <td class="mono" style="font-size:12.5px">${l.phone ? esc(l.phone) + `<button class="copybtn" data-copy="${esc(l.phone)}" title="Αντιγραφή">${COPY_ICON}</button>` : ''}${l.phone && l.email ? '<br>' : ''}${esc(l.email || '')}</td>
+    <td class="mono" style="font-size:12.5px">${l.phone ? telLink(l.phone) + `<button class="copybtn" data-copy="${esc(l.phone)}" title="Αντιγραφή">${COPY_ICON}</button>` : ''}${l.phone && l.email ? '<br>' : ''}${esc(l.email || '')}</td>
     <td>${esc(c ? c.name : '—')}</td>
     <td style="font-size:12.5px">${esc(l.campaign || '—')}${plat ? ` <span class="chip plain">${plat}</span>` : ''}</td>
     <td><select data-f="status">${Object.entries(STATUS).map(([k, v]) => `<option value="${k}"${l.status === k ? ' selected' : ''}>${v}</option>`).join('')}</select></td>
