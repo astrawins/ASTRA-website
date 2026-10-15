@@ -40,6 +40,7 @@
       <button data-tab="overview" class="on"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="1.5" y="1.5" width="5.5" height="5.5" rx="1"/><rect x="9" y="1.5" width="5.5" height="5.5" rx="1"/><rect x="1.5" y="9" width="5.5" height="5.5" rx="1"/><rect x="9" y="9" width="5.5" height="5.5" rx="1"/></svg>Επισκόπηση</button>
       <button data-tab="clinics"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="2" y="3" width="12" height="11" rx="1.5"/><path d="M8 6.5v4M6 8.5h4"/></svg>Κλινικές</button>
       <button data-tab="leads"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="5.5" cy="5.5" r="2.5"/><path d="M1.5 14c.5-2.5 2-4 4-4s3.5 1.5 4 4"/><circle cx="11.5" cy="5" r="2"/><path d="M10.5 9.7c1.8.2 3.2 1.5 3.8 3.8"/></svg>Leads</button>
+      <button data-tab="calls"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3.5 2h2.2l1.1 2.8-1.4 1a7 7 0 0 0 3.8 3.8l1-1.4 2.8 1.1v2.2a1.5 1.5 0 0 1-1.6 1.5A11 11 0 0 1 2 3.6 1.5 1.5 0 0 1 3.5 2Z"/><path d="M10.5 2.5v4M12.5 4v2.5M14.5 1.5v5"/></svg>Στατιστικά κλήσεων</button>
       <button data-tab="campaigns"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M2 6.5v3l8 3.5V3L2 6.5Z"/><path d="M10 5.5c1.8.6 3 1.4 3 2.5s-1.2 1.9-3 2.5M4.5 10v3"/></svg>Campaigns</button>
       <button data-tab="finance"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="8" cy="8" r="6.2"/><path d="M10.4 5.8A2.9 2.9 0 0 0 5.4 8a2.9 2.9 0 0 0 5 2.2M4.6 7.1h3.6M4.6 9h3.6"/></svg>Οικονομικά</button>
       <button data-tab="reports"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 2h6l3 3v9H4z"/><path d="M10 2v3h3M6.5 9h3.5M6.5 11.5h3.5"/></svg>Αναφορές</button>
@@ -235,6 +236,18 @@
     </section>
 
     <!-- ================= CAMPAIGNS ================= -->
+    <!-- ================= ΣΤΑΤΙΣΤΙΚΑ ΚΛΗΣΕΩΝ ================= -->
+    <section id="tab-calls" hidden>
+      <div class="pagehead">
+        <div><h2>Στατιστικά κλήσεων</h2><div class="sub">Τι δουλεύει στο calling: ταχύτητα, προσπάθειες, ώρες, κανάλια, καμπάνιες. Γράφονται από τα κουμπιά της μπάρας follow-up (από 16/10/2026).</div></div>
+      </div>
+      <div class="filters">
+        <select id="csClinic"></select>
+        <select id="csPeriod"><option value="7">Τελευταίες 7 ημέρες</option><option value="30" selected>Τελευταίες 30 ημέρες</option><option value="90">Τελευταίες 90 ημέρες</option><option value="365">Τελευταίο έτος</option></select>
+      </div>
+      <div id="callStats"></div>
+    </section>
+
     <section id="tab-campaigns" hidden>
       <div class="pagehead">
         <div><h2>Campaigns</h2><div class="sub">Δαπάνη, CPL και ROAS ανά καμπάνια — τα leads και οι πωλήσεις αντιστοιχίζονται αυτόματα από το όνομα καμπάνιας.</div></div>
@@ -582,6 +595,7 @@
       <div class="f"><label for="lm_next">Επόμενη ενέργεια / ραντεβού</label><input id="lm_next" type="date"></div>
       <div class="f"><label for="lm_time">Ώρα ραντεβού</label><input id="lm_time" type="time"></div>
       <div class="f"><label for="lm_amount">Ποσό αγοράς (€)</label><input id="lm_amount" inputmode="decimal"></div>
+      <div class="f" id="lm_lostWrap" hidden><label for="lm_lost">Λόγος απώλειας</label><select id="lm_lost"></select></div>
       <div class="f" id="lm_feeWrap" hidden><label for="lm_feeopt">Πακέτο (αμοιβή Astra)</label><select id="lm_feeopt"></select></div>
       <div class="f"><label for="lm_confirm">Τηλεφωνική επιβεβαίωση ραντεβού</label><button type="button" id="lm_confirm" class="btn small primary">✓ Επιβεβαιώθηκε τηλεφωνικά</button></div>
     </div>

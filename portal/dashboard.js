@@ -21,7 +21,7 @@ else if (sessionRole().role === 'client') location.replace('/client-portal/');
 else document.documentElement.classList.add('authed');
 
 /* ============ state ============ */
-const S = { clinics: [], leads: [], camps: [], fin: [], rec: [], act: [], tasks: [], cr: [], stats: [], trash: [], acct: [], clog: [], billing: [], subs: [], settings: null };
+const S = { clinics: [], leads: [], camps: [], fin: [], rec: [], act: [], tasks: [], cr: [], stats: [], trash: [], acct: [], clog: [], billing: [], subs: [], calls: [], settings: null };
 let activeTab = 'overview';
 const $ = (id) => document.getElementById(id);
 const clinicById = (id) => S.clinics.find((c) => c.id === id);
@@ -51,7 +51,7 @@ async function refresh() {
     const all = await data.loadAll();
     S.clinics = all.clinics; S.leads = all.leads; S.camps = all.campaigns; S.fin = all.finance;
     S.rec = all.recurring || []; S.act = all.activity || []; S.tasks = all.tasks || []; S.cr = all.creatives || [];
-    S.stats = all.monthly_stats || []; S.trash = all.trash || []; S.acct = all.accountant || []; S.clog = all.client_log || []; S.billing = all.billing || []; S.subs = all.subscriptions || [];
+    S.stats = all.monthly_stats || []; S.trash = all.trash || []; S.acct = all.accountant || []; S.clog = all.client_log || []; S.billing = all.billing || []; S.subs = all.subscriptions || []; S.calls = all.call_log || [];
     notifyRemoteLeads();
     S.settings = (all.settings && all.settings[0]) || null;
     $('dbBanner').hidden = true;
@@ -206,8 +206,8 @@ function applyRoles() {
 }
 
 /* ============ tabs ============ */
-const TABS = ['today', 'tasks', 'calendar', 'overview', 'clinics', 'leads', 'campaigns', 'finance', 'reports', 'settings'];
-const TAB_LABELS = { today: 'Σήμερα', tasks: 'Tasks', calendar: 'Ημερολόγιο', overview: 'Επισκόπηση', clinics: 'Κλινικές', leads: 'Leads', campaigns: 'Campaigns', finance: 'Οικονομικά', reports: 'Αναφορές', settings: 'Ρυθμίσεις' };
+const TABS = ['today', 'tasks', 'calendar', 'overview', 'clinics', 'leads', 'calls', 'campaigns', 'finance', 'reports', 'settings'];
+const TAB_LABELS = { today: 'Σήμερα', tasks: 'Tasks', calendar: 'Ημερολόγιο', overview: 'Επισκόπηση', clinics: 'Κλινικές', leads: 'Leads', calls: 'Στατιστικά κλήσεων', campaigns: 'Campaigns', finance: 'Οικονομικά', reports: 'Αναφορές', settings: 'Ρυθμίσεις' };
 function showTab(t) {
   activeTab = t;
   document.querySelectorAll('#tabs button').forEach((b) => b.classList.toggle('on', b.dataset.tab === t));
@@ -626,11 +626,16 @@ function followStrip(l) {
       <a class="btn small" href="https://wa.me/${ph}?text=${encodeURIComponent(followText(l, w))}" target="_blank" rel="noopener" data-fsent="${w}">WhatsApp</a>` : ''}
       ${l.email ? `<a class="btn small" href="${gmailLink(l, w)}" target="_blank" rel="noopener" data-fsent="${w}" title="Για όσους έδωσαν λάθος τηλέφωνο">Gmail</a>` : ''}
       <button class="btn small" data-fcopy="${w}" title="Αντιγραφή κειμένου">Αντιγραφή</button></span>`;
-  } else if (cur >= 1 && cur <= 3) {
-    action = `<button class="btn small" data-fnoans="1">☎ Κλήση ${cur} αναπάντητη</button>`;
-  } else if (cur === 5) {
-    action = `<button class="btn small danger" data-flost="1" title="Δεν απάντησε σε τίποτα">Κλείσε ως χαμένο</button>`;
   }
+  if (cur <= 3) { // αποτέλεσμα κλήσης με ένα πάτημα → call_log (Στατιστικά κλήσεων)
+    action += `<span class="fcall"><span class="ftitle">☎ ${Math.max(1, cur)}η κλήση</span>
+      <button class="btn small primary" data-fcall="answered">✓ Απάντησε</button>
+      <button class="btn small" data-fcall="no_answer">Δεν σήκωσε</button>
+      <button class="btn small" data-fcall="closed">Κλειστό</button>
+      <button class="btn small" data-fcall="wrong" title="Λάθος / ανύπαρκτο νούμερο → Χαμένο">Λάθος νούμερο</button></span>`;
+  }
+  if (cur === 5) action = `<button class="btn small danger" data-flost="1" title="Δεν απάντησε σε τίποτα">Κλείσε ως χαμένο</button>`;
+  if (cur >= 1) action += `<button class="btn small" data-freply="1" title="Απάντησε σε SMS / WhatsApp / email">↩ Απάντησε σε μήνυμα</button>`;
   const nxt = cur >= 1 && l.followDue ? ` · επόμενο: <b>${NEXT_LABEL[cur]} ${esc(dueText(l.followDue))}</b>` : '';
   return `<div class="followstrip"><span class="ftitle">Follow-up</span>${dots}${action}<span class="fnow">${esc(FOLLOW[cur].label)}${nxt}</span></div>`;
 }
@@ -647,11 +652,25 @@ async function followClick(e) {
   const st = e.target.closest('[data-fstep]');
   if (st) { const k = +st.dataset.fstep; await setFollow(id, (+l.followStep || 0) === k ? k - 1 : k, 'χειροκίνητα'); return true; }
   const sent = e.target.closest('[data-fsent]');
-  if (sent) { const w = +sent.dataset.fsent; setTimeout(() => setFollow(id, w === 1 ? 1 : 5, sent.textContent.trim()), 300); return true; } // το link ανοίγει κανονικά
+  if (sent) { const w = +sent.dataset.fsent; const ch = sent.textContent.trim(); setTimeout(async () => { await logCall(l, { kind: 'msg', attempt: w, channel: ch.toLowerCase(), outcome: 'sent' }); await setFollow(id, w === 1 ? 1 : 5, ch); }, 300); return true; } // το link ανοίγει κανονικά
   const cp = e.target.closest('[data-fcopy]');
-  if (cp) { e.preventDefault(); const w = +cp.dataset.fcopy; const t = followText(l, w); try { await navigator.clipboard.writeText(t); } catch { /* ok */ } await setFollow(id, w === 1 ? 1 : 5, 'αντιγραφή κειμένου'); toast('Αντιγράφηκε — στείλ\' το από το κινητό.'); return true; }
-  if (e.target.closest('[data-fnoans]')) { e.preventDefault(); await setFollow(id, Math.min(4, (+l.followStep || 0) + 1)); return true; }
-  if (e.target.closest('[data-flost]')) { e.preventDefault(); await updateLead(id, { status: 'lost', nextAction: null }, 'status', 'Δεν απάντησε σε μήνυμα και 3 κλήσεις → χαμένο'); return true; }
+  if (cp) { e.preventDefault(); const w = +cp.dataset.fcopy; const t = followText(l, w); try { await navigator.clipboard.writeText(t); } catch { /* ok */ } await logCall(l, { kind: 'msg', attempt: w, channel: 'copy', outcome: 'sent' }); await setFollow(id, w === 1 ? 1 : 5, 'αντιγραφή κειμένου'); toast('Αντιγράφηκε — στείλ\' το από το κινητό.'); return true; }
+  const fc = e.target.closest('[data-fcall]');
+  if (fc) {
+    e.preventDefault(); const out = fc.dataset.fcall; const cur = +l.followStep || 0; const n = Math.max(1, cur);
+    await logCall(l, { kind: 'call', attempt: n, channel: 'phone', outcome: out });
+    if (out === 'answered') { await updateLead(id, { status: 'epik', nextAction: todayISO(), followDue: null }, 'status', `☎ Απάντησε στην ${n}η κλήση → Επικοινωνία`); toast('Απάντησε ✓ — όρισε στάδιο / ραντεβού.'); openLeadModal(id); }
+    else if (out === 'wrong') { await updateLead(id, { status: 'lost', lostReason: 'Λάθος νούμερο', nextAction: null, followDue: null }, 'status', '☎ Λάθος νούμερο → Χαμένο'); }
+    else await setFollow(id, Math.min(4, Math.max(cur, 1) + 1), out === 'closed' ? 'κλειστό τηλέφωνο' : 'δεν σήκωσε');
+    return true;
+  }
+  if (e.target.closest('[data-freply]')) {
+    e.preventDefault(); const cur = +l.followStep || 0;
+    await logCall(l, { kind: 'reply', attempt: cur >= 5 ? 2 : 1, channel: '', outcome: 'replied' });
+    await updateLead(id, { status: 'epik', nextAction: todayISO(), followDue: null }, 'status', `↩ Απάντησε στο ${cur >= 5 ? 'τελικό' : '1ο'} μήνυμα → Επικοινωνία`);
+    toast('Καταγράφηκε η απάντηση ✓'); return true;
+  }
+  if (e.target.closest('[data-flost]')) { e.preventDefault(); await updateLead(id, { status: 'lost', lostReason: 'Δεν απάντησε ποτέ', nextAction: null, followDue: null }, 'status', 'Δεν απάντησε σε μήνυμα και 3 κλήσεις → χαμένο'); return true; }
   return false;
 }
 
@@ -873,16 +892,17 @@ $('todayBody').addEventListener('click', async (e) => {
     const l = leadById(id);
     const tries = S.act.filter((a) => a.leadId === id && a.type === 'status' && String(a.body).startsWith('Δεν απάντησε')).length + 1;
     const keep = l && ['rv', 'show'].includes(l.status);
+    if (l) await logCall(l, { kind: 'call', attempt: tries, channel: 'phone', outcome: 'no_answer' });
     await updateLead(id, { ...(keep ? {} : { status: 'noans' }), nextAction: addDays(1) }, 'status', `Δεν απάντησε (${tries}η προσπάθεια) → ξανά αύριο`);
     toast(`Δεν απάντησε (${tries}η) — ξανά αύριο.`);
   }
-  if (act === 'called') { await updateLead(id, { status: 'epik', nextAction: addDays(3) }, 'status', 'Κλήθηκε → Επικοινωνία, επανέλεγχος σε 3 μέρες'); toast('ΟΚ — επανέλεγχος σε 3 μέρες.'); }
+  if (act === 'called') { const lc = leadById(id); if (lc) await logCall(lc, { kind: 'call', attempt: S.calls.filter((x) => x.leadId === id && x.kind === 'call').length + 1, channel: 'phone', outcome: 'answered' }); await updateLead(id, { status: 'epik', nextAction: addDays(3) }, 'status', 'Κλήθηκε → Επικοινωνία, επανέλεγχος σε 3 μέρες'); toast('ΟΚ — επανέλεγχος σε 3 μέρες.'); }
   if (act === 'confirm') { await updateLead(id, { confirmedAt: new Date().toISOString() }, 'status', 'Το ραντεβού επιβεβαιώθηκε τηλεφωνικά ✓'); toast('Επιβεβαιώθηκε ✓'); }
   if (act === 'p1') { await updateLead(id, { nextAction: addDays(1), confirmedAt: null }, 'next', 'Μετάθεση για αύριο'); }
   if (act === 'p3') { await updateLead(id, { nextAction: addDays(3), confirmedAt: null }, 'next', 'Μετάθεση +3 μέρες'); }
   if (act === 'p7') { await updateLead(id, { nextAction: addDays(7), confirmedAt: null }, 'next', 'Μετάθεση +7 μέρες'); }
   if (act === 'done') { await updateLead(id, { nextAction: null }, 'next', 'Η ενέργεια ολοκληρώθηκε'); }
-  if (act === 'marklost') { await updateLead(id, { status: 'lost', nextAction: null }, 'status', 'Έκλεισε ως χαμένο (αδράνεια 21+ ημερών)'); }
+  if (act === 'marklost') { await updateLead(id, { status: 'lost', lostReason: 'Αδράνεια', nextAction: null }, 'status', 'Έκλεισε ως χαμένο (αδράνεια 21+ ημερών)'); }
 });
 
 /* ============ LEAD MODAL ============ */
@@ -915,6 +935,7 @@ function openLeadModal(id) {
   const fos = feeOpts(c); $('lm_feeWrap').hidden = !fos.length;
   if (fos.length) { const cur = leadFeeOpt(l, c); $('lm_feeopt').innerHTML = fos.map((o) => `<option value="${esc(o.key)}"${cur && cur.key === o.key ? ' selected' : ''}>${esc(o.label)} · αμοιβή ${eur(o.fee)}</option>`).join(''); }
   $('lm_notes').value = l.notes || '';
+  setLostReason(l);
   setConfirmBtn(l);
   renderTimeline(l);
   $('leadModal').hidden = false;
@@ -962,6 +983,18 @@ $('lm_status').addEventListener('change', async () => {
   const v = $('lm_status').value;
   const patch = statusPatch(v, leadById(modalLeadId));
   await updateLead(modalLeadId, patch, 'status', 'Στάδιο → ' + STATUS[v]);
+  const l = leadById(modalLeadId); if (l) { renderTimeline(l); setLostReason(l); }
+  if (v === 'lost') toast('Διάλεξε λόγο απώλειας — μετρά στα Στατιστικά κλήσεων.');
+});
+/* Λόγος απώλειας (leads.lost_reason) — εμφανίζεται μόνο όταν το lead είναι «Χαμένο». */
+const LOST_REASONS = ['Ακριβό', 'Μακριά', 'Δεν θυμάται τη φόρμα', 'Λάθος νούμερο', 'Δεν απάντησε ποτέ', 'Το σκέφτεται / αργότερα', 'Πήγε αλλού', 'Αδράνεια', 'Άλλο'];
+function setLostReason(l) {
+  $('lm_lostWrap').hidden = l.status !== 'lost';
+  $('lm_lost').innerHTML = '<option value="">— διάλεξε —</option>' + LOST_REASONS.map((r) => `<option${l.lostReason === r ? ' selected' : ''}>${esc(r)}</option>`).join('');
+}
+$('lm_lost').addEventListener('change', async () => {
+  if (!modalLeadId) return;
+  await updateLead(modalLeadId, { lostReason: $('lm_lost').value }, 'status', 'Λόγος απώλειας: ' + ($('lm_lost').value || '—'));
   const l = leadById(modalLeadId); if (l) renderTimeline(l);
 });
 $('lm_next').addEventListener('change', async () => {
@@ -3571,6 +3604,131 @@ document.body.addEventListener('mousemove', (e) => {
 });
 
 /* ============ render root ============ */
+/* ============ ΣΤΑΤΙΣΤΙΚΑ ΚΛΗΣΕΩΝ (call_log) ============
+   Κάθε κλήση/μήνυμα/απάντηση γράφεται στο call_log από τη μπάρα follow-up (logCall). Εδώ: ταχύτητα, απάντηση ανά
+   προσπάθεια/ώρα/κανάλι, funnel, καμπάνιες, λόγοι απώλειας, ξεχασμένα. Τα στοιχεία κλήσεων μετρούν από 16/10/2026. */
+async function logCall(l, rec) {
+  try { const row = await data.create('call_log', { leadId: l.id, clinicId: l.clinicId || null, by: userEmail(), at: new Date().toISOString(), ...rec }); if (row) S.calls.unshift(row); }
+  catch (err) { console.warn('call_log', err); }
+}
+const csPct = (a, b) => (b ? Math.round((100 * a) / b) + '%' : '—');
+const csMins = (m) => (m == null ? '—' : m < 60 ? Math.round(m) + '′' : m < 1440 ? (m / 60).toFixed(1).replace('.0', '') + ' ώρ.' : (m / 1440).toFixed(1).replace('.0', '') + ' μέρ.');
+const csMedian = (xs) => { if (!xs.length) return null; const s = [...xs].sort((a, b) => a - b); const m = Math.floor(s.length / 2); return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2; };
+const csTable = (head, rows, empty = 'Δεν υπάρχουν ακόμη δεδομένα.') => (rows.length
+  ? `<table><thead><tr>${head.map((h, i) => `<th${i ? ' class="num"' : ''}>${h}</th>`).join('')}</tr></thead><tbody>${rows.map((r) => `<tr>${r.map((c, i) => `<td${i ? ' class="num"' : ''}>${c}</td>`).join('')}</tr>`).join('')}</tbody></table>`
+  : `<div class="empty" style="padding:14px">${empty}</div>`);
+function renderCallStats() {
+  const selC = $('csClinic'); const cur = selC.value;
+  selC.innerHTML = '<option value="">Όλες οι κλινικές</option>' + S.clinics.map((c) => `<option value="${c.id}"${c.id === cur ? ' selected' : ''}>${esc(c.name)}</option>`).join('');
+  const cid = selC.value; const days = +$('csPeriod').value || 30; const from = Date.now() - days * 864e5;
+  const t0 = (l) => new Date(l.createdTime).getTime();
+  const leads = S.leads.filter((l) => (!cid || l.clinicId === cid) && t0(l) >= from);
+  const ids = new Set(leads.map((l) => l.id));
+  const logs = S.calls.filter((x) => ids.has(x.leadId)).sort((a, b) => String(a.at).localeCompare(String(b.at)));
+  const by = {}; logs.forEach((x) => { (by[x.leadId] = by[x.leadId] || []).push(x); });
+  const ms = (x) => new Date(x.at).getTime();
+  const actsOf = (id) => S.act.filter((a) => a.leadId === id);
+  const info = leads.map((l) => {
+    const lg = by[l.id] || []; const calls = lg.filter((x) => x.kind === 'call');
+    const first = calls[0]; const msg1 = lg.find((x) => x.kind === 'msg' && +x.attempt === 1); const msg2 = lg.find((x) => x.kind === 'msg' && +x.attempt === 2);
+    const touch = lg.find((x) => x.kind === 'call' || x.kind === 'msg');
+    const ans = calls.find((x) => x.outcome === 'answered'); const reply = lg.find((x) => x.kind === 'reply');
+    const contacted = !!(ans || reply) || ['epik', 'rv', 'show', 'won'].includes(l.status);
+    const rvAct = actsOf(l.id).filter((a) => /Στάδιο → Ραντεβού/.test(a.body || '')).sort((a, b) => String(a.at).localeCompare(String(b.at)))[0];
+    const booked = ['rv', 'show', 'won'].includes(l.status) || !!l.attendedAt || !!rvAct;
+    const showed = ['show', 'won'].includes(l.status) || !!l.attendedAt;
+    const noshow = actsOf(l.id).some((a) => /δεν έγινε|Δεν ήρθε/i.test(a.body || ''));
+    return { l, lg, calls, first, msg1, msg2, touch, ans, reply, contacted, booked, showed, noshow, rvAct,
+      firstMin: first ? (ms(first) - t0(l)) / 60000 : null, touchMin: touch ? (ms(touch) - t0(l)) / 60000 : null,
+      triesToContact: ans ? calls.indexOf(ans) + 1 : null };
+  });
+  const withCall = info.filter((x) => x.first);
+  const attempted = info.filter((x) => x.touch || x.contacted);
+  const fm = withCall.map((x) => x.firstMin);
+  /* 1. ταχύτητα 1ης κλήσης */
+  const SPEED = [['< 5′', 0, 5], ['5–10′', 5, 10], ['10–30′', 10, 30], ['30′–2 ώρες', 30, 120], ['> 2 ώρες', 120, 1e9]];
+  const inB = (m, b) => m >= b[1] && m < b[2];
+  const tiles = `<div class="tiles" style="margin-bottom:18px">
+    <div class="tile"><div class="lb">Leads περιόδου</div><div class="v">${leads.length}</div><div class="d">${withCall.length} με καταγεγραμμένη κλήση</div></div>
+    <div class="tile"><div class="lb">1η κλήση · διάμεσος</div><div class="v">${csMins(csMedian(fm))}</div><div class="d">σε &lt;5′: ${csPct(fm.filter((m) => m < 5).length, fm.length)} · &lt;10′: ${csPct(fm.filter((m) => m < 10).length, fm.length)} · &lt;30′: ${csPct(fm.filter((m) => m < 30).length, fm.length)}</div></div>
+    <div class="tile"><div class="lb">Contact rate</div><div class="v">${csPct(attempted.filter((x) => x.contacted).length, attempted.length)}</div><div class="d">μιλήσαμε · μ.ό. ${(() => { const t = info.map((x) => x.triesToContact).filter(Boolean); return t.length ? (t.reduce((s, v) => s + v, 0) / t.length).toFixed(1) : '—'; })()} κλήσεις μέχρι να σηκώσει</div></div>
+    <div class="tile"><div class="lb">Απάντηση 1ης κλήσης</div><div class="v">${csPct(withCall.filter((x) => x.first.outcome === 'answered').length, withCall.length)}</div><div class="d">${logs.filter((x) => x.kind === 'call').length} κλήσεις συνολικά</div></div>
+    <div class="tile"><div class="lb">Ραντεβού / leads</div><div class="v">${csPct(info.filter((x) => x.booked).length, leads.length)}</div><div class="d">ήρθαν ${csPct(info.filter((x) => x.showed).length, info.filter((x) => x.booked).length)} των ραντεβού</div></div>
+    <div class="tile"><div class="lb">Ξεχασμένα τώρα</div><div class="v ${(() => { const n = S.leads.filter((l) => (!cid || l.clinicId === cid) && l.status === 'neo' && !(+l.followStep) && Date.now() - t0(l) > 36e5 && Date.now() - t0(l) < 7 * 864e5).length; return n ? 'neg' : 'pos'; })()}">${S.leads.filter((l) => (!cid || l.clinicId === cid) && l.status === 'neo' && !(+l.followStep) && Date.now() - t0(l) > 36e5 && Date.now() - t0(l) < 7 * 864e5).length}</div><div class="d">νέα leads &gt;1 ώρα χωρίς καμία επαφή</div></div>
+  </div>`;
+  /* 2. απάντηση ανά ταχύτητα */
+  const speedRows = SPEED.map((b) => { const g = withCall.filter((x) => inB(x.firstMin, b)); return [b[0], g.length, csPct(g.filter((x) => x.first.outcome === 'answered').length, g.length), csPct(g.filter((x) => x.contacted).length, g.length), csPct(g.filter((x) => x.booked).length, g.length)]; }).filter((r) => r[1]);
+  /* 3. μήνυμα → κλήση */
+  const LAG = [['< 2′', 0, 2], ['2–5′', 2, 5], ['5–15′', 5, 15], ['> 15′', 15, 1e9]];
+  const lagged = withCall.filter((x) => x.msg1 && ms(x.first) >= ms(x.msg1)).map((x) => ({ ...x, lag: (ms(x.first) - ms(x.msg1)) / 60000 }));
+  const lagRows = LAG.map((b) => { const g = lagged.filter((x) => inB(x.lag, b)); return [b[0], g.length, csPct(g.filter((x) => x.first.outcome === 'answered').length, g.length), csPct(g.filter((x) => x.contacted).length, g.length)]; }).filter((r) => r[1]);
+  const noMsg = withCall.filter((x) => !x.msg1 || ms(x.first) < ms(x.msg1));
+  if (noMsg.length) lagRows.push(['Κλήση χωρίς μήνυμα πριν', noMsg.length, csPct(noMsg.filter((x) => x.first.outcome === 'answered').length, noMsg.length), csPct(noMsg.filter((x) => x.contacted).length, noMsg.length)]);
+  /* 4. ανά προσπάθεια */
+  const callsAll = logs.filter((x) => x.kind === 'call');
+  const OUT = { answered: 'Απάντησε', no_answer: 'Δεν σήκωσε', closed: 'Κλειστό', wrong: 'Λάθος νούμερο' };
+  const attRows = [1, 2, 3].map((n) => { const g = callsAll.filter((x) => Math.min(3, +x.attempt || 1) === n); return [`☎ ${n}η κλήση${n === 3 ? ' (και μετά)' : ''}`, g.length, csPct(g.filter((x) => x.outcome === 'answered').length, g.length), csPct(g.filter((x) => x.outcome === 'no_answer').length, g.length), csPct(g.filter((x) => x.outcome === 'closed').length, g.length), csPct(g.filter((x) => x.outcome === 'wrong').length, g.length)]; }).filter((r) => r[1]);
+  /* 6. απαντήσεις σε μηνύματα */
+  const m1 = info.filter((x) => x.msg1), m2 = info.filter((x) => x.msg2);
+  const msgRows = [
+    ['✉ 1 (γνωριμίας)', m1.length, csPct(m1.filter((x) => x.lg.some((y) => y.kind === 'reply' && +y.attempt === 1)).length, m1.length)],
+    ['✉ 2 (τελικό, μετά τις 3 κλήσεις)', m2.length, csPct(m2.filter((x) => x.lg.some((y) => y.kind === 'reply' && ms(y) >= ms(x.msg2))).length, m2.length)],
+  ].filter((r) => r[1]);
+  /* 7. ώρα × ημέρα */
+  const BLOCKS = [['09–12', 9, 12], ['12–15', 12, 15], ['15–18', 15, 18], ['18–21', 18, 21], ['άλλη ώρα', -1, -1]];
+  const DAYS = ['Δευ', 'Τρί', 'Τετ', 'Πέμ', 'Παρ', 'Σάβ', 'Κυρ'];
+  const blk = (d) => { const h = d.getHours(); const b = BLOCKS.findIndex((x) => h >= x[1] && h < x[2]); return b < 0 ? 4 : b; };
+  const grid = DAYS.map(() => BLOCKS.map(() => [0, 0]));
+  callsAll.forEach((x) => { const d = new Date(x.at); const g = grid[(d.getDay() + 6) % 7][blk(d)]; g[1]++; if (x.outcome === 'answered') g[0]++; });
+  const heat = callsAll.length ? `<table><thead><tr><th></th>${BLOCKS.map((b) => `<th class="num">${b[0]}</th>`).join('')}<th class="num">Σύνολο</th></tr></thead><tbody>${DAYS.map((d, i) => {
+    const row = grid[i]; const tot = row.reduce((s, c) => [s[0] + c[0], s[1] + c[1]], [0, 0]);
+    return `<tr><td>${d}</td>${row.map((c) => `<td class="num"${c[1] ? ` style="background:color-mix(in srgb, var(--bronze, #9C6B3F) ${Math.round((c[0] / c[1]) * 45)}%, transparent)"` : ''}>${c[1] ? `${csPct(c[0], c[1])} <span class="tmeta">(${c[1]})</span>` : '·'}</td>`).join('')}<td class="num"><b>${csPct(tot[0], tot[1])}</b> <span class="tmeta">(${tot[1]})</span></td></tr>`;
+  }).join('')}</tbody></table>` : '<div class="empty" style="padding:14px">Δεν υπάρχουν ακόμη κλήσεις.</div>';
+  /* 8. κανάλι ✉1 */
+  const CH = { sms: 'SMS', whatsapp: 'WhatsApp', gmail: 'Gmail', copy: 'Αντιγραφή (άλλο app)' };
+  const chRows = Object.keys(CH).map((k) => { const g = m1.filter((x) => (x.msg1.channel || '') === k); return [CH[k], g.length, csPct(g.filter((x) => x.lg.some((y) => y.kind === 'reply' && +y.attempt === 1)).length, g.length), csPct(g.filter((x) => x.first && x.first.outcome === 'answered').length, g.filter((x) => x.first).length), csPct(g.filter((x) => x.contacted).length, g.length)]; }).filter((r) => r[1]);
+  /* 9. funnel ανά κλινική */
+  const funnel = (xs) => [xs.length, `${xs.filter((x) => x.contacted).length} <span class="tmeta">${csPct(xs.filter((x) => x.contacted).length, xs.length)}</span>`, `${xs.filter((x) => x.booked).length} <span class="tmeta">${csPct(xs.filter((x) => x.booked).length, xs.length)}</span>`, `${xs.filter((x) => x.showed).length} <span class="tmeta">${csPct(xs.filter((x) => x.showed).length, xs.filter((x) => x.booked).length)}</span>`, `${xs.filter((x) => x.l.status === 'won').length} <span class="tmeta">${csPct(xs.filter((x) => x.l.status === 'won').length, xs.length)}</span>`];
+  const fRows = S.clinics.filter((c) => !cid || c.id === cid).map((c) => [esc(c.name), ...funnel(info.filter((x) => x.l.clinicId === c.id))]).filter((r) => r[1]);
+  if (!cid && fRows.length > 1) fRows.push(['<b>Σύνολο</b>', ...funnel(info)]);
+  /* 10. lead → ραντεβού, show rate */
+  const toRv = info.filter((x) => x.rvAct).map((x) => (new Date(x.rvAct.at).getTime() - t0(x.l)) / 60000);
+  const conf = info.filter((x) => x.booked && x.l.confirmedAt), unconf = info.filter((x) => x.booked && !x.l.confirmedAt);
+  const showOf = (xs) => { const done = xs.filter((x) => x.showed || x.noshow); return `${csPct(done.filter((x) => x.showed).length, done.length)} <span class="tmeta">(${done.length})</span>`; };
+  const rvRows = [['Χρόνος lead → ραντεβού (διάμεσος)', csMins(csMedian(toRv)), `${toRv.length} ραντεβού`], ['Show rate · επιβεβαιωμένα τηλεφωνικά', showOf(conf), ''], ['Show rate · χωρίς επιβεβαίωση', showOf(unconf), '']];
+  /* 11. καμπάνια / διαφήμιση / πακέτο */
+  const groupRows = (keyFn, limit = 15) => { const g = {}; info.forEach((x) => { const k = keyFn(x.l) || '—'; (g[k] = g[k] || []).push(x); });
+    return Object.entries(g).sort((a, b) => b[1].length - a[1].length).slice(0, limit).map(([k, xs]) => [esc(k), xs.length, csPct(xs.filter((x) => x.contacted).length, xs.length), csPct(xs.filter((x) => x.booked).length, xs.length), csPct(xs.filter((x) => x.showed).length, xs.length), csPct(xs.filter((x) => x.l.status === 'won').length, xs.length)]); };
+  const pkg = (l) => { const o = leadFeeOpt(l); return o ? o.label : leadOffer(l); };
+  /* 12. λόγοι απώλειας */
+  const lost = info.filter((x) => x.l.status === 'lost'); const lr = {}; lost.forEach((x) => { const k = x.l.lostReason || 'Χωρίς λόγο'; lr[k] = (lr[k] || 0) + 1; });
+  const lostRows = Object.entries(lr).sort((a, b) => b[1] - a[1]).map(([k, n]) => [esc(k), n, csPct(n, lost.length)]);
+  /* 13. ξεχασμένα ανά ημέρα (leads 09:00–21:00 χωρίς επαφή σε 1 ώρα) */
+  const dayRows = []; for (let i = 0; i < Math.min(days, 14); i++) {
+    const d = addDays(-i); const g = info.filter((x) => isoDate(new Date(t0(x.l))) === d && new Date(t0(x.l)).getHours() >= 9 && new Date(t0(x.l)).getHours() < 21);
+    if (!g.length) continue;
+    const late = g.filter((x) => x.touchMin == null ? Date.now() - t0(x.l) > 36e5 : x.touchMin > 60);
+    dayRows.push([new Date(d).toLocaleDateString('el-GR', { weekday: 'short', day: 'numeric', month: 'short' }), g.length, `${late.length} <span class="tmeta">${csPct(late.length, g.length)}</span>`, csMins(csMedian(g.map((x) => x.touchMin).filter((m) => m != null)))]);
+  }
+  const card = (title, sub, html) => `<h3 class="sectionhead">${title}${sub ? ` <span class="chip plain">${sub}</span>` : ''}</h3><div class="card tablewrap" style="margin-bottom:18px">${html}</div>`;
+  $('callStats').innerHTML = tiles
+    + card('Ταχύτητα 1ης κλήσης → απάντηση', 'όσο πιο γρήγορα, τόσο περισσότεροι σηκώνουν', csTable(['Χρόνος από τη φόρμα', 'Leads', 'Σήκωσε την 1η', 'Μιλήσαμε τελικά', 'Ραντεβού'], speedRows))
+    + card('Μήνυμα ✉1 → κλήση', 'πόσο να περιμένεις μετά το SMS', csTable(['Κλήση μετά το μήνυμα', 'Leads', 'Σήκωσε την 1η', 'Μιλήσαμε τελικά'], lagRows))
+    + card('Απάντηση ανά προσπάθεια', 'αξίζει η 3η κλήση;', csTable(['Κλήση', 'Κλήσεις', OUT.answered, OUT.no_answer, OUT.closed, OUT.wrong], attRows))
+    + card('Απαντήσεις σε μηνύματα', '«↩ Απάντησε σε μήνυμα»', csTable(['Μήνυμα', 'Στάλθηκε', 'Απάντησε'], msgRows))
+    + card('Πότε σηκώνουν', '% απάντησης ανά ημέρα και ώρα κλήσης (πλήθος κλήσεων)', heat)
+    + card('Κανάλι του ✉1', '', csTable(['Κανάλι', 'Leads', 'Απάντησε στο μήνυμα', 'Σήκωσε την 1η κλήση', 'Μιλήσαμε τελικά'], chRows))
+    + card('Funnel ανά κλινική', 'lead → μιλήσαμε → ραντεβού → ήρθε (% των ραντεβού) → πελάτης', csTable(['Κλινική', 'Leads', 'Μιλήσαμε', 'Ραντεβού', 'Ήρθαν', 'Πελάτες'], fRows))
+    + card('Ραντεβού', '', csTable(['', 'Τιμή', ''], rvRows))
+    + card('Ανά καμπάνια', '', csTable(['Καμπάνια', 'Leads', 'Μιλήσαμε', 'Ραντεβού', 'Ήρθαν', 'Πελάτες'], groupRows((l) => l.campaign)))
+    + card('Ανά διαφήμιση', 'top 15', csTable(['Διαφήμιση', 'Leads', 'Μιλήσαμε', 'Ραντεβού', 'Ήρθαν', 'Πελάτες'], groupRows((l) => l.adName)))
+    + card('Ανά πακέτο / προσφορά', '', csTable(['Πακέτο', 'Leads', 'Μιλήσαμε', 'Ραντεβού', 'Ήρθαν', 'Πελάτες'], groupRows(pkg)))
+    + card('Γιατί χάνονται', `${lost.length} χαμένα`, csTable(['Λόγος', 'Leads', '%'], lostRows, 'Κανένα χαμένο lead στην περίοδο.'))
+    + card('Ξεχασμένα ανά ημέρα', 'leads 09:00–21:00 που δεν είχαν καμία επαφή σε 1 ώρα', csTable(['Ημέρα', 'Leads', '>1 ώρα χωρίς επαφή', 'Διάμεσος 1ης επαφής'], dayRows));
+}
+$('csClinic').addEventListener('change', renderCallStats);
+$('csPeriod').addEventListener('change', renderCallStats);
+
 function renderAll() {
   updateTodayBadge();
   if (activeTab === 'clinic') { renderClinicView(); return; }
@@ -3579,6 +3737,7 @@ function renderAll() {
   if (activeTab === 'overview') renderOverview();
   if (activeTab === 'clinics') renderClinics();
   if (activeTab === 'leads') renderLeads();
+  if (activeTab === 'calls') renderCallStats();
   if (activeTab === 'calendar') renderCalendar();
   if (activeTab === 'campaigns') { renderCamps(); renderCreatives(); }
   if (activeTab === 'finance') renderFin();

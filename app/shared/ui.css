@@ -733,6 +733,7 @@ html, body { touch-action: manipulation; }  /* zoom lock */
 .followstrip .fstep { border: 1px solid var(--hair2, #d9c9b2); background: transparent; border-radius: 999px; padding: 2px 8px; font-size: 12px; cursor: pointer; color: inherit; }
 .followstrip .fstep.done { background: var(--bronze, #9C6B3F); border-color: var(--bronze, #9C6B3F); color: #fff; }
 .followstrip .fstep.next { border-color: var(--bronze, #9C6B3F); border-width: 2px; }
+.followstrip .fcall { display: inline-flex; flex-wrap: wrap; gap: 5px; align-items: center; padding-left: 6px; border-left: 1px solid var(--hair2, #d9c9b2); }
 .followstrip .fmsg { display: inline-flex; gap: 5px; }
 .followstrip .fmsg a.btn { text-decoration: none; }
 .followstrip .fnow { font-size: 12px; opacity: .7; }

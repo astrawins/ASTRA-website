@@ -23,6 +23,7 @@ const QUERY = {
   client_log: 'client_log?select=*&order=at.desc&limit=500',
   billing: 'billing?select=*&order=month.desc&limit=200',
   subscriptions: 'subscriptions?select=*&order=renew_date.asc',
+  call_log: 'call_log?select=*&order=at.desc&limit=5000',
 };
 
 export async function loadAll() {
