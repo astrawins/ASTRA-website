@@ -3611,6 +3611,8 @@ async function logCall(l, rec) {
   try { const row = await data.create('call_log', { leadId: l.id, clinicId: l.clinicId || null, by: userEmail(), at: new Date().toISOString(), ...rec }); if (row) S.calls.unshift(row); }
   catch (err) { console.warn('call_log', err); }
 }
+/* Η καταγραφή μετρά από το πρώτο lead που ήρθε μετά από αυτή τη στιγμή (απόφαση χρήστη 16/10/2026 00:36). */
+const CALLSTATS_FROM = Date.parse('2026-10-15T21:36:00Z');
 const csPct = (a, b) => (b ? Math.round((100 * a) / b) + '%' : '—');
 const csMins = (m) => (m == null ? '—' : m < 60 ? Math.round(m) + '′' : m < 1440 ? (m / 60).toFixed(1).replace('.0', '') + ' ώρ.' : (m / 1440).toFixed(1).replace('.0', '') + ' μέρ.');
 const csMedian = (xs) => { if (!xs.length) return null; const s = [...xs].sort((a, b) => a - b); const m = Math.floor(s.length / 2); return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2; };
@@ -3620,7 +3622,7 @@ const csTable = (head, rows, empty = 'Δεν υπάρχουν ακόμη δεδ�
 function renderCallStats() {
   const selC = $('csClinic'); const cur = selC.value;
   selC.innerHTML = '<option value="">Όλες οι κλινικές</option>' + S.clinics.map((c) => `<option value="${c.id}"${c.id === cur ? ' selected' : ''}>${esc(c.name)}</option>`).join('');
-  const cid = selC.value; const days = +$('csPeriod').value || 30; const from = Date.now() - days * 864e5;
+  const cid = selC.value; const days = +$('csPeriod').value || 30; const from = Math.max(CALLSTATS_FROM, Date.now() - days * 864e5);
   const t0 = (l) => new Date(l.createdTime).getTime();
   const leads = S.leads.filter((l) => (!cid || l.clinicId === cid) && t0(l) >= from);
   const ids = new Set(leads.map((l) => l.id));
