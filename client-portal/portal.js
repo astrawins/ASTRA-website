@@ -309,6 +309,14 @@ function thisWeek() {
 const wkText = (a, b) => { const f = (x) => new Date(x + 'T12:00:00').toLocaleDateString('el-GR', { day: 'numeric', month: 'short' }); return f(a) + ' – ' + f(b); };
 const PAY = { pending: ['Προς πληρωμή', 'epik'], processing: ['Σε επεξεργασία', 'rv'], paid: ['Πληρώθηκε ✓', 'show'], failed: ['Απέτυχε η χρέωση', 'lost'] };
 /* Εκτίμηση τρέχουσας εβδομάδας από τα leads (ίδιος κανόνας με το κλείσιμο της Δευτέρας). */
+/* Αμοιβή ανά ραντεβού: ανά πακέτο αν η κλινική έχει fee_options (επιλογή της ομάδας ή από την «Προσφορά»), αλλιώς appt_fee. */
+function leadFee(c, l) {
+  const os = Array.isArray(c.feeOptions) ? c.feeOptions : [];
+  if (!os.length) return +c.apptFee || 50;
+  const off = ((String(l.sheetNotes || '').match(/Προσφορά:\s*([^·]*)/) || [])[1] || '').trim();
+  const o = os.find((x) => x.key === l.feeOption) || (off && os.find((x) => x.match && new RegExp(x.match, 'i').test(off))) || os[0];
+  return +o.fee;
+}
 function currentWeekEstimate() {
   const c = D.clinic; if (!c) return null;
   const w = thisWeek(); const share = (c.billingModel || 'appointment') === 'share';
@@ -316,8 +324,8 @@ function currentWeekEstimate() {
   const items = share
     ? D.leads.filter((l) => l.status === 'won' && (+l.amount || 0) > 0 && inWeek(l.saleDate || l.createdTime))
     : D.leads.filter((l) => ['show', 'won'].includes(l.status) && inWeek(l.attendedAt || l.saleDate || l.createdTime)); // μόνο όσα ΕΓΙΝΑΝ, με ημερομηνία επιβεβαίωσης
-  const net = share ? items.reduce((s, l) => s + (+l.amount || 0) / 1.24, 0) * ((+c.sharePct || 50) / 100) : items.length * (+c.apptFee || 50);
-  return { w, share, n: items.length, net: +net.toFixed(2), gross: +(net * 1.24).toFixed(2), pct: +c.sharePct || 50, fee: +c.apptFee || 50 };
+  const net = share ? items.reduce((s, l) => s + (+l.amount || 0) / 1.24, 0) * ((+c.sharePct || 50) / 100) : items.reduce((s, l) => s + leadFee(c, l), 0);
+  return { w, share, n: items.length, net: +net.toFixed(2), gross: +(net * 1.24).toFixed(2), pct: +c.sharePct || 50, fee: +c.apptFee || 50, opts: Array.isArray(c.feeOptions) ? c.feeOptions : [] };
 }
 function renderBills() {
   const body = document.getElementById('pBody');
@@ -326,12 +334,12 @@ function renderBills() {
   const due = open.reduce((s, b) => s + (+b.gross || 0), 0);
   const tiles = `<div class="tiles section">
       ${tile('Ανοιχτό υπόλοιπο', eur(due), open.length ? open.length + ' εκκαθαρίσεις προς πληρωμή' : 'Όλα εξοφλημένα ✓')}
-      ${est ? tile('Τρέχουσα εβδομάδα (εκτίμηση)', eur(est.gross), (est.share ? `${est.n} πωλήσεις × ${est.pct}% επί καθαρού` : `${est.n} ραντεβού που έγιναν × ${eur(est.fee)}`) + ' · κλείνει τη Δευτέρα') : ''}
+      ${est ? tile('Τρέχουσα εβδομάδα (εκτίμηση)', eur(est.gross), (est.share ? `${est.n} πωλήσεις × ${est.pct}% επί καθαρού` : `${est.n} ραντεβού που έγιναν` + (est.opts.length ? '' : ` × ${eur(est.fee)}`)) + ' · κλείνει τη Δευτέρα') : ''}
       ${tile('Πληρωμένα συνολικά', eur(D.bills.filter((b) => b.payStatus === 'paid').reduce((s, b) => s + (+b.gross || 0), 0)), '')}
     </div>`;
   const how = est ? `<p style="color:var(--soft);font-size:13px;margin:-4px 0 14px">${est.share
     ? `Η αμοιβή της astra είναι ${est.pct}% επί του καθαρού ποσού (χωρίς ΦΠΑ) κάθε πώλησης που κλείνει. Κάθε Δευτέρα κλείνει η εκκαθάριση της προηγούμενης εβδομάδας· τα ποσά παρακάτω περιλαμβάνουν ΦΠΑ 24%.`
-    : `Η αμοιβή της astra είναι ${eur(est.fee)} ανά ραντεβού που πραγματοποιήθηκε (το επιβεβαιώνετε με «Έγινε» στην καρτέλα Ραντεβού). Κάθε Δευτέρα κλείνει η εκκαθάριση της προηγούμενης εβδομάδας· τα ποσά παρακάτω περιλαμβάνουν ΦΠΑ 24%.`}</p>` : '';
+    : `Η αμοιβή της astra είναι ${est.opts.length ? est.opts.map((o) => `${esc(o.label)}: ${eur(o.fee)}`).join(' · ') + ' (καθαρά)' : eur(est.fee)} ανά ραντεβού που πραγματοποιήθηκε (το επιβεβαιώνετε με «Έγινε» στην καρτέλα Ραντεβού). Κάθε Δευτέρα κλείνει η εκκαθάριση της προηγούμενης εβδομάδας· τα ποσά παρακάτω περιλαμβάνουν ΦΠΑ 24%.`}</p>` : '';
   const rows = D.bills.map((b) => {
     const pc = PAY[b.payStatus || 'pending'] || PAY.pending;
     const items = b.model === 'share' ? `${b.sales} πωλήσεις × ${+b.sharePct}%` : `${b.appts} ραντεβού × ${eur(+b.fee)}`;

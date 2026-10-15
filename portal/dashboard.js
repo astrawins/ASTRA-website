@@ -912,6 +912,8 @@ function openLeadModal(id) {
   $('lm_next').value = l.nextAction || '';
   $('lm_time').value = hhmm(l.apptTime);
   $('lm_amount').value = l.amount || '';
+  const fos = feeOpts(c); $('lm_feeWrap').hidden = !fos.length;
+  if (fos.length) { const cur = leadFeeOpt(l, c); $('lm_feeopt').innerHTML = fos.map((o) => `<option value="${esc(o.key)}"${cur && cur.key === o.key ? ' selected' : ''}>${esc(o.label)} · αμοιβή ${eur(o.fee)}</option>`).join(''); }
   $('lm_notes').value = l.notes || '';
   setConfirmBtn(l);
   renderTimeline(l);
@@ -979,6 +981,12 @@ $('lm_amount').addEventListener('change', async () => {
   const v = parseNum($('lm_amount').value);
   await updateLead(modalLeadId, { amount: v }, 'amount', 'Ποσό αγοράς: ' + eur(v));
   const l = leadById(modalLeadId); if (l) renderTimeline(l);
+});
+$('lm_feeopt').addEventListener('change', async () => {
+  if (!modalLeadId) return;
+  const l = leadById(modalLeadId); const o = l && feeOpts(clinicById(l.clinicId)).find((x) => x.key === $('lm_feeopt').value); if (!o) return;
+  await updateLead(modalLeadId, { feeOption: o.key }, 'status', 'Πακέτο → ' + o.label);
+  const l2 = leadById(modalLeadId); if (l2) renderTimeline(l2);
 });
 $('lm_notes').addEventListener('change', async () => {
   if (!modalLeadId) return;
@@ -2478,6 +2486,22 @@ async function materializeRecurring() {
 const apptFee = () => +SET().appointmentFee || 50;
 /* Αμοιβή ανά ολοκληρωμένο ραντεβού: ανά κλινική (clinics.appt_fee) ή η γενική ρύθμιση. */
 const clinicFee = (c) => +(c && c.apptFee) || apptFee();
+/* Πακέτα με διαφορετική αμοιβή στην ίδια κλινική (clinics.fee_options, π.χ. Artista Medico Κανονικό/Φοιτήτρια):
+   η επιλογή της ομάδας (leads.fee_option) ή αυτόματα από την «Προσφορά» του lead, αλλιώς το 1ο πακέτο. */
+const feeOpts = (c) => (c && Array.isArray(c.feeOptions) ? c.feeOptions : []);
+const leadOffer = (l) => ((String(l.sheetNotes || '').match(/Προσφορά:\s*([^·]*)/) || [])[1] || '').trim();
+function leadFeeOpt(l, c = clinicById(l.clinicId)) {
+  const os = feeOpts(c); if (!os.length) return null;
+  const off = leadOffer(l);
+  return os.find((o) => o.key === l.feeOption) || (off && os.find((o) => o.match && new RegExp(o.match, 'i').test(off))) || os[0];
+}
+const leadFee = (l, c = clinicById(l.clinicId)) => { const o = leadFeeOpt(l, c); return o ? +o.fee : clinicFee(c); };
+const sumFees = (c, ls) => +ls.reduce((s, l) => s + leadFee(l, c), 0).toFixed(2);
+/* «3 × 56,45€ + 1 × 44,35€» για περιγραφές χρέωσης */
+function feeBreakdown(c, ls) {
+  const g = {}; ls.forEach((l) => { const f = leadFee(l, c); g[f] = (g[f] || 0) + 1; });
+  return Object.entries(g).sort((a, b) => b[0] - a[0]).map(([f, n]) => `${n} × ${+f}€`).join(' + ');
+}
 const isBooked = (l) => ['show', 'won'].includes(l.status);
 /* Έσοδα κλινικής = ποσά που πλήρωσαν όσοι ήρθαν (επίσκεψη) ή ξεκίνησαν θεραπεία (πακέτο). */
 const isPaying = (l) => ['show', 'won'].includes(l.status) && (+l.amount || 0) > 0;
@@ -2498,7 +2522,7 @@ function taxEstimate() {
   const apptLM = S.leads.filter((l) => isBooked(l) && monthKey(billDate(l)) === mk);
   const apptLY = S.leads.filter((l) => isBooked(l) && billDate(l).startsWith(year));
   const apptM = apptLM.length, apptY = apptLY.length;
-  const feeOf = (ls) => ls.reduce((s, l) => s + clinicFee(clinicById(l.clinicId)), 0); // αμοιβή ανά κλινική
+  const feeOf = (ls) => ls.reduce((s, l) => s + leadFee(l), 0); // αμοιβή ανά κλινική / πακέτο
   const revM = feeOf(apptLM) + sum(incM, 'net');      // τζίρος μήνα
   const revY = feeOf(apptLY) + sum(incY, 'net');
   const expMn = sum(expM, 'net'), expYn = sum(expY, 'net');
@@ -2550,13 +2574,13 @@ function weekSales(clinicId, startIso) {
 }
 const weekItems = (c, w) => (isShare(c) ? weekSales(c.id, w) : weekLeads(c.id, w));
 const shareNet = (c, ls) => +(ls.reduce((s, l) => s + (+l.amount || 0) / 1.24, 0) * ((+c.sharePct || 50) / 100)).toFixed(2);
-const weekNet = (c, ls) => (isShare(c) ? shareNet(c, ls) : ls.length * clinicFee(c));
+const weekNet = (c, ls) => (isShare(c) ? shareNet(c, ls) : sumFees(c, ls));
 const SEPA_CHIP = { active: ['Εντολή ενεργή', 'won'], pending: ['Αναμονή υπογραφής', 'epik'], '': ['Χωρίς εντολή', 'plain'] };
 const PAY_CHIP = { pending: ['Προς χρέωση', 'epik'], processing: ['Σε επεξεργασία', 'rv'], paid: ['Πληρώθηκε ✓', 'won'], failed: ['Απέτυχε', 'lost'] };
 async function closeWeek(clinicId, startIso) {
   const c = clinicById(clinicId); const r = weekRange(startIso);
   const ls = weekItems(c, startIso); if (!ls.length) return null;
-  const share = isShare(c); const fee = clinicFee(c); const total = weekNet(c, ls); const vat = +(total * 0.24).toFixed(2);
+  const share = isShare(c); const total = weekNet(c, ls); const fee = ls.length ? +(total / ls.length).toFixed(2) : clinicFee(c); const vat = +(total * 0.24).toFixed(2);
   const id = 'W' + startIso + '_' + clinicId;
   if (S.billing.some((x) => x.id === id)) return id;
   await data.create('billing', {
@@ -2567,7 +2591,7 @@ async function closeWeek(clinicId, startIso) {
   }, id);
   await data.create('finance', {
     kind: 'income', date: r.end, category: share ? 'Αμοιβή διαχείρισης' : 'Χρέωση ραντεβού', clinicId,
-    description: share ? `Εβδομάδα ${wkLabel(startIso)}: ${ls.length} πωλήσεις × ${+c.sharePct || 50}% επί καθαρού` : `Εβδομάδα ${wkLabel(startIso)}: ${ls.length} ραντεβού × ${fee}€`,
+    description: share ? `Εβδομάδα ${wkLabel(startIso)}: ${ls.length} πωλήσεις × ${+c.sharePct || 50}% επί καθαρού` : `Εβδομάδα ${wkLabel(startIso)}: ${feeBreakdown(c, ls)} ραντεβού`,
     net: total, vatRate: 24, vat, gross: +(total + vat).toFixed(2), month: r.end.slice(0, 7),
   });
   return id;
@@ -2714,7 +2738,7 @@ function renderBilling() {
   let T = 0;
   el.innerHTML = '<table><thead><tr><th>Κλινική</th><th class="num">Ραντεβού</th><th class="num">Ποσό</th><th class="num">ΦΠΑ 24%</th><th class="num">Σύνολο</th><th>Κατάσταση</th><th></th></tr></thead><tbody>'
     + rows.map(({ c, ls }) => {
-      const total = ls.length * fee, vat = +(total * 0.24).toFixed(2);
+      const total = sumFees(c, ls), vat = +(total * 0.24).toFixed(2);
       T += total;
       const b = S.billing.find((x) => x.id === m + '_' + c.id);
       return `<tr data-clinic="${c.id}" data-month="${m}">
@@ -2737,10 +2761,10 @@ $('billingTable').addEventListener('click', async (e) => {
   const tr = btn.closest('tr'); const cid = tr.dataset.clinic; const m = tr.dataset.month;
   const c = clinicById(cid); if (!c) return;
   const ls = billableLeads(cid, m);
-  const fee = apptFee(); const total = ls.length * fee; const vat = +(total * 0.24).toFixed(2);
+  const feeTxt = feeBreakdown(c, ls); const total = sumFees(c, ls); const fee = ls.length ? +(total / ls.length).toFixed(2) : clinicFee(c); const vat = +(total * 0.24).toFixed(2);
   const act = btn.dataset.bact;
   if (act === 'list') {
-    const txt = `Χρεώσιμα ραντεβού ${mLabel(m)} — ${c.name} (${ls.length} × ${fee}€):\n` +
+    const txt = `Χρεώσιμα ραντεβού ${mLabel(m)} — ${c.name} (${feeTxt}):\n` +
       ls.map((l, i) => `${i + 1}. ${l.name} — ${new Date(l.createdTime).toLocaleDateString('el-GR')}`).join('\n');
     try { await navigator.clipboard.writeText(txt); toast('Η λίστα (' + ls.length + ' ραντεβού) αντιγράφηκε.'); } catch { toast(txt.slice(0, 300)); }
     return;
@@ -2757,7 +2781,7 @@ $('billingTable').addEventListener('click', async (e) => {
       const lastDay = new Date(y, mo, 0).getDate();
       await data.create('finance', {
         kind: 'income', date: `${m}-${lastDay}`, category: 'Χρέωση ραντεβού', clinicId: cid,
-        description: `Χρέωση ${mLabel(m)}: ${ls.length} ραντεβού × ${fee}€`,
+        description: `Χρέωση ${mLabel(m)}: ${feeTxt} ραντεβού`,
         net: total, vatRate: 24, vat, gross: +(total + vat).toFixed(2), month: m,
       });
       await refresh();
@@ -2769,7 +2793,7 @@ $('billingTable').addEventListener('click', async (e) => {
     btn.disabled = true; btn.textContent = '…';
     try {
       const names = ls.map((l) => ({ name: l.name, date: new Date(l.createdTime).toLocaleDateString('el-GR') }));
-      await sendEmail(gcalClient(), { to: c.email, ...billingEmail({ clinicName: c.name, monthLabel: mLabel(m), appts: ls.length, fee, total, vat, gross: total + vat, names, portalUrl: location.origin + '/client-portal/' }) });
+      await sendEmail(gcalClient(), { to: c.email, ...billingEmail({ clinicName: c.name, monthLabel: mLabel(m), appts: ls.length, fee, feeText: feeTxt, total, vat, gross: total + vat, names, portalUrl: location.origin + '/client-portal/' }) });
       const b = S.billing.find((x) => x.id === m + '_' + cid);
       if (b) await data.update('billing', b.id, { emailedAt: new Date().toISOString() });
       await refresh();

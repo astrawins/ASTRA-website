@@ -61,7 +61,7 @@ export function welcomeEmail({ clinicName, email, password, portalUrl }) {
 }
 
 /* Email μηνιαίας χρέωσης: ραντεβού × αμοιβή, με λίστα ονομάτων (απόδειξη). */
-export function billingEmail({ clinicName, monthLabel, appts, fee, total, vat, gross, names, portalUrl }) {
+export function billingEmail({ clinicName, monthLabel, appts, fee, feeText, total, vat, gross, names, portalUrl }) {
   const subject = `Astra Marketing — Εκκαθάριση ${monthLabel}: ${appts} ραντεβού`;
   const rows = names.map((n, i) => `<tr><td style="padding:4px 10px;font-size:12.5px;color:#5A4936;">${i + 1}.</td><td style="padding:4px 10px;font-size:12.5px;">${n.name}</td><td style="padding:4px 10px;font-size:12.5px;color:#5A4936;">${n.date}</td></tr>`).join('');
   const html = `<!DOCTYPE html><html lang="el"><body style="margin:0;padding:0;background:#EDDBC4;font-family:Arial,Helvetica,sans-serif;">
@@ -71,7 +71,7 @@ export function billingEmail({ clinicName, monthLabel, appts, fee, total, vat, g
       <p style="font-size:16px;font-weight:bold;margin:0 0 4px;">${clinicName} — ${monthLabel}</p>
       <p style="font-size:13.5px;color:#5A4936;margin:0 0 18px;">Συνοπτικά τα ραντεβού που κλείστηκαν μέσω των καμπανιών μας:</p>
       <div style="background:#F4E9D4;border-radius:10px;padding:16px 20px;margin:0 0 18px;">
-        <p style="margin:0;font-size:15px;"><b>${appts} ραντεβού × ${fee}€ = ${total.toFixed(2)}€</b></p>
+        <p style="margin:0;font-size:15px;"><b>${feeText && /\+/.test(feeText) ? feeText + ' ραντεβού' : `${appts} ραντεβού × ${fee}€`} = ${total.toFixed(2)}€</b></p>
         <p style="margin:6px 0 0;font-size:13px;color:#5A4936;">ΦΠΑ 24%: ${vat.toFixed(2)}€ &nbsp;·&nbsp; Σύνολο: <b>${gross.toFixed(2)}€</b></p>
       </div>
       <table cellpadding="0" cellspacing="0" style="width:100%;border-collapse:collapse;margin:0 0 20px;">${rows}</table>
