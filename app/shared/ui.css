@@ -595,7 +595,9 @@ td select, td input, .f input, .f select, .f textarea, .filters select, .filters
 .sheetfoot { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 14px; font-size: 12px; color: var(--soft); }
 
 /* ---------- mobile-native baseline ---------- */
-html { -webkit-tap-highlight-color: transparent; overscroll-behavior: none; }
+html { -webkit-tap-highlight-color: transparent; overscroll-behavior: none; touch-action: manipulation; }
+/* όσο είναι ανοιχτό το πληκτρολόγιο, η κάτω μπάρα κρύβεται (αλλιώς το iOS την ανεβάζει πάνω από το πληκτρολόγιο και «κολλάει») */
+html.kbd .mtabbar { display: none !important; }
 button, a, [role="button"], .calev, .kcard, .mtabbar button {
   touch-action: manipulation;
   user-select: none; -webkit-user-select: none; -webkit-touch-callout: none;
