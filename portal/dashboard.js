@@ -290,6 +290,7 @@ async function updateLead(id, patch, logType, logBody) {
 function statusPatch(st, l) {
   const p = { status: st };
   if (st === 'won') p.saleDate = todayISO();
+  if (st === 'think' && !(l && l.nextAction && l.nextAction > todayISO())) p.nextAction = addDays(2); // επανάκληση σε 2 μέρες
   if (['show', 'won'].includes(st)) { if (!(l && l.attendedAt)) p.attendedAt = todayISO(); }
   else p.attendedAt = null; // πίσω σε κλεισμένο/επικοινωνία/χαμένο → δεν χρεώνεται, και αν ξαναέρθει παίρνει νέα ημερομηνία
   return p;
@@ -563,7 +564,7 @@ function todayItems() {
     const acts = S.act.filter((a) => a.leadId === l.id).map((a) => new Date(a.at).getTime());
     return Math.max(new Date(l.importedAt || l.createdTime || 0).getTime(), ...(acts.length ? acts : [0]));
   };
-  const stale = open.filter((l) => ['noans', 'epik', 'rv', 'show'].includes(l.status) && (!l.nextAction || l.nextAction < today) && lastTouch(l) < cutoff21)
+  const stale = open.filter((l) => ['noans', 'epik', 'think', 'rv', 'show'].includes(l.status) && (!l.nextAction || l.nextAction < today) && lastTouch(l) < cutoff21)
     .sort((a, b) => lastTouch(a) - lastTouch(b));
   /* Προς επιβεβαίωση: κλεισμένα ραντεβού για σήμερα ή αύριο που δεν έχουν επιβεβαιωθεί τηλεφωνικά (push την προηγούμενη μέρα) */
   const tomorrow = addDays(1);
@@ -584,12 +585,17 @@ const FOLLOW = [
   { k: 3, short: '☎ 2', label: '2η κλήση αναπάντητη' },
   { k: 4, short: '☎ 3', label: '3η κλήση αναπάντητη' },
   { k: 5, short: '✉ 2', label: 'Στάλθηκε μήνυμα μετά τις κλήσεις' },
+  { k: 6, short: '☎ 4', label: '4η κλήση αναπάντητη (3 μέρες μετά το μήνυμα)' },
+  { k: 7, short: '☎ 5', label: '5η κλήση αναπάντητη (6 μέρες μετά το μήνυμα)' },
 ];
+/* Αριθμός κλήσης που αντιστοιχεί σε κάθε στάδιο: 0-3 → 1η-3η, 5 → 4η, 6 → 5η */
+const callNo = (cur) => (cur <= 3 ? Math.max(1, cur) : cur - 1);
 const DEF_MSG1 = 'Λάβαμε το αίτημά σας για την προσφορά της {κλινική}! Θα σας καλέσουμε σε λίγα λεπτά από αυτόν τον αριθμό, για να βρούμε μαζί μια ώρα για ραντεβού. 😊';
 const DEF_MSG2 = 'Γεια σας {όνομα}! Σας καλέσαμε από την {κλινική} για το αίτημά σας, αλλά δεν σας βρήκαμε. Πείτε μας πότε σας βολεύει να μιλήσουμε, ή γράψτε μας εδώ ποια μέρα θέλετε να έρθετε και σας κλείνουμε ραντεβού. 😊';
+const DEF_MSG3 = 'Γεια σας {όνομα}, {εγώ} από την {κλινική}. Χάρηκα που μιλήσαμε! Όπως είπαμε, σας στέλνω εδώ την προσφορά για να τη δείτε με την ησυχία σας. Θα σας καλέσω ξανά σε 2 μέρες — αν στο μεταξύ αποφασίσετε, γράψτε μου εδώ ποια μέρα σας βολεύει και σας κλείνω ραντεβού. 😊';
 function followText(l, which) {
   const c = clinicById(l.clinicId); const st = SET();
-  const tpl = (which === 2 ? st.followMsg2 : st.followMsg1) || (which === 2 ? DEF_MSG2 : DEF_MSG1);
+  const tpl = (which === 3 ? st.followMsg3 : which === 2 ? st.followMsg2 : st.followMsg1) || (which === 3 ? DEF_MSG3 : which === 2 ? DEF_MSG2 : DEF_MSG1);
   const first = (l.name || '').trim().split(/\s+/)[0] || '';
   return tpl.replaceAll('{όνομα}', first).replaceAll('{κλινική}', c ? c.name : 'την κλινική').replaceAll('{εγώ}', st.followSender || 'Πέτρος');
 }
@@ -603,45 +609,57 @@ function gmailLink(l, w) {
 const intlPhone = (p) => { const d = String(p || '').replace(/[^\d]/g, '').replace(/^00/, ''); return d.length === 10 && /^[26]/.test(d) ? '30' + d : d; };
 /* Πότε γίνεται το επόμενο βήμα (όρισε ο χρήστης):
    μήνυμα → 1η κλήση αμέσως · 1η αναπάντητη το πρωί → 2η το ίδιο απόγευμα, το απόγευμα → 2η το επόμενο πρωί ·
-   3η την επόμενη μέρα από τη 2η, στο ΑΝΤΙΘΕΤΟ μέρος της ημέρας · 3η αναπάντητη → τελικό μήνυμα αμέσως · μετά +2 μέρες. */
+   3η την επόμενη μέρα από τη 2η, στο ΑΝΤΙΘΕΤΟ μέρος της ημέρας · 3η αναπάντητη → 2ο μήνυμα αμέσως ·
+   4η κλήση 3 μέρες μετά το μήνυμα · 5η κλήση 3 μέρες μετά την 4η (= 6 μετά το μήνυμα) · μετά κλείσιμο ως χαμένο. */
 const AM = 10, PM = 17, NOON = 14; // πρωί 10:00, απόγευμα 17:00, όριο 14:00
 const at = (d, h) => { const x = new Date(d); x.setHours(h, 0, 0, 0); return x; };
 function followDue(step, when = new Date()) {
   const pm = when.getHours() >= NOON; const tomorrow = new Date(when); tomorrow.setDate(when.getDate() + 1);
-  if (step === 1 || step === 4) return when;                         // κλήση / τελικό μήνυμα τώρα
+  if (step === 1 || step === 4 || step === 7) return when;           // κλήση / 2ο μήνυμα / κλείσιμο τώρα
   if (step === 2) return pm ? at(tomorrow, AM) : at(when, PM);       // 2η κλήση
   if (step === 3) return at(tomorrow, pm ? AM : PM);                 // 3η κλήση: επόμενη μέρα, αντίθετο μέρος
-  if (step === 5) { const d = new Date(when); d.setDate(d.getDate() + 2); return at(d, AM); }
+  if (step === 5 || step === 6) { const d = new Date(when); d.setDate(d.getDate() + 3); return at(d, AM); } // 4η / 5η κλήση
   return null;
 }
-const NEXT_LABEL = { 1: '☎ 1η κλήση', 2: '☎ 2η κλήση', 3: '☎ 3η κλήση', 4: '✉ τελικό μήνυμα', 5: 'έλεγχος απάντησης' };
+const NEXT_LABEL = { 1: '☎ 1η κλήση', 2: '☎ 2η κλήση', 3: '☎ 3η κλήση', 4: '✉ 2ο μήνυμα', 5: '☎ 4η κλήση', 6: '☎ 5η κλήση', 7: 'κλείσιμο ως χαμένο' };
 function dueText(iso) {
   if (!iso) return ''; const d = new Date(iso); const t = d.toLocaleTimeString('el-GR', { hour: '2-digit', minute: '2-digit' });
   const day = isoDate(d) === todayISO() ? 'σήμερα' : isoDate(d) === addDays(1) ? 'αύριο' : d.toLocaleDateString('el-GR', { weekday: 'short', day: 'numeric', month: 'short' });
   return (d.getTime() <= Date.now() ? 'τώρα' : day + ' ' + t);
 }
-const inFollow = (l) => ['neo', 'noans'].includes(l.status);
-function followStrip(l) {
-  if (!inFollow(l)) return '';
-  const cur = +l.followStep || 0;
-  const dots = FOLLOW.slice(1).map((f) => `<button class="fstep${cur >= f.k ? ' done' : ''}${cur + 1 === f.k ? ' next' : ''}" data-fstep="${f.k}" title="${f.label} — πάτα για να ορίσεις αυτό το στάδιο">${f.short}</button>`).join('');
-  let action = '';
-  if (cur === 0 || cur === 4) {
-    const w = cur === 0 ? 1 : 2; const ph = intlPhone(l.phone);
-    action = `<span class="fmsg" data-fmsg="${w}">
+const inFollow = (l) => ['neo', 'noans', 'think'].includes(l.status);
+/* Κουμπιά αποστολής μηνύματος w (1 γνωριμίας · 2 μετά τις κλήσεις · 3 «θα το σκεφτεί») */
+function msgBtns(l, w) {
+  const ph = intlPhone(l.phone);
+  return `<span class="fmsg" data-fmsg="${w}">
       ${ph ? `<a class="btn small primary" href="sms:+${ph}&body=${encodeURIComponent(followText(l, w))}" data-fsent="${w}">SMS</a>
       <a class="btn small" href="https://wa.me/${ph}?text=${encodeURIComponent(followText(l, w))}" target="_blank" rel="noopener" data-fsent="${w}">WhatsApp</a>` : ''}
       ${l.email ? `<a class="btn small" href="${gmailLink(l, w)}" target="_blank" rel="noopener" data-fsent="${w}" title="Για όσους έδωσαν λάθος τηλέφωνο">Gmail</a>` : ''}
       <button class="btn small" data-fcopy="${w}" title="Αντιγραφή κειμένου">Αντιγραφή</button></span>`;
+}
+function followStrip(l) {
+  if (!inFollow(l)) return '';
+  if (l.status === 'think') { // «Θα το σκεφτεί»: 3ο μήνυμα + επανάκληση σε 2 μέρες
+    const sent = S.calls.some((x) => x.leadId === l.id && x.kind === 'msg' && +x.attempt === 3);
+    return `<div class="followstrip"><span class="ftitle">Θα το σκεφτεί</span>${sent ? '<span class="chip plain">✉ 3 στάλθηκε</span>' : msgBtns(l, 3)}
+      <span class="fcall"><span class="ftitle">☎ επανάκληση</span>
+      <button class="btn small primary" data-fcall="answered">✓ Απάντησε</button>
+      <button class="btn small" data-fcall="no_answer">Δεν σήκωσε</button></span>
+      <button class="btn small" data-freply="1" title="Απάντησε σε SMS / WhatsApp / email">↩ Απάντησε σε μήνυμα</button>
+      <span class="fnow">επανάκληση ${l.nextAction ? esc(dueText(l.nextAction + 'T10:00')) : '—'}</span></div>`;
   }
-  if (cur <= 3) { // αποτέλεσμα κλήσης με ένα πάτημα → call_log (Στατιστικά κλήσεων)
-    action += `<span class="fcall"><span class="ftitle">☎ ${Math.max(1, cur)}η κλήση</span>
+  const cur = +l.followStep || 0;
+  const dots = FOLLOW.slice(1).map((f) => `<button class="fstep${cur >= f.k ? ' done' : ''}${cur + 1 === f.k ? ' next' : ''}" data-fstep="${f.k}" title="${f.label} — πάτα για να ορίσεις αυτό το στάδιο">${f.short}</button>`).join('');
+  let action = '';
+  if (cur === 0 || cur === 4) action = msgBtns(l, cur === 0 ? 1 : 2);
+  if (cur <= 3 || cur === 5 || cur === 6) { // αποτέλεσμα κλήσης με ένα πάτημα → call_log (Στατιστικά κλήσεων)
+    action += `<span class="fcall"><span class="ftitle">☎ ${callNo(cur)}η κλήση</span>
       <button class="btn small primary" data-fcall="answered">✓ Απάντησε</button>
       <button class="btn small" data-fcall="no_answer">Δεν σήκωσε</button>
       <button class="btn small" data-fcall="closed">Κλειστό</button>
       <button class="btn small" data-fcall="wrong" title="Λάθος / ανύπαρκτο νούμερο → Χαμένο">Λάθος νούμερο</button></span>`;
   }
-  if (cur === 5) action = `<button class="btn small danger" data-flost="1" title="Δεν απάντησε σε τίποτα">Κλείσε ως χαμένο</button>`;
+  if (cur === 7) action = `<button class="btn small danger" data-flost="1" title="Δεν απάντησε σε 2 μηνύματα και 5 κλήσεις">Κλείσε ως χαμένο</button>`;
   if (cur >= 1) action += `<button class="btn small" data-freply="1" title="Απάντησε σε SMS / WhatsApp / email">↩ Απάντησε σε μήνυμα</button>`;
   const nxt = cur >= 1 && l.followDue ? ` · επόμενο: <b>${NEXT_LABEL[cur]} ${esc(dueText(l.followDue))}</b>` : '';
   return `<div class="followstrip"><span class="ftitle">Follow-up</span>${dots}${action}<span class="fnow">${esc(FOLLOW[cur].label)}${nxt}</span></div>`;
@@ -659,18 +677,20 @@ async function followClick(e) {
   const st = e.target.closest('[data-fstep]');
   if (st) { const k = +st.dataset.fstep; await setFollow(id, (+l.followStep || 0) === k ? k - 1 : k, 'χειροκίνητα'); return true; }
   const sent = e.target.closest('[data-fsent]');
-  if (sent) { const w = +sent.dataset.fsent; const ch = sent.textContent.trim(); setTimeout(async () => { await logCall(l, { kind: 'msg', attempt: w, channel: ch.toLowerCase(), outcome: 'sent' }); await setFollow(id, w === 1 ? 1 : 5, ch); }, 300); return true; } // το link ανοίγει κανονικά
+  if (sent) { const w = +sent.dataset.fsent; const ch = sent.textContent.trim(); setTimeout(async () => { await logCall(l, { kind: 'msg', attempt: w, channel: ch.toLowerCase(), outcome: 'sent' }); if (w === 3) await updateLead(id, { nextAction: l.nextAction && l.nextAction > todayISO() ? l.nextAction : addDays(2) }, 'status', 'Στάλθηκε μήνυμα «θα το σκεφτεί» · ' + ch); else await setFollow(id, w === 1 ? 1 : 5, ch); }, 300); return true; } // το link ανοίγει κανονικά
   const cp = e.target.closest('[data-fcopy]');
-  if (cp) { e.preventDefault(); const w = +cp.dataset.fcopy; const t = followText(l, w); try { await navigator.clipboard.writeText(t); } catch { /* ok */ } await logCall(l, { kind: 'msg', attempt: w, channel: 'copy', outcome: 'sent' }); await setFollow(id, w === 1 ? 1 : 5, 'αντιγραφή κειμένου'); toast('Αντιγράφηκε — στείλ\' το από το κινητό.'); return true; }
+  if (cp) { e.preventDefault(); const w = +cp.dataset.fcopy; const t = followText(l, w); try { await navigator.clipboard.writeText(t); } catch { /* ok */ } await logCall(l, { kind: 'msg', attempt: w, channel: 'copy', outcome: 'sent' }); if (w === 3) await updateLead(id, { nextAction: l.nextAction && l.nextAction > todayISO() ? l.nextAction : addDays(2) }, 'status', 'Στάλθηκε μήνυμα «θα το σκεφτεί» · αντιγραφή'); else await setFollow(id, w === 1 ? 1 : 5, 'αντιγραφή κειμένου'); toast('Αντιγράφηκε — στείλ\' το από το κινητό.'); return true; }
   const fc = e.target.closest('[data-fcall]');
   if (fc) {
-    e.preventDefault(); const out = fc.dataset.fcall; const cur = +l.followStep || 0; const n = Math.max(1, cur);
+    e.preventDefault(); const out = fc.dataset.fcall; const cur = +l.followStep || 0; const think = l.status === 'think';
+    const n = think ? S.calls.filter((x) => x.leadId === id && x.kind === 'call').length + 1 : callNo(cur);
     const dial = S.calls.find((x) => x.leadId === id && x.kind === 'dial' && Date.now() - new Date(x.at).getTime() < 60 * 60000
       && !S.calls.some((y) => y.leadId === id && y.kind === 'call' && new Date(y.at) >= new Date(x.at))); // τελευταίο πάτημα τηλεφώνου που δεν έχει ακόμη αποτέλεσμα
     await logCall(l, { kind: 'call', attempt: n, channel: 'phone', outcome: out, ...(dial ? { at: dial.at } : {}) });
     if (out === 'answered') { await updateLead(id, { status: 'epik', nextAction: todayISO(), followDue: null }, 'status', `☎ Απάντησε στην ${n}η κλήση → Επικοινωνία`); toast('Απάντησε ✓ — όρισε στάδιο / ραντεβού.'); openLeadModal(id); }
     else if (out === 'wrong') { await updateLead(id, { status: 'lost', lostReason: 'Λάθος νούμερο', nextAction: null, followDue: null }, 'status', '☎ Λάθος νούμερο → Χαμένο'); }
-    else await setFollow(id, Math.min(4, Math.max(cur, 1) + 1), out === 'closed' ? 'κλειστό τηλέφωνο' : 'δεν σήκωσε');
+    else if (think) await updateLead(id, { nextAction: addDays(1) }, 'status', `☎ Επανάκληση «θα το σκεφτεί»: ${out === 'closed' ? 'κλειστό' : 'δεν σήκωσε'} → ξανά αύριο`);
+    else await setFollow(id, cur <= 3 ? Math.min(4, Math.max(cur, 1) + 1) : cur + 1, out === 'closed' ? 'κλειστό τηλέφωνο' : 'δεν σήκωσε');
     return true;
   }
   if (e.target.closest('[data-freply]')) {
@@ -679,7 +699,7 @@ async function followClick(e) {
     await updateLead(id, { status: 'epik', nextAction: todayISO(), followDue: null }, 'status', `↩ Απάντησε στο ${cur >= 5 ? 'τελικό' : '1ο'} μήνυμα → Επικοινωνία`);
     toast('Καταγράφηκε η απάντηση ✓'); return true;
   }
-  if (e.target.closest('[data-flost]')) { e.preventDefault(); await updateLead(id, { status: 'lost', lostReason: 'Δεν απάντησε ποτέ', nextAction: null, followDue: null }, 'status', 'Δεν απάντησε σε μήνυμα και 3 κλήσεις → χαμένο'); return true; }
+  if (e.target.closest('[data-flost]')) { e.preventDefault(); await updateLead(id, { status: 'lost', lostReason: 'Δεν απάντησε ποτέ', nextAction: null, followDue: null }, 'status', 'Δεν απάντησε σε 2 μηνύματα και 5 κλήσεις → χαμένο'); return true; }
   return false;
 }
 
@@ -719,6 +739,7 @@ function todayRow(l, kind) {
     <span class="mono" style="font-size:12.5px">${telLink(l.phone)}${l.phone ? `<button class="copybtn" data-copy="${esc(l.phone)}" title="Αντιγραφή">${COPY_ICON}</button>` : ''}</span>
     <div class="acts">
       ${kind === 'fresh' ? '<button class="btn small" data-act="called">Κλήθηκε</button>' : ''}
+      ${['neo', 'noans', 'epik'].includes(l.status) ? '<button class="btn small" data-act="think" title="Μιλήσαμε, θέλει να το σκεφτεί → επανάκληση σε 2 μέρες + μήνυμα">Θα το σκεφτεί</button>' : ''}
       ${['fresh', 'due', 'open'].includes(kind) && !inFollow(l) ? '<button class="btn small" data-act="noans" title="Δεν σήκωσε — ξαναπροσπάθεια αύριο">Δεν απάντησε</button>' : ''}
       <button class="btn small" data-act="p1" title="Μετάθεση της επόμενης ενέργειας για αύριο">Αύριο</button>
       <button class="btn small" data-act="p3" title="Μετάθεση της επόμενης ενέργειας σε 3 μέρες">+3 μέρες</button>
@@ -906,6 +927,12 @@ $('todayBody').addEventListener('click', async (e) => {
     toast(`Δεν απάντησε (${tries}η) — ξανά αύριο.`);
   }
   if (act === 'called') { const lc = leadById(id); if (lc) await logCall(lc, { kind: 'call', attempt: S.calls.filter((x) => x.leadId === id && x.kind === 'call').length + 1, channel: 'phone', outcome: 'answered' }); await updateLead(id, { status: 'epik', nextAction: addDays(3) }, 'status', 'Κλήθηκε → Επικοινωνία, επανέλεγχος σε 3 μέρες'); toast('ΟΚ — επανέλεγχος σε 3 μέρες.'); }
+  if (act === 'think') { // μιλήσαμε, θέλει να το σκεφτεί: καταγραφή απαντημένης κλήσης (αν δεν υπάρχει ήδη πρόσφατη) + επανάκληση σε 2 μέρες
+    const lt = leadById(id);
+    if (lt && !S.calls.some((x) => x.leadId === id && x.kind === 'call' && x.outcome === 'answered' && Date.now() - new Date(x.at).getTime() < 60 * 60000)) await logCall(lt, { kind: 'call', attempt: S.calls.filter((x) => x.leadId === id && x.kind === 'call').length + 1, channel: 'phone', outcome: 'answered' });
+    await updateLead(id, { ...statusPatch('think', lt), nextAction: addDays(2), followDue: null }, 'status', 'Στάδιο → Θα το σκεφτεί · επανάκληση σε 2 μέρες');
+    toast('Θα το σκεφτεί — στείλ\' του το μήνυμα, επανάκληση σε 2 μέρες.');
+  }
   if (act === 'confirm') { await updateLead(id, { confirmedAt: new Date().toISOString() }, 'status', 'Το ραντεβού επιβεβαιώθηκε τηλεφωνικά ✓'); toast('Επιβεβαιώθηκε ✓'); }
   if (act === 'p1') { await updateLead(id, { nextAction: addDays(1), confirmedAt: null }, 'next', 'Μετάθεση για αύριο'); }
   if (act === 'p3') { await updateLead(id, { nextAction: addDays(3), confirmedAt: null }, 'next', 'Μετάθεση +3 μέρες'); }
@@ -994,6 +1021,7 @@ $('lm_status').addEventListener('change', async () => {
   await updateLead(modalLeadId, patch, 'status', 'Στάδιο → ' + STATUS[v]);
   const l = leadById(modalLeadId); if (l) { renderTimeline(l); setLostReason(l); }
   if (v === 'lost') toast('Διάλεξε λόγο απώλειας — μετρά στα Στατιστικά κλήσεων.');
+  if (v === 'think') toast('Επανάκληση σε 2 μέρες — στείλε και το μήνυμα από το «Σήμερα».');
 });
 /* Λόγος απώλειας (leads.lost_reason) — εμφανίζεται μόνο όταν το lead είναι «Χαμένο». */
 const LOST_REASONS = ['Ακριβό', 'Μακριά', 'Δεν θυμάται τη φόρμα', 'Λάθος νούμερο', 'Δεν απάντησε ποτέ', 'Το σκέφτεται / αργότερα', 'Πήγε αλλού', 'Αδράνεια', 'Άλλο'];
@@ -1046,18 +1074,21 @@ $('lm_comment').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('l
 $('lm_gdpr').onclick = async () => {
   if (!modalLeadId) return;
   const b = $('lm_gdpr');
-  if (b.textContent !== 'Σίγουρα; Οριστικό & μη αναστρέψιμο') { b.textContent = 'Σίγουρα; Οριστικό & μη αναστρέψιμο'; setTimeout(() => { b.textContent = 'Οριστική διαγραφή (GDPR)'; }, 3500); return; }
+  if (b.textContent !== 'Σίγουρα; Στον κάδο για 30 μέρες') { b.textContent = 'Σίγουρα; Στον κάδο για 30 μέρες'; setTimeout(() => { b.textContent = 'Διαγραφή lead'; }, 3500); return; }
   b.disabled = true;
   const id = modalLeadId;
   try {
-    for (const a of S.act.filter((x) => x.leadId === id)) await data.remove('activity', a.id);
-    for (const t of (S.trash || []).filter((x) => x.coll === 'leads' && x.docId === id)) await data.remove('trash', t.id);
-    await data.remove('leads', id);
+    /* Στον κάδο ΜΑΖΙ με ιστορικό και κλήσεις (ώστε η «Επαναφορά» να τα φέρει πίσω)· οριστικό σβήσιμο μετά από 30 μέρες (purgeTrash). */
+    const row = leadById(id); const { id: _drop, ...body } = row || {};
+    const acts = S.act.filter((x) => x.leadId === id); const calls = S.calls.filter((x) => x.leadId === id);
+    await data.create('trash', { coll: 'leads', docId: id, body: { ...body, _activity: acts, _calls: calls }, by: userEmail(), deletedAt: new Date().toISOString() }, 'tr' + uid());
+    for (const a of acts) await data.remove('activity', a.id);
+    await data.remove('leads', id); // το call_log σβήνεται από τη βάση (cascade) — υπάρχει αντίγραφο στον κάδο
     $('leadModal').hidden = true; modalLeadId = null;
     await refresh();
-    toast('Το lead διαγράφηκε οριστικά (GDPR) — μαζί με όλο το ιστορικό του.');
+    toast('Το lead μπήκε στον κάδο για 30 μέρες — Ρυθμίσεις → Κάδος → Επαναφορά.');
   } catch (e) { toast('Αποτυχία: ' + e.message); }
-  b.disabled = false; b.textContent = 'Οριστική διαγραφή (GDPR)';
+  b.disabled = false; b.textContent = 'Διαγραφή lead';
 };
 
 /* ============ CALENDAR ============ */
@@ -1432,7 +1463,7 @@ function clinicHealth(c) {
   if (st.spend > 100 && st.roas < 1 && st.leads > 0) bump('r', 'ROAS ' + st.roas.toFixed(2) + '× αυτόν τον μήνα');
   if (+c.monthlyBudget > 0 && st.spend > +c.monthlyBudget) bump('y', 'Υπέρβαση budget');
   if (c.sheetId && c.lastSync && Date.now() - new Date(c.lastSync).getTime() > 7 * 86400000) bump('y', 'Sync leads πάνω από 7 μέρες');
-  const stale = S.leads.filter((l) => l.clinicId === c.id && ['noans', 'epik', 'rv', 'show'].includes(l.status) && (!l.nextAction || l.nextAction < todayISO()));
+  const stale = S.leads.filter((l) => l.clinicId === c.id && ['noans', 'epik', 'think', 'rv', 'show'].includes(l.status) && (!l.nextAction || l.nextAction < todayISO()));
   if (stale.length > 5) bump('y', stale.length + ' leads χωρίς προγραμματισμένη ενέργεια');
   if (c.status === 'paused') bump('y', 'Σε παύση');
   if (!reasons.length) reasons.push('Όλα καλά');
@@ -1837,7 +1868,7 @@ function fillClinicSelect(sel, withEmpty) {
 }
 ['flClinic', 'flStatus', 'flSearch'].forEach((i) => $(i).addEventListener('input', renderLeads));
 function funnelHTML(leads) {
-  const order = ['neo', 'noans', 'epik', 'rv', 'show', 'won', 'lost'];
+  const order = ['neo', 'noans', 'epik', 'think', 'rv', 'show', 'won', 'lost'];
   return order.map((k) => `<span class="chip ${k}">${STATUS[k]} · ${leads.filter((l) => l.status === k).length}</span>`).join('')
     + `<span class="chip plain">Σύνολο ${leads.length}</span>`;
 }
@@ -1864,7 +1895,7 @@ function dupGroups() {
   S.leads.forEach((l) => { const ph = normPhone(l.phone); if (ph.length >= 8) (map[ph] = map[ph] || []).push(l); });
   return Object.values(map).filter((g) => g.length > 1);
 }
-const STATUS_RANK = { neo: 0, lost: 1, epik: 2, rv: 3, show: 4, won: 9 };
+const STATUS_RANK = { neo: 0, lost: 1, epik: 2, think: 2, rv: 3, show: 4, won: 9 };
 async function mergeGroup(g) {
   const sorted = [...g].sort((a, b) => (STATUS_RANK[b.status] - STATUS_RANK[a.status]) || String(b.createdTime || '').localeCompare(String(a.createdTime || '')));
   const primary = sorted[0], dups = sorted.slice(1);
@@ -3327,6 +3358,7 @@ function renderSettings() {
   $('st_followSender').value = s.followSender || 'Πέτρος';
   $('st_followMsg1').value = s.followMsg1 || DEF_MSG1;
   $('st_followMsg2').value = s.followMsg2 || DEF_MSG2;
+  $('st_followMsg3').value = s.followMsg3 || DEF_MSG3;
 }
 $('btnSaveSettings').onclick = async () => {
   const d = {
@@ -3347,6 +3379,7 @@ $('btnSaveSettings').onclick = async () => {
     followSender: $('st_followSender').value.trim() || 'Πέτρος',
     followMsg1: $('st_followMsg1').value.trim() || null,
     followMsg2: $('st_followMsg2').value.trim() || null,
+    followMsg3: $('st_followMsg3').value.trim() || null,
   };
   try {
     if (S.settings) await data.update('settings', 'main', d);
@@ -3386,7 +3419,10 @@ $('trashList').addEventListener('click', async (e) => {
   const t = S.trash.find((x) => x.id === id); if (!t) return;
   b.disabled = true;
   try {
-    await data.create(t.coll, t.body, t.docId);
+    const { _activity, _calls, ...body } = t.body || {};
+    await data.create(t.coll, body, t.docId);
+    for (const a of _activity || []) { try { await data.create('activity', a, a.id); } catch { /* ίσως υπάρχει ήδη */ } }
+    for (const c of _calls || []) { const { id: cid, ...rest } = c; try { await data.create('call_log', rest, cid); } catch { /* ίσως υπάρχει ήδη */ } }
     await data.remove('trash', id);
     toast((COLL_LABEL[t.coll] || '') + ' «' + trashLabel(t) + '» επαναφέρθηκε.');
     await refresh();
@@ -3644,12 +3680,13 @@ function renderCallStats() {
     const first = calls[0]; const dialed = lg.find((x) => x.kind === 'call' || x.kind === 'dial'); const msg1 = lg.find((x) => x.kind === 'msg' && +x.attempt === 1); const msg2 = lg.find((x) => x.kind === 'msg' && +x.attempt === 2);
     const touch = lg.find((x) => ['call', 'dial', 'msg'].includes(x.kind));
     const ans = calls.find((x) => x.outcome === 'answered'); const reply = lg.find((x) => x.kind === 'reply');
-    const contacted = !!(ans || reply) || ['epik', 'rv', 'show', 'won'].includes(l.status);
+    const contacted = !!(ans || reply) || ['epik', 'think', 'rv', 'show', 'won'].includes(l.status);
+    const thought = l.status === 'think' || actsOf(l.id).some((a) => /Στάδιο → Θα το σκεφτεί/.test(a.body || ''));
     const rvAct = actsOf(l.id).filter((a) => /Στάδιο → Ραντεβού/.test(a.body || '')).sort((a, b) => String(a.at).localeCompare(String(b.at)))[0];
     const booked = ['rv', 'show', 'won'].includes(l.status) || !!l.attendedAt || !!rvAct;
     const showed = ['show', 'won'].includes(l.status) || !!l.attendedAt;
     const noshow = actsOf(l.id).some((a) => /δεν έγινε|Δεν ήρθε/i.test(a.body || ''));
-    return { l, lg, calls, first, msg1, msg2, touch, ans, reply, contacted, booked, showed, noshow, rvAct,
+    return { l, lg, calls, first, msg1, msg2, touch, ans, reply, contacted, booked, showed, noshow, rvAct, thought,
       firstMin: dialed ? (ms(dialed) - t0(l)) / 60000 : null, touchMin: touch ? (ms(touch) - t0(l)) / 60000 : null,
       triesToContact: ans ? calls.indexOf(ans) + 1 : null };
   });
@@ -3677,7 +3714,7 @@ function renderCallStats() {
   /* 4. ανά προσπάθεια */
   const callsAll = logs.filter((x) => x.kind === 'call');
   const OUT = { answered: 'Απάντησε', no_answer: 'Δεν σήκωσε', closed: 'Κλειστό', wrong: 'Λάθος νούμερο' };
-  const attRows = [1, 2, 3].map((n) => { const g = callsAll.filter((x) => Math.min(3, +x.attempt || 1) === n); return [`☎ ${n}η κλήση${n === 3 ? ' (και μετά)' : ''}`, g.length, csPct(g.filter((x) => x.outcome === 'answered').length, g.length), csPct(g.filter((x) => x.outcome === 'no_answer').length, g.length), csPct(g.filter((x) => x.outcome === 'closed').length, g.length), csPct(g.filter((x) => x.outcome === 'wrong').length, g.length)]; }).filter((r) => r[1]);
+  const attRows = [1, 2, 3, 4, 5].map((n) => { const g = callsAll.filter((x) => Math.min(5, +x.attempt || 1) === n); return [`☎ ${n}η κλήση${n === 5 ? ' (και μετά)' : ''}`, g.length, csPct(g.filter((x) => x.outcome === 'answered').length, g.length), csPct(g.filter((x) => x.outcome === 'no_answer').length, g.length), csPct(g.filter((x) => x.outcome === 'closed').length, g.length), csPct(g.filter((x) => x.outcome === 'wrong').length, g.length)]; }).filter((r) => r[1]);
   /* 6. απαντήσεις σε μηνύματα */
   const m1 = info.filter((x) => x.msg1), m2 = info.filter((x) => x.msg2);
   const msgRows = [
@@ -3713,6 +3750,14 @@ function renderCallStats() {
   /* 12. λόγοι απώλειας */
   const lost = info.filter((x) => x.l.status === 'lost'); const lr = {}; lost.forEach((x) => { const k = x.l.lostReason || 'Χωρίς λόγο'; lr[k] = (lr[k] || 0) + 1; });
   const lostRows = Object.entries(lr).sort((a, b) => b[1] - a[1]).map(([k, n]) => [esc(k), n, csPct(n, lost.length)]);
+  /* 12β. «θα το σκεφτεί»: πόσοι το είπαν και τι απέγιναν */
+  const th = info.filter((x) => x.thought);
+  const thRows = th.length ? [['Το είπαν', th.length, csPct(th.length, info.filter((x) => x.contacted).length) + ' <span class="tmeta">όσων μιλήσαμε</span>'],
+    ['→ Έκλεισαν ραντεβού', th.filter((x) => x.booked).length, csPct(th.filter((x) => x.booked).length, th.length)],
+    ['→ Ήρθαν', th.filter((x) => x.showed).length, csPct(th.filter((x) => x.showed).length, th.length)],
+    ['→ Χάθηκαν', th.filter((x) => x.l.status === 'lost').length, csPct(th.filter((x) => x.l.status === 'lost').length, th.length)],
+    ['Ακόμη το σκέφτονται', th.filter((x) => x.l.status === 'think').length, ''],
+    ['Πήραν το μήνυμα ✉3', th.filter((x) => x.lg.some((y) => y.kind === 'msg' && +y.attempt === 3)).length, csPct(th.filter((x) => x.lg.some((y) => y.kind === 'msg' && +y.attempt === 3)).length, th.length)]] : [];
   /* 13. ξεχασμένα ανά ημέρα (leads 09:00–21:00 χωρίς επαφή σε 1 ώρα) */
   const dayRows = []; for (let i = 0; i < Math.min(days, 14); i++) {
     const d = addDays(-i); const g = info.filter((x) => isoDate(new Date(t0(x.l))) === d && new Date(t0(x.l)).getHours() >= 9 && new Date(t0(x.l)).getHours() < 21);
@@ -3724,7 +3769,7 @@ function renderCallStats() {
   $('callStats').innerHTML = tiles
     + card('Ταχύτητα 1ης κλήσης → απάντηση', 'όσο πιο γρήγορα, τόσο περισσότεροι σηκώνουν', csTable(['Χρόνος από τη φόρμα', 'Leads', 'Σήκωσε την 1η', 'Μιλήσαμε τελικά', 'Ραντεβού'], speedRows))
     + card('Μήνυμα ✉1 → κλήση', 'πόσο να περιμένεις μετά το SMS', csTable(['Κλήση μετά το μήνυμα', 'Leads', 'Σήκωσε την 1η', 'Μιλήσαμε τελικά'], lagRows))
-    + card('Απάντηση ανά προσπάθεια', 'αξίζει η 3η κλήση;', csTable(['Κλήση', 'Κλήσεις', OUT.answered, OUT.no_answer, OUT.closed, OUT.wrong], attRows))
+    + card('Απάντηση ανά προσπάθεια', 'αξίζουν η 4η και η 5η κλήση;', csTable(['Κλήση', 'Κλήσεις', OUT.answered, OUT.no_answer, OUT.closed, OUT.wrong], attRows))
     + card('Απαντήσεις σε μηνύματα', '«↩ Απάντησε σε μήνυμα»', csTable(['Μήνυμα', 'Στάλθηκε', 'Απάντησε'], msgRows))
     + card('Πότε σηκώνουν', '% απάντησης ανά ημέρα και ώρα κλήσης (πλήθος κλήσεων)', heat)
     + card('Κανάλι του ✉1', '', csTable(['Κανάλι', 'Leads', 'Απάντησε στο μήνυμα', 'Σήκωσε την 1η κλήση', 'Μιλήσαμε τελικά'], chRows))
@@ -3733,6 +3778,7 @@ function renderCallStats() {
     + card('Ανά καμπάνια', '', csTable(['Καμπάνια', 'Leads', 'Μιλήσαμε', 'Ραντεβού', 'Ήρθαν', 'Πελάτες'], groupRows((l) => l.campaign)))
     + card('Ανά διαφήμιση', 'top 15', csTable(['Διαφήμιση', 'Leads', 'Μιλήσαμε', 'Ραντεβού', 'Ήρθαν', 'Πελάτες'], groupRows((l) => l.adName)))
     + card('Ανά πακέτο / προσφορά', '', csTable(['Πακέτο', 'Leads', 'Μιλήσαμε', 'Ραντεβού', 'Ήρθαν', 'Πελάτες'], groupRows(pkg)))
+    + card('«Θα το σκεφτώ»', 'τι απογίνονται όσοι το λένε', csTable(['', 'Leads', '%'], thRows, 'Κανείς δεν είπε «θα το σκεφτώ» στην περίοδο.'))
     + card('Γιατί χάνονται', `${lost.length} χαμένα`, csTable(['Λόγος', 'Leads', '%'], lostRows, 'Κανένα χαμένο lead στην περίοδο.'))
     + card('Ξεχασμένα ανά ημέρα', 'leads 09:00–21:00 που δεν είχαν καμία επαφή σε 1 ώρα', csTable(['Ημέρα', 'Leads', '>1 ώρα χωρίς επαφή', 'Διάμεσος 1ης επαφής'], dayRows));
 }

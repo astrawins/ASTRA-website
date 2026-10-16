@@ -222,7 +222,7 @@
       </div>
       <div class="filters">
         <select id="flClinic"><option value="">Όλες οι κλινικές</option></select>
-        <select id="flStatus"><option value="">Όλα τα στάδια</option><option value="neo">Νέο</option><option value="noans">Δεν απάντησε</option><option value="epik">Επικοινωνία</option><option value="rv">Ραντεβού</option><option value="show">Ήρθε</option><option value="won">Πελάτης</option><option value="lost">Χαμένο</option></select>
+        <select id="flStatus"><option value="">Όλα τα στάδια</option><option value="neo">Νέο</option><option value="noans">Δεν απάντησε</option><option value="epik">Επικοινωνία</option><option value="think">Θα το σκεφτεί</option><option value="rv">Ραντεβού</option><option value="show">Ήρθε</option><option value="won">Πελάτης</option><option value="lost">Χαμένο</option></select>
         <input id="flSearch" placeholder="Αναζήτηση ονόματος / τηλεφώνου…" style="min-width:220px">
         <div class="viewtoggle" role="group" aria-label="Προβολή">
           <button data-view="list" class="on">Λίστα</button><button data-view="kanban">Kanban</button>
@@ -512,10 +512,11 @@
         </div>
         <div class="card setcard">
           <h3>Follow-up μηνύματα</h3>
-          <div class="desc">Ακολουθία για κάθε νέο lead: μήνυμα γνωριμίας αμέσως → 3 κλήσεις → μήνυμα. Μεταβλητές: {όνομα} {κλινική} {εγώ}. Στέλνονται με WhatsApp ή SMS από το κινητό σου.</div>
+          <div class="desc">Ακολουθία για κάθε νέο lead: μήνυμα γνωριμίας αμέσως → 3 κλήσεις → μήνυμα → 4η κλήση (3 μέρες μετά) → 5η κλήση (6 μέρες μετά) → χαμένο. Όποιος πει «θα το σκεφτώ» παίρνει το 3ο μήνυμα και επανάκληση σε 2 μέρες. Μεταβλητές: {όνομα} {κλινική} {εγώ}. Στέλνονται με WhatsApp ή SMS από το κινητό σου.</div>
           <div class="f"><label for="st_followSender">Υπογραφή ({εγώ})</label><input id="st_followSender" placeholder="Πέτρος"></div>
           <div class="f"><label for="st_followMsg1">Μήνυμα γνωριμίας (μόλις έρθει το lead)</label><textarea id="st_followMsg1" rows="4"></textarea></div>
           <div class="f"><label for="st_followMsg2">Μήνυμα μετά από 3 αναπάντητες</label><textarea id="st_followMsg2" rows="4"></textarea></div>
+          <div class="f"><label for="st_followMsg3">Μήνυμα «θα το σκεφτεί» (μετά την κλήση)</label><textarea id="st_followMsg3" rows="4"></textarea></div>
         </div>
         <div class="card setcard" id="healthCard">
           <h3>Υγεία συστήματος</h3>
@@ -606,8 +607,8 @@
       <div class="addnote"><input id="lm_comment" placeholder="Γράψε σχόλιο (π.χ. «κάλεσα, δεν το σήκωσε»)…"><button class="btn small primary" id="lm_addComment">Προσθήκη</button></div>
     </div>
     <div class="factions" style="margin-top:16px;border-top:1px solid var(--hair2);padding-top:12px">
-      <button class="btn small danger" id="lm_gdpr">Οριστική διαγραφή (GDPR)</button>
-      <span class="fhint">Σβήνει lead και ιστορικό οριστικά — χωρίς κάδο. Για αιτήματα διαγραφής δεδομένων.</span>
+      <button class="btn small danger" id="lm_gdpr">Διαγραφή lead</button>
+      <span class="fhint">Πάει στον κάδο για 30 μέρες μαζί με ιστορικό και κλήσεις (Ρυθμίσεις → Κάδος → Επαναφορά)· μετά σβήνεται οριστικά (GDPR).</span>
     </div>
   </div>
 </div>

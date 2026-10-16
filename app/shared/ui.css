@@ -200,6 +200,7 @@ tfoot td { font-weight: 700; border-top: 2px solid var(--hair); background: var(
 .chip.neo { color: var(--chip-neo); background: var(--chip-neo-bg); }
 .chip.epik { color: var(--chip-epik); background: var(--chip-epik-bg); }
 .chip.noans { color: var(--warn); background: var(--warn-bg); }
+.chip.think { color: var(--chip-rv); background: var(--warn-bg); }
 .chip.rv { color: var(--chip-rv); background: var(--chip-rv-bg); }
 .chip.won { color: var(--good); background: var(--good-bg); }
 .chip.lost { color: var(--crit); background: var(--crit-bg); }
