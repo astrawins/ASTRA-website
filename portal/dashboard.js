@@ -856,7 +856,7 @@ function clinicCallsBlock(due, fresh, upcoming, stale, confirm = [], inProgress 
 }
 $('btnTodayRefresh').onclick = refresh;
 $('todayBody').addEventListener('click', async (e) => {
-  if (e.target.closest('[data-fstep],[data-fsent],[data-fcopy],[data-fnoans],[data-flost]')) { await followClick(e); return; }
+  if (e.target.closest('[data-fstep],[data-fsent],[data-fcopy],[data-fcall],[data-freply],[data-fnoans],[data-flost]')) { await followClick(e); return; }
   const tg = e.target.closest('[data-cgrp]');
   if (tg) {
     const k = tg.dataset.cgrp;
