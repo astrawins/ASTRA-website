@@ -959,6 +959,7 @@ function openLeadModal(id) {
   const sc = c && c.script;
   $('lmScript').hidden = !sc;
   if (sc) $('lmScript').innerHTML = '<b>Σενάριο κλήσης</b>' + esc(sc);
+  renderAvail(c);
   const tpls = c && Array.isArray(c.templates) ? c.templates : [];
   $('lmTemplates').hidden = !tpls.length;
   $('lmTemplates').innerHTML = tpls.map((t, i) => `<button class="btn small" data-tpl="${i}" title="Αντιγραφή μηνύματος">${esc(t.t)}</button>`).join('');
@@ -1100,6 +1101,49 @@ $('calToday').onclick = () => { calOffset = 0; renderCalendar(); };
 /* ---- Google Calendar σύνδεση ---- */
 const gcalKey = () => SET().gcalApiKey || '';
 const gcalClient = () => SET().gcalClientId || '';
+/* Ημερολόγιο διαθεσιμότητας γιατρού ανά κλινική (clinics.gcal_id, δημόσιο Google Calendar): τα events του είναι οι ώρες
+   που δίνει ο γιατρός για ραντεβού. Δέχεται ID ή ολόκληρο link/iframe embed. */
+function gcalIdFrom(v) {
+  v = String(v || '').trim(); const m = v.match(/[?&]src=([^&"'\s]+)/);
+  return m ? decodeURIComponent(m[1]) : v.replace(/^<.*$/, '');
+}
+const gcalEmbedUrl = (id) => `https://calendar.google.com/calendar/embed?src=${encodeURIComponent(id)}&ctz=Europe%2FAthens&mode=WEEK`;
+const availCache = {};
+async function availEvents(calId, mk) {
+  const k = calId + '|' + mk;
+  if (!availCache[k]) {
+    availCache[k] = (async () => {
+      try { return await gcal.listEvents({ apiKey: gcalKey(), clientId: gcalClient() }, calId, mk); }
+      catch (e) { if (gcalKey() && gcalClient()) { try { return await gcal.listEvents({ apiKey: gcalKey() }, calId, mk); } catch { /* πέφτει κάτω */ } } throw e; }
+    })().catch((e) => { delete availCache[k]; throw e; });
+  }
+  return availCache[k];
+}
+async function renderAvail(c) {
+  const box = $('lmAvail'); const calId = c && c.gcalId;
+  box.hidden = !calId; if (!calId) return;
+  const openLink = `<a href="${gcalEmbedUrl(calId)}" target="_blank" rel="noopener" style="margin-left:8px;font-weight:400">άνοιγμα ↗</a>`;
+  box.innerHTML = `<b>Διαθεσιμότητα γιατρού${openLink}</b><span class="fhint">Φόρτωση…</span>`;
+  const id = modalLeadId;
+  try {
+    const today = todayISO(); const months = [monthKey(today), monthKey(addDays(31))];
+    const evs = (await Promise.all(months.map((mk) => availEvents(calId, mk)))).flat()
+      .filter((e, i, arr) => e.date >= today && arr.findIndex((x) => x.id === e.id) === i)
+      .sort((a, b) => (a.date + a.start).localeCompare(b.date + b.start)).slice(0, 14);
+    if (modalLeadId !== id) return; // άλλαξε lead στο μεταξύ
+    const day = (d) => new Date(d + 'T12:00').toLocaleDateString('el-GR', { weekday: 'short', day: 'numeric', month: 'short' });
+    box.innerHTML = `<b>Διαθεσιμότητα γιατρού${openLink}</b>` + (evs.length
+      ? `<div class="tmplrow" style="margin-top:6px">${evs.map((e) => `<button class="btn small" data-avail="${e.date}|${e.start || ''}" title="${esc(e.title)} — πάτα για να μπει ως ραντεβού">${day(e.date)}${e.start ? ' ' + e.start + (e.end ? '–' + e.end : '') : ''}</button>`).join('')}</div><span class="fhint">Πάτα μια ώρα για να μπει ως ημερομηνία/ώρα ραντεβού.</span>`
+      : '<span class="fhint">Καμία διαθέσιμη ώρα τις επόμενες εβδομάδες στο ημερολόγιο του γιατρού.</span>');
+  } catch (e) { if (modalLeadId === id) box.innerHTML = `<b>Διαθεσιμότητα γιατρού${openLink}</b><span class="fhint">Δεν διαβάζεται το ημερολόγιο (${esc(e.message)}). Άνοιξέ το με το link.</span>`; }
+}
+$('lmAvail').addEventListener('click', async (e) => {
+  const b = e.target.closest('[data-avail]'); if (!b || !modalLeadId) return;
+  const [date, start] = b.dataset.avail.split('|');
+  $('lm_next').value = date; $('lm_next').dispatchEvent(new Event('change'));
+  if (start) { $('lm_time').value = start; $('lm_time').dispatchEvent(new Event('change')); }
+  toast('Ραντεβού: ' + date + (start ? ' ' + start : '') + ' — όρισε και στάδιο «Ραντεβού».');
+});
 const gcalId = () => SET().gcalCalendarId || gcal.DEFAULT_CAL_ID;
 const gcalCache = {}; // monthKey -> events[] | 'loading' | 'error'
 function calMonthKey() {
@@ -1379,7 +1423,7 @@ document.addEventListener('keydown', (e) => {
 let editClinicId = null;
 $('btnNewClinic').onclick = () => {
   editClinicId = null; $('clinicFormTitle').textContent = 'Νέα κλινική';
-  ['cf_name', 'cf_doctor', 'cf_spec', 'cf_phone', 'cf_email', 'cf_portalEmail', 'cf_fee', 'cf_apptFee', 'cf_sharePct', 'cf_dailyBudget', 'cf_monthlyBudget', 'cf_goalLeads', 'cf_goalSales', 'cf_contractStart', 'cf_contractEnd', 'cf_nextTouch', 'cf_tags', 'cf_contacts', 'cf_sheet', 'cf_metaAd', 'cf_metaSince', 'cf_metaFilter', 'cf_spendShare', 'cf_script', 'cf_templates', 'cf_notes'].forEach((i) => { $(i).value = ''; });
+  ['cf_name', 'cf_doctor', 'cf_spec', 'cf_phone', 'cf_email', 'cf_portalEmail', 'cf_fee', 'cf_apptFee', 'cf_sharePct', 'cf_dailyBudget', 'cf_monthlyBudget', 'cf_goalLeads', 'cf_goalSales', 'cf_contractStart', 'cf_contractEnd', 'cf_nextTouch', 'cf_tags', 'cf_contacts', 'cf_sheet', 'cf_metaAd', 'cf_metaSince', 'cf_metaFilter', 'cf_spendShare', 'cf_gcalId', 'cf_script', 'cf_templates', 'cf_notes'].forEach((i) => { $(i).value = ''; });
   $('clinicForm').hidden = false; $('cf_name').focus();
 };
 $('btnCancelClinic').onclick = () => { $('clinicForm').hidden = true; };
@@ -1401,6 +1445,7 @@ $('btnSaveClinic').onclick = async () => {
       return p[0] ? { name: p[0], role: p[1] || '', phone: p[2] || '', email: p[3] || '' } : null;
     }).filter(Boolean),
     script: $('cf_script').value.trim(),
+    gcalId: gcalIdFrom($('cf_gcalId').value),
     templates: $('cf_templates').value.split('\n').map((ln) => {
       const i = ln.indexOf(':'); if (i < 1) return null;
       return { t: ln.slice(0, i).trim(), b: ln.slice(i + 1).trim() };
@@ -1498,6 +1543,7 @@ function openClinicEdit(id) {
   $('cf_tags').value = (Array.isArray(c.tags) ? c.tags : []).join(', ');
   $('cf_contacts').value = (Array.isArray(c.contacts) ? c.contacts : []).map((x) => [x.name, x.role, x.phone, x.email].join(' | ')).join('\n');
   $('cf_script').value = c.script || '';
+  $('cf_gcalId').value = c.gcalId || '';
   $('cf_templates').value = (Array.isArray(c.templates) ? c.templates : []).map((t) => t.t + ': ' + t.b).join('\n');
   $('cf_sheet').value = c.sheetUrl || ''; $('cf_metaAd').value = c.metaAdAccount || ''; $('cf_metaSince').value = c.metaSince || ''; $('cf_metaFilter').value = c.metaFilter || ''; $('cf_spendShare').value = c.spendShare && +c.spendShare !== 100 ? c.spendShare : ''; $('cf_notes').value = c.notes || '';
   $('clinicForm').hidden = false; window.scrollTo({ top: 0 });
@@ -1657,6 +1703,7 @@ function renderClinicView() {
       </div>
       ${(c.goalLeads || c.goalSales) ? `<div class="card" style="padding:14px 16px;margin-bottom:20px">${goalBar('Leads μήνα', sNow.leads, c.goalLeads)}${goalBar('Πωλήσεις μήνα', sNow.sales, c.goalSales)}</div>` : ''}
       <div class="pill-row">${ls.length ? funnelHTML(ls) : ''}</div>
+      ${c.gcalId ? `<p><a class="btn small" href="${gcalEmbedUrl(c.gcalId)}" target="_blank" rel="noopener">📅 Διαθεσιμότητα γιατρού (Google Calendar)</a></p>` : ''}
       ${c.script ? `<div class="scriptbox" style="max-width:640px"><b>Σενάριο κλήσης</b>${esc(c.script)}</div>` : ''}`;
   }
   if (clSub === 'leads') {

@@ -180,6 +180,7 @@
           <div class="f"><label for="cf_spendShare">Μερίδιο διαφημιστικής δαπάνης (%)</label><input id="cf_spendShare" inputmode="numeric" placeholder="100 — π.χ. 50 αν η καμπάνια μοιράζεται"></div>
           <div class="f"><label for="cf_metaSince">Meta στατιστικά από ημερομηνία</label><input id="cf_metaSince" type="date" title="Μετράμε δαπάνη/κλικ μόνο από αυτή τη μέρα (π.χ. έναρξη νέας καμπάνιας)"></div>
           <div class="f" style="grid-column:1/-1"><label for="cf_contacts">Επαφές — μία ανά γραμμή: Όνομα | ρόλος | τηλέφωνο | email</label><textarea id="cf_contacts" placeholder="Μαρία Π. | Γραμματεία | 210... | maria@...&#10;Δρ. Χ | Ιατρός | 69... |"></textarea></div>
+          <div class="f" style="grid-column:1/-1"><label for="cf_gcalId">Ημερολόγιο διαθεσιμότητας γιατρού (Google Calendar ID ή link embed — δημόσιο ημερολόγιο· οι ώρες του φαίνονται στην καρτέλα κάθε lead)</label><input id="cf_gcalId" placeholder="xxxx@group.calendar.google.com"></div>
           <div class="f" style="grid-column:1/-1"><label for="cf_script">Σενάριο κλήσης (φαίνεται στην καρτέλα κάθε lead)</label><textarea id="cf_script" placeholder="Τι λέμε όταν καλούμε lead αυτής της κλινικής…"></textarea></div>
           <div class="f" style="grid-column:1/-1"><label for="cf_templates">Templates μηνυμάτων — ένα ανά γραμμή, μορφή «Τίτλος: κείμενο» ({όνομα} = όνομα lead)</label><textarea id="cf_templates" placeholder="1η επαφή: Καλησπέρα {όνομα}, σας καλέσαμε από το ιατρείο..."></textarea></div>
           <div class="f" style="grid-column:1/-1"><label for="cf_notes">Σημειώσεις</label><textarea id="cf_notes"></textarea></div>
@@ -589,6 +590,7 @@
     <div class="mhead"><h3 id="lmName"></h3><button class="x" id="lmClose" aria-label="Κλείσιμο">✕</button></div>
     <div class="mmeta" id="lmMeta"></div>
     <div class="scriptbox" id="lmScript" hidden></div>
+    <div class="scriptbox" id="lmAvail" hidden></div>
     <div class="tmplrow" id="lmTemplates" hidden></div>
     <div id="lmFollow" hidden style="margin:6px 0 10px"></div>
     <div class="mgrid">
