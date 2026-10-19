@@ -297,11 +297,11 @@ function statusPatch(st, l) {
 }
 
 /* ============ Google Sheet / CSV import ============ */
-async function importRows(rows, clinic, label) {
+async function importRows(rows, clinic, label, silent) {
   let leads;
   try { leads = mapLeads(rows, clinic.id); }
-  catch (e) { toast(e.message); return 0; }
-  if (!leads.length) { toast('Δεν βρέθηκαν leads στο ' + label + '.'); return 0; }
+  catch (e) { if (!silent) toast(e.message); return 0; }
+  if (!leads.length) { if (!silent) toast('Δεν βρέθηκαν leads στο ' + label + '.'); return 0; }
   let added = 0;
   try {
     const before = new Set(S.leads.map((l) => l.id));
@@ -436,7 +436,7 @@ async function syncClinic(clinic, silent) {
   if (gcalClient()) {
     try {
       const rows = await readSheetValues(gcalClient(), clinic.sheetId, gidFrom(clinic.sheetUrl));
-      return importRows(rows, clinic, 'sheet');
+      return importRows(rows, clinic, 'sheet', silent);
     } catch (e) {
       if (e.code !== 'connect_needed' && !silent) toast(e.message);
       if (e.code !== 'connect_needed') return 0;
@@ -446,7 +446,7 @@ async function syncClinic(clinic, silent) {
   let csv;
   try { csv = await fetchSheetCSV(clinic.sheetId, gidFrom(clinic.sheetUrl)); }
   catch (e) { if (!silent) toast(e.message); return 0; }
-  return importRows(parseCSV(csv), clinic, 'sheet');
+  return importRows(parseCSV(csv), clinic, 'sheet', silent);
 }
 async function autoSyncAll() {
   const cut = Date.now() - 30 * 60 * 1000;

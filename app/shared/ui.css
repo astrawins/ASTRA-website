@@ -230,7 +230,7 @@ tfoot td { font-weight: 700; border-top: 2px solid var(--hair); background: var(
 .cliniccard:hover { box-shadow: var(--elev-hover); transform: translateY(-1px); }
 .cliniccard h3 { font-size: 16.5px; letter-spacing: -.015em; }
 .cliniccard .spec { color: var(--soft); font-size: 12.5px; margin-top: 1px; }
-.cliniccard .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(76px, 1fr)); gap: 6px; text-align: center; border-block: 1px solid var(--hair2); padding: 8px 0; }
+.cliniccard .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(58px, 1fr)); gap: 6px; text-align: center; border-block: 1px solid var(--hair2); padding: 8px 0; }
 .cliniccard .stats b { display: block; font-family: var(--mono); font-size: 16px; font-variant-numeric: tabular-nums; }
 .cliniccard .stats i { font-style: normal; font-size: 10.5px; text-transform: uppercase; letter-spacing: .05em; color: var(--soft); }
 .cliniccard .foot { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
