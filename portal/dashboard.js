@@ -1572,6 +1572,8 @@ function renderClinics() {
     const won = ls.filter((l) => l.status === 'won');
     const wonM = won.filter((l) => monthKey(l.saleDate || l.createdTime) === mk);
     const rev = ls.filter(isPaying).reduce((s, l) => s + (+l.amount || 0), 0);
+    const astra = sumFees(c, ls.filter(isBooked)); // αμοιβή Astra: ανά ραντεβού που έγινε
+    const sh = shareOf(c), spendMine = S.camps.filter((x) => x.clinicId === c.id).reduce((s, x) => s + (+x.spend || 0), 0);
     const sync = c.lastSync ? new Date(c.lastSync).toLocaleDateString('el-GR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : null;
     const del = confirmDelete === c.id;
     return `<div class="card cliniccard" data-id="${c.id}">
@@ -1582,6 +1584,8 @@ function renderClinics() {
         <div><b>${ls.filter((l) => ['rv', 'show'].includes(l.status)).length}</b><i>Ραντεβού</i></div>
         <div><b>${won.length}</b><i>Πελάτες</i></div>
         <div><b>${eur(rev)}</b><i>Έσοδα</i></div>
+        <div><b>${eur(astra)}</b><i>Έσοδα Astra</i></div>
+        ${sh < 1 ? `<div><b>${eur(spendMine)}</b><i>Έξοδα</i></div><div><b>${eur(spendMine / sh)}</b><i>Ad spend σύνολο</i></div>` : ''}
       </div>
       ${goalBar('Leads', lsM.length, c.goalLeads)}${goalBar('Πωλήσεις', wonM.length, c.goalSales)}
       ${(() => { const st = obState(c); const done = st.filter((x) => x[2]).length; return done < st.length ? goalBar('Setup', done, st.length) : ''; })()}
@@ -1695,7 +1699,10 @@ function renderClinicView() {
         <div class="tile"><div class="lb">Ραντεβού</div><div class="v">${sNow.rv}</div><div class="d">${sNow.shows} ήρθαν</div></div>
         <div class="tile"><div class="lb">Πωλήσεις</div><div class="v">${sNow.sales}</div><div class="d">${won.length} συνολικά</div></div>
         <div class="tile"><div class="lb">Έσοδα μήνα</div><div class="v">${eur(sNow.revenue)}</div><div class="d">${eur(revAll)} συνολικά</div></div>
-        <div class="tile"><div class="lb">Ad spend</div><div class="v ${+c.monthlyBudget && sNow.spend > +c.monthlyBudget ? 'neg' : ''}">${eur(sNow.spend)}</div><div class="d">${+c.monthlyBudget ? Math.round(100 * sNow.spend / +c.monthlyBudget) + '% του budget ' + eur(+c.monthlyBudget) : (sNow.cpl ? 'CPL ' + eur(sNow.cpl) : '—')}</div></div>
+        ${(() => { const bk = ls.filter(isBooked); const bkM = bk.filter((l) => monthKey(billDate(l)) === nowMonth()); return `<div class="tile"><div class="lb">Έσοδα Astra</div><div class="v pos">${eur(sumFees(c, bkM))}</div><div class="d">${eur(sumFees(c, bk))} συνολικά · ${feeBreakdown(c, bkM) || '0 ραντεβού που έγιναν'}</div></div>`; })()}
+        ${shareOf(c) < 1 ? `<div class="tile"><div class="lb">Έξοδα Astra</div><div class="v neg">${eur(sNow.spend)}</div><div class="d">${Math.round(shareOf(c) * 100)}% του ad spend</div></div>
+        <div class="tile"><div class="lb">Ad spend σύνολο</div><div class="v">${eur(sNow.spend / shareOf(c))}</div><div class="d">όλη η δαπάνη Meta του μήνα</div></div>`
+        : `<div class="tile"><div class="lb">Ad spend</div><div class="v ${+c.monthlyBudget && sNow.spend > +c.monthlyBudget ? 'neg' : ''}">${eur(sNow.spend)}</div><div class="d">${+c.monthlyBudget ? Math.round(100 * sNow.spend / +c.monthlyBudget) + '% του budget ' + eur(+c.monthlyBudget) : (sNow.cpl ? 'CPL ' + eur(sNow.cpl) : '—')}</div></div>`}
         ${(() => { const sp = speedToLead(c.id); return sp ? `<div class="tile"><div class="lb">1η ενέργεια (μ.ό.)</div><div class="v ${sp.avg <= 30 ? 'pos' : sp.avg > 240 ? 'neg' : ''}">${fmtMins(sp.avg)}</div><div class="d">${sp.n} leads · 30 ημέρες</div></div>` : ''; })()}
         <div class="tile"><div class="lb">Κόστος / Lead</div><div class="v">${sNow.cpl ? eur(sNow.cpl) : '—'}</div><div class="d">δαπάνη ÷ ενδιαφερόμενοι</div></div>
         <div class="tile"><div class="lb">Κόστος / Ραντεβού</div><div class="v">${sNow.rv && sNow.spend ? eur(sNow.spend / sNow.rv) : '—'}</div><div class="d">δαπάνη ÷ ραντεβού</div></div>
@@ -2606,6 +2613,8 @@ async function materializeRecurring() {
 const apptFee = () => +SET().appointmentFee || 50;
 /* Αμοιβή ανά ολοκληρωμένο ραντεβού: ανά κλινική (clinics.appt_fee) ή η γενική ρύθμιση. */
 const clinicFee = (c) => +(c && c.apptFee) || apptFee();
+/* Μερίδιο δαπάνης Meta που πληρώνει η Astra (clinics.spend_share %, π.χ. Karma 50): τα campaigns.spend είναι ήδη το μερίδιό μας. */
+const shareOf = (c) => Math.min(1, Math.max(0.01, (+(c && c.spendShare) || 100) / 100));
 /* Πακέτα με διαφορετική αμοιβή στην ίδια κλινική (clinics.fee_options, π.χ. Artista Medico Κανονικό/Φοιτήτρια):
    η επιλογή της ομάδας (leads.fee_option) ή αυτόματα από την «Προσφορά» του lead, αλλιώς το 1ο πακέτο. */
 const feeOpts = (c) => (c && Array.isArray(c.feeOptions) ? c.feeOptions : []);
