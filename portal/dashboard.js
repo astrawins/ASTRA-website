@@ -1585,7 +1585,7 @@ function renderClinics() {
         <div><b>${won.length}</b><i>Πελάτες</i></div>
         <div><b>${eur(rev)}</b><i>Έσοδα</i></div>
         <div><b>${eur(astra)}</b><i>Έσοδα Astra</i></div>
-        ${sh < 1 ? `<div><b>${eur(spendMine)}</b><i>Έξοδα</i></div><div><b>${eur(spendMine / sh)}</b><i>Ad spend σύνολο</i></div>` : ''}
+        ${sh < 1 ? `<div><b>${eur(spendMine)}</b><i>Έξοδα</i></div><div><b>${eur(spendMine / sh)}</b><i>Ad spend σύνολο</i></div><div><b class="${astra - spendMine >= 0 ? 'pos' : 'neg'}">${eur(astra - spendMine)}</b><i>Κέρδος Astra</i></div>` : ''}
       </div>
       ${goalBar('Leads', lsM.length, c.goalLeads)}${goalBar('Πωλήσεις', wonM.length, c.goalSales)}
       ${(() => { const st = obState(c); const done = st.filter((x) => x[2]).length; return done < st.length ? goalBar('Setup', done, st.length) : ''; })()}
@@ -1701,7 +1701,8 @@ function renderClinicView() {
         <div class="tile"><div class="lb">Έσοδα μήνα</div><div class="v">${eur(sNow.revenue)}</div><div class="d">${eur(revAll)} συνολικά</div></div>
         ${(() => { const bk = ls.filter(isBooked); const bkM = bk.filter((l) => monthKey(billDate(l)) === nowMonth()); return `<div class="tile"><div class="lb">Έσοδα Astra</div><div class="v pos">${eur(sumFees(c, bkM))}</div><div class="d">${eur(sumFees(c, bk))} συνολικά · ${feeBreakdown(c, bkM) || '0 ραντεβού που έγιναν'}</div></div>`; })()}
         ${shareOf(c) < 1 ? `<div class="tile"><div class="lb">Έξοδα Astra</div><div class="v neg">${eur(sNow.spend)}</div><div class="d">${Math.round(shareOf(c) * 100)}% του ad spend</div></div>
-        <div class="tile"><div class="lb">Ad spend σύνολο</div><div class="v">${eur(sNow.spend / shareOf(c))}</div><div class="d">όλη η δαπάνη Meta του μήνα</div></div>`
+        <div class="tile"><div class="lb">Ad spend σύνολο</div><div class="v">${eur(sNow.spend / shareOf(c))}</div><div class="d">όλη η δαπάνη Meta του μήνα</div></div>
+        ${(() => { const bkM = ls.filter(isBooked).filter((l) => monthKey(billDate(l)) === nowMonth()); const pr = sumFees(c, bkM) - sNow.spend; return `<div class="tile"><div class="lb">Κέρδος Astra</div><div class="v ${pr >= 0 ? 'pos' : 'neg'}">${eur(pr)}</div><div class="d">έσοδα Astra − έξοδα · ${mLabel(nowMonth())}</div></div>`; })()}`
         : `<div class="tile"><div class="lb">Ad spend</div><div class="v ${+c.monthlyBudget && sNow.spend > +c.monthlyBudget ? 'neg' : ''}">${eur(sNow.spend)}</div><div class="d">${+c.monthlyBudget ? Math.round(100 * sNow.spend / +c.monthlyBudget) + '% του budget ' + eur(+c.monthlyBudget) : (sNow.cpl ? 'CPL ' + eur(sNow.cpl) : '—')}</div></div>`}
         ${(() => { const sp = speedToLead(c.id); return sp ? `<div class="tile"><div class="lb">1η ενέργεια (μ.ό.)</div><div class="v ${sp.avg <= 30 ? 'pos' : sp.avg > 240 ? 'neg' : ''}">${fmtMins(sp.avg)}</div><div class="d">${sp.n} leads · 30 ημέρες</div></div>` : ''; })()}
         <div class="tile"><div class="lb">Κόστος / Lead</div><div class="v">${sNow.cpl ? eur(sNow.cpl) : '—'}</div><div class="d">δαπάνη ÷ ενδιαφερόμενοι</div></div>
