@@ -2625,7 +2625,10 @@ function leadFeeOpt(l, c = clinicById(l.clinicId)) {
   const off = leadOffer(l);
   return os.find((o) => o.key === l.feeOption) || (off && os.find((o) => o.match && new RegExp(o.match, 'i').test(off))) || os[0];
 }
-const leadFee = (l, c = clinicById(l.clinicId)) => { const o = leadFeeOpt(l, c); return o ? +o.fee : clinicFee(c); };
+/* Αμοιβή Astra = 50 % της καθαρής αξίας (ποσό ÷ 1,24 ΦΠΑ) αυτού που πλήρωσε ο πελάτης (leads.amount)·
+   αν δεν έχει καταχωρηθεί ποσό ακόμη, πέφτει στο πακέτο (fee_options) ή στη σταθερή αμοιβή της κλινικής. */
+const feeFromAmount = (amt) => +((+amt || 0) / 1.24 / 2).toFixed(2);
+const leadFee = (l, c = clinicById(l.clinicId)) => { if ((+l.amount || 0) > 0) return feeFromAmount(l.amount); const o = leadFeeOpt(l, c); return o ? +o.fee : clinicFee(c); };
 const sumFees = (c, ls) => +ls.reduce((s, l) => s + leadFee(l, c), 0).toFixed(2);
 /* «3 × 56,45€ + 1 × 44,35€» για περιγραφές χρέωσης */
 function feeBreakdown(c, ls) {
