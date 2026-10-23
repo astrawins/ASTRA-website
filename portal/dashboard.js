@@ -1990,8 +1990,17 @@ function kanbanCard(l) {
   return `<div class="kcard" draggable="true" data-id="${l.id}">
     <b>${esc(l.name)}</b>
     <span class="ksub">${esc(c ? c.name : '—')}${d && !isNaN(d) ? ' · ' + d.toLocaleDateString('el-GR', { day: 'numeric', month: 'short' }) : ''}</span>
+    ${apptBadge(l)}
     ${+l.amount ? `<span class="kamt">${eur(+l.amount)}</span>` : ''}
   </div>`;
+}
+/* Ώρα/ημέρα ραντεβού ορατή απευθείας (χωρίς άνοιγμα καρτέλας): μόνο για leads στο στάδιο «Ραντεβού» με ημερομηνία */
+function apptBadge(l) {
+  if (l.status !== 'rv' || !l.nextAction) return '';
+  const d = new Date(l.nextAction + 'T12:00:00'); if (isNaN(d)) return '';
+  const over = l.nextAction < todayISO();
+  const txt = d.toLocaleDateString('el-GR', { weekday: 'short', day: 'numeric', month: 'short' }) + (l.apptTime ? ' · ' + hhmm(l.apptTime) : '');
+  return `<span class="apptb" style="display:inline-block;margin-top:3px;padding:2px 8px;border-radius:999px;font-size:11.5px;font-weight:600;background:${over ? 'rgba(200,40,40,.12)' : 'rgba(40,120,80,.12)'};color:${over ? 'var(--crit)' : 'var(--ok, #1d6b4a)'}" title="Ραντεβού">📅 ${txt}</span>`;
 }
 function renderKanban(ls) {
   $('leadKanban').innerHTML = Object.keys(STATUS).map((k) => {
@@ -2018,6 +2027,7 @@ kb.addEventListener('drop', async (e) => {
 kb.addEventListener('click', (e) => { const c = e.target.closest('.kcard'); if (c) openLeadModal(c.dataset.id); });
 function renderLeads() {
   fillClinicSelect($('flClinic'), 'Όλες οι κλινικές');
+  renderLeadClinicBar();
   const ls = filteredLeads();
   const filtered = $('flClinic').value || $('flStatus').value || $('flSearch').value.trim();
   $('leadFunnel').innerHTML = funnelHTML(filtered ? ls : S.leads);
@@ -2032,8 +2042,33 @@ function renderLeads() {
     return;
   }
   if (!ls.length) { el.innerHTML = '<div class="empty">Κανένα αποτέλεσμα με αυτά τα φίλτρα.</div>'; return; }
-  el.innerHTML = leadTableHTML(ls);
+  if ($('flClinic').value) { el.innerHTML = leadTableHTML(ls); return; }
+  /* Όλες οι κλινικές → ομαδοποίηση ανά κλινική, κάθε ομάδα ανοιγοκλείνει (η κατάσταση μένει αποθηκευμένη) */
+  let closed = []; try { closed = JSON.parse(localStorage.getItem('astra-leadgrp-closed') || '[]'); } catch { /* storage blocked */ }
+  const groups = S.clinics.map((c) => ({ id: c.id, name: c.name, ls: ls.filter((l) => l.clinicId === c.id) })).filter((g) => g.ls.length);
+  const orphan = ls.filter((l) => !clinicById(l.clinicId)); if (orphan.length) groups.push({ id: '_none', name: 'Χωρίς κλινική', ls: orphan });
+  groups.sort((a, b) => String(b.ls[0].createdTime || '').localeCompare(String(a.ls[0].createdTime || ''))); // πρώτη η κλινική με το πιο πρόσφατο lead
+  el.innerHTML = groups.map((g) => {
+    const nNew = g.ls.filter((l) => l.status === 'neo').length, nRv = g.ls.filter((l) => l.status === 'rv').length;
+    return `<details class="lgrp" data-cid="${g.id}"${closed.includes(g.id) ? '' : ' open'} style="border-bottom:1px solid var(--line, #e6e0d6)">
+      <summary style="cursor:pointer;padding:12px 14px;display:flex;gap:10px;align-items:center;font-weight:700;position:sticky;top:0;background:var(--card, #fff);z-index:1"><span>${esc(g.name)}</span><span class="chip plain">${g.ls.length} leads</span>${nNew ? `<span class="chip neo">${nNew} νέα</span>` : ''}${nRv ? `<span class="chip rv">${nRv} ραντεβού</span>` : ''}</summary>
+      <div class="tablewrap">${leadTableHTML(g.ls)}</div></details>`;
+  }).join('');
 }
+$('leadTable').addEventListener('toggle', (e) => {
+  const d = e.target; if (!d.classList || !d.classList.contains('lgrp')) return;
+  let closed = []; try { closed = JSON.parse(localStorage.getItem('astra-leadgrp-closed') || '[]'); } catch { /* storage blocked */ }
+  closed = closed.filter((x) => x !== d.dataset.cid); if (!d.open) closed.push(d.dataset.cid);
+  try { localStorage.setItem('astra-leadgrp-closed', JSON.stringify(closed)); } catch { /* storage blocked */ }
+}, true);
+function renderLeadClinicBar() {
+  const fs = $('flStatus').value, q = $('flSearch').value.trim().toLowerCase(), cur = $('flClinic').value;
+  const base = S.leads.filter((l) => (!fs || l.status === fs) && (!q || (l.name + ' ' + l.phone + ' ' + l.email).toLowerCase().includes(q)));
+  const chip = (id, name, n, nNew) => `<button type="button" class="btn small${cur === id ? ' primary' : ''}" data-clinic="${id}">${esc(name)} · ${n}${nNew ? ` <b style="color:${cur === id ? 'inherit' : 'var(--crit)'}">(${nNew} νέα)</b>` : ''}</button>`;
+  $('leadClinicBar').innerHTML = chip('', 'Όλες', base.length, base.filter((l) => l.status === 'neo').length)
+    + S.clinics.map((c) => { const x = base.filter((l) => l.clinicId === c.id); return chip(c.id, c.name, x.length, x.filter((l) => l.status === 'neo').length); }).join('');
+}
+$('leadClinicBar').addEventListener('click', (e) => { const b = e.target.closest('[data-clinic]'); if (!b) return; $('flClinic').value = b.dataset.clinic; renderLeads(); });
 const LEAD_THEAD = '<table><thead><tr><th>Ημ/νία</th><th>Όνομα</th><th>Επικοινωνία</th><th>Κλινική</th><th>Καμπάνια</th><th>Στάδιο</th><th>Επόμενη ενέργεια</th><th class="num">Ποσό αγοράς</th></tr></thead><tbody>';
 function leadRowHTML(l) {
   const c = clinicById(l.clinicId);
@@ -2043,7 +2078,7 @@ function leadRowHTML(l) {
   const over = l.nextAction && l.nextAction < todayISO() && !['won', 'lost'].includes(l.status);
   return `<tr data-id="${l.id}">
     <td class="mono" title="${esc(l.createdTime)}">${dstr}</td>
-    <td><b data-act="open" style="cursor:pointer">${esc(l.name)}</b>${l.notes ? `<div style="font-size:11.5px;color:var(--soft)">${esc(l.notes)}</div>` : ''}${l.sheetNotes && !l.notes ? `<div style="font-size:11.5px;color:var(--soft)" title="Σημείωση από το sheet"><span class="srctag">sheet</span> ${esc(l.sheetNotes)}</div>` : ''}</td>
+    <td><b data-act="open" style="cursor:pointer">${esc(l.name)}</b>${apptBadge(l) ? '<div>' + apptBadge(l) + '</div>' : ''}${l.notes ? `<div style="font-size:11.5px;color:var(--soft)">${esc(l.notes)}</div>` : ''}${l.sheetNotes && !l.notes ? `<div style="font-size:11.5px;color:var(--soft)" title="Σημείωση από το sheet"><span class="srctag">sheet</span> ${esc(l.sheetNotes)}</div>` : ''}</td>
     <td class="mono" style="font-size:12.5px">${l.phone ? telLink(l.phone) + `<button class="copybtn" data-copy="${esc(l.phone)}" title="Αντιγραφή">${COPY_ICON}</button>` : ''}${l.phone && l.email ? '<br>' : ''}${esc(l.email || '')}</td>
     <td>${esc(c ? c.name : '—')}</td>
     <td style="font-size:12.5px">${esc(l.campaign || '—')}${plat ? ` <span class="chip plain">${plat}</span>` : ''}</td>
