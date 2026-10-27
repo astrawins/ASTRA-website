@@ -572,10 +572,12 @@ function todayItems() {
     .sort((a, b) => String(a.nextAction + (a.apptTime || '')).localeCompare(String(b.nextAction + (b.apptTime || ''))));
   /* Σε εξέλιξη: ό,τι άλλο είναι ανοιχτό και δεν μπήκε πουθενά (π.χ. «Επικοινωνία» χωρίς επόμενη ενέργεια, ή ενέργεια
      προγραμματισμένη για μελλοντική μέρα) — ώστε ΚΑΝΕΝΑ τηλέφωνο να μη χάνεται από την οθόνη. */
+  /* Υπενθυμίσεις ραντεβού που πρέπει να σταλούν τώρα (3 μέρες / 1 μέρα / 1 ώρα πριν) */
+  const remind = open.filter((l) => remindersDue(l).length).sort((a, b) => String(a.nextAction + (a.apptTime || '')).localeCompare(String(b.nextAction + (b.apptTime || ''))));
   const seen = new Set([...due, ...fresh, ...upcoming, ...stale, ...confirm].map((l) => l.id));
   const inProgress = open.filter((l) => !seen.has(l.id))
     .sort((a, b) => String(a.nextAction || '9999').localeCompare(String(b.nextAction || '9999')) || lastTouch(b) - lastTouch(a));
-  return { due, fresh, upcoming, stale, confirm, inProgress };
+  return { due, fresh, upcoming, stale, confirm, inProgress, remind };
 }
 /* ===== Follow-up ακολουθία (όρισε ο χρήστης 27/10/2026 — 0 απαντήσεις σε 4η/5η κλήση, άρα κόπηκαν):
    μήνυμα γνωριμίας → 4 κλήσεις (3η και 4η από το 2ο τηλέφωνο, Πέτρος) → 2ο μήνυμα → τελικό μήνυμα 5 μέρες μετά → χαμένο. ===== */
@@ -598,28 +600,72 @@ const DEF_MSG5 = 'Γεια σας {όνομα}, σας γράφουμε για �
 const DEF_MSG3 = 'Γεια σας {όνομα}, {εγώ} από την {κλινική}. Χάρηκα που μιλήσαμε! Όπως είπαμε, σας στέλνω εδώ την προσφορά για να τη δείτε με την ησυχία σας. Θα σας καλέσω ξανά σε 2 μέρες — αν στο μεταξύ αποφασίσετε, γράψτε μου εδώ ποια μέρα σας βολεύει και σας κλείνω ραντεβού. 😊';
 const DEF_MSG4 = 'Γεια σας {όνομα}, {εγώ} από {κλινική}. Το ραντεβού σας είναι {ημέρα} στις {ώρα}.\n📍 {διεύθυνση}\nΑν χρειαστεί αλλαγή ώρας, στείλτε μου ένα μήνυμα εδώ. Θα τα πούμε από κοντά! 😊';
 /* Μήνυμα ραντεβού: ημέρα + ώρα από την καρτέλα, διεύθυνση από την κλινική, link χάρτη. */
-function apptText(l) {
+const DEF_MSG6 = 'Γεια σας {όνομα}, σας θυμίζουμε το ραντεβού σας στην {κλινική} {πότε}.\n📍 {διεύθυνση}\nΑν κάτι αλλάξει, στείλτε μας ένα μήνυμα εδώ. 😊';
+/* Υπενθυμίσεις ραντεβού (όρισε ο χρήστης 27/10/2026): 3 μέρες πριν (10:00), 1 μέρα πριν (10:00), 1 ώρα πριν.
+   Κάθε μία στέλνεται με ένα πάτημα (SMS/WhatsApp) και καταγράφεται στο call_log ως msg με attempt 6/7/8. */
+const REMINDERS = [
+  { w: 6, short: '3 μέρες πριν', days: 3, pote: (l) => 'σε 3 μέρες, ' + apptDayText(l, 'την ') + ' στις ' + (hhmm(l.apptTime) || '—') },
+  { w: 7, short: '1 μέρα πριν', days: 1, pote: (l) => 'αύριο ' + apptDayText(l) + ' στις ' + (hhmm(l.apptTime) || '—') },
+  { w: 8, short: '1 ώρα πριν', mins: 60, pote: (l) => 'σήμερα στις ' + (hhmm(l.apptTime) || '—') + ', σε περίπου μία ώρα' },
+];
+const apptDayText = (l, art = '') => l.nextAction ? art + new Date(l.nextAction + 'T12:00:00').toLocaleDateString('el-GR', { weekday: 'long', day: 'numeric', month: 'long' }) : '—';
+const apptAt = (l) => (l.nextAction ? new Date(l.nextAction + 'T' + (hhmm(l.apptTime) || '10:00') + ':00') : null);
+/* Πότε «πέφτει» κάθε υπενθύμιση για ένα ραντεβού */
+function reminderDue(l, r) {
+  const ap = apptAt(l); if (!ap) return null;
+  if (r.mins) return new Date(ap.getTime() - r.mins * 60000);
+  const d = new Date(ap); d.setDate(d.getDate() - r.days); d.setHours(10, 0, 0, 0); return d;
+}
+const reminderSent = (l, r) => S.calls.filter((x) => x.leadId === l.id && x.kind === 'msg' && +x.attempt === r.w).sort((a, b) => String(b.at).localeCompare(String(a.at)))[0];
+/* Υπενθυμίσεις που πρέπει να σταλούν ΤΩΡΑ (έφτασε η ώρα, το ραντεβού δεν έχει περάσει, δεν έχει σταλεί) */
+function remindersDue(l) {
+  if (l.status !== 'rv' || !l.nextAction) return [];
+  const ap = apptAt(l), now = Date.now();
+  return REMINDERS.filter((r) => { const d = reminderDue(l, r); return d && d.getTime() <= now && ap.getTime() > now && !reminderSent(l, r); });
+}
+/* Κείμενο μηνύματος ραντεβού (w=4) ή υπενθύμισης (w=6/7/8) */
+function apptText(l, w = 4) {
   const c = clinicById(l.clinicId); const st = SET();
   const first = (l.name || '').trim().split(/\s+/)[0] || '';
-  const day = l.nextAction ? new Date(l.nextAction + 'T12:00:00').toLocaleDateString('el-GR', { weekday: 'long', day: 'numeric', month: 'long' }) : '—';
   const addr = (c && c.address || '').trim();
   // {χάρτης}: μόνο αν η κλινική έχει σύντομο link (π.χ. maps.app.goo.gl)· αλλιώς τίποτα — η διεύθυνση γίνεται πατητή μόνη της στο SMS
   const map = (c && c.mapUrl || '').trim();
-  return fillSender(st.followMsg4 || DEF_MSG4, c).replaceAll('{όνομα}', first).replaceAll('{κλινική}', c ? c.name : 'την κλινική')
-    .replaceAll('{ημέρα}', day).replaceAll('{ώρα}', hhmm(l.apptTime) || '—').replaceAll('{διεύθυνση}', addr || (c && c.name) || '').replaceAll('{χάρτης}', map)
+  const r = REMINDERS.find((x) => x.w === w);
+  const tpl = r ? (st.followMsg6 || DEF_MSG6) : (st.followMsg4 || DEF_MSG4);
+  return fillSender(tpl, c).replaceAll('{όνομα}', first).replaceAll('{κλινική}', c ? c.name : 'την κλινική')
+    .replaceAll('{πότε}', r ? r.pote(l) : '').replaceAll('{ημέρα}', apptDayText(l)).replaceAll('{ώρα}', hhmm(l.apptTime) || '—')
+    .replaceAll('{διεύθυνση}', addr || (c && c.name) || '').replaceAll('{χάρτης}', map)
     .replace(/\n{2,}/g, '\n').trim();
 }
-/* Κουμπιά μηνύματος ραντεβού στην καρτέλα (φαίνονται μόνο σε στάδιο Ραντεβού με ημερομηνία) */
-function apptStrip(l) {
+/* Μία γραμμή κουμπιών SMS/WhatsApp/Αντιγραφή για μήνυμα w */
+function apptBtns(l, w, title, extra = '') {
+  const ph = intlPhone(l.phone); const t = apptText(l, w);
+  const r = REMINDERS.find((x) => x.w === w); const sent = r ? reminderSent(l, r) : S.calls.filter((x) => x.leadId === l.id && x.kind === 'msg' && +x.attempt === 4).sort((a, b) => String(b.at).localeCompare(String(a.at)))[0];
+  const chip = sent ? `<span class="chip plain">στάλθηκε ${new Date(sent.at).toLocaleDateString('el-GR', { day: 'numeric', month: 'short' })} · ${esc(sent.channel)}</span>` : '';
+  return `<div class="followstrip"><span class="ftitle">${title}</span>${extra}
+      <span class="fmsg">${ph ? `<a class="btn small${sent ? '' : ' primary'}" href="sms:+${ph}&body=${encodeURIComponent(t)}" data-asent="SMS" data-aw="${w}">SMS</a>
+      <a class="btn small" href="https://wa.me/${ph}?text=${encodeURIComponent(t)}" target="_blank" rel="noopener" data-asent="WhatsApp" data-aw="${w}">WhatsApp</a>` : ''}
+      <button class="btn small" data-acopy="1" data-aw="${w}" title="Αντιγραφή κειμένου">Αντιγραφή</button></span>${chip}</div>`;
+}
+/* Κουμπιά μηνύματος ραντεβού + υπενθυμίσεων στην καρτέλα (μόνο σε στάδιο Ραντεβού με ημερομηνία).
+   onlyDue: μόνο οι υπενθυμίσεις που πρέπει να σταλούν τώρα (σελίδα «Σήμερα»). */
+function apptStrip(l, onlyDue = false) {
   if (l.status !== 'rv' || !l.nextAction) return '';
-  const ph = intlPhone(l.phone); const t = apptText(l);
-  const sent = S.calls.filter((x) => x.leadId === l.id && x.kind === 'msg' && +x.attempt === 4).sort((a, b) => String(b.at).localeCompare(String(a.at)))[0];
   const warn = !(clinicById(l.clinicId) || {}).address ? ' <span class="chip lost" title="Βάλε διεύθυνση στην καρτέλα της κλινικής">χωρίς διεύθυνση</span>' : '';
-  return `<div class="followstrip"><span class="ftitle">✉ Μήνυμα ραντεβού</span>${warn}
-      <span class="fmsg">${ph ? `<a class="btn small primary" href="sms:+${ph}&body=${encodeURIComponent(t)}" data-asent="SMS">SMS</a>
-      <a class="btn small" href="https://wa.me/${ph}?text=${encodeURIComponent(t)}" target="_blank" rel="noopener" data-asent="WhatsApp">WhatsApp</a>` : ''}
-      <button class="btn small" data-acopy="1" title="Αντιγραφή κειμένου">Αντιγραφή</button></span>
-      ${sent ? `<span class="chip plain">στάλθηκε ${new Date(sent.at).toLocaleDateString('el-GR', { day: 'numeric', month: 'short' })} · ${esc(sent.channel)}</span>` : ''}</div>`;
+  if (onlyDue) return remindersDue(l).map((r) => apptBtns(l, r.w, `✉ Υπενθύμιση · ${r.short}`, warn)).join('');
+  const ap = apptAt(l); const now = Date.now();
+  const rem = REMINDERS.map((r) => { const d = reminderDue(l, r); const due = d && d.getTime() <= now && ap.getTime() > now; const past = ap.getTime() <= now;
+    return apptBtns(l, r.w, `✉ ${r.short}`, due && !reminderSent(l, r) ? ' <span class="chip lost">τώρα</span>' : (!past && d && d.getTime() > now ? ` <span class="chip plain">${esc(dueText(d.toISOString()))}</span>` : '')); }).join('');
+  return apptBtns(l, 4, '✉ Μήνυμα ραντεβού', warn) + rem;
+}
+/* Κλικ σε κουμπί μηνύματος ραντεβού/υπενθύμισης (καρτέλα ή σελίδα «Σήμερα») → καταγραφή */
+async function apptClick(e, l) {
+  const a = e.target.closest('[data-asent]'); const cp = e.target.closest('[data-acopy]'); if (!a && !cp) return false;
+  const w = +((a || cp).dataset.aw || 4); const r = REMINDERS.find((x) => x.w === w);
+  const label = r ? `υπενθύμισης ραντεβού (${r.short})` : 'ραντεβού';
+  const done = async (ch) => { await logCall(l, { kind: 'msg', attempt: w, channel: ch.toLowerCase(), outcome: 'sent' }); await logAct(l.id, 'status', `Στάλθηκε μήνυμα ${label} · ${ch}`); await refresh(); const l2 = leadById(l.id); if (l2 && !$('leadModal').hidden) { renderApptStrip(l2); renderTimeline(l2); } };
+  if (a) { setTimeout(() => done(a.dataset.asent), 300); return true; } // το link ανοίγει κανονικά
+  e.preventDefault(); try { await navigator.clipboard.writeText(apptText(l, w)); } catch { /* ok */ } toast('Αντιγράφηκε — στείλ\' το από το κινητό.'); await done('αντιγραφή'); return true;
 }
 /* Υπογραφή {εγώ} ανά κλινική: κενό = γενική ρύθμιση, «-» = χωρίς όνομα (τότε «{εγώ} από {κλινική}» → «σας γράφουμε από την {κλινική}») */
 function senderFor(c) { const s = (c && c.followSender || '').trim() || (SET().followSender || '').trim(); return s === '-' ? '' : s; }
@@ -775,7 +821,7 @@ function todayRow(l, kind) {
   const noteTxt = note ? `<div class="todaynote" title="${esc(note.text)}">📝 ${esc(note.text.slice(0, 140))}${note.text.length > 140 ? '…' : ''}${note.at ? ` <span class="tmeta">${new Date(note.at).toLocaleDateString('el-GR', { day: 'numeric', month: 'short' })}</span>` : ''}</div>` : '';
   const when = kind === 'open' ? (l.nextAction ? dueTxt : 'χωρίς επόμενη ενέργεια') : dueTxt;
   return `<div class="todayrow" data-id="${l.id}">
-    <div class="who"><b data-act="open">${esc(l.name)}</b><div class="sub">${esc(c ? c.name : '—')}${l.campaign ? ' · ' + esc(l.campaign) : ''}</div>${noteTxt}${followStrip(l)}</div>
+    <div class="who"><b data-act="open">${esc(l.name)}</b><div class="sub">${esc(c ? c.name : '—')}${l.campaign ? ' · ' + esc(l.campaign) : ''}</div>${noteTxt}${followStrip(l)}${l.status === 'rv' ? apptStrip(l, true) : ''}</div>
     <span class="chip ${l.status}">${STATUS[l.status]}</span>
     <span class="due ${over ? 'over' : ''}">${when}</span>
     <span class="mono" style="font-size:12.5px">${telLink(l.phone)}${l.phone ? `<button class="copybtn" data-copy="${esc(l.phone)}" title="Αντιγραφή">${COPY_ICON}</button>` : ''}</span>
@@ -862,9 +908,10 @@ function clinicCallsBlock(due, fresh, upcoming, stale, confirm = [], inProgress 
   const groups = new Map();
   const add = (l, kind) => {
     const k = l.clinicId || '_none';
-    if (!groups.has(k)) groups.set(k, { due: [], fresh: [], up: [], stale: [], confirm: [], open: [] });
+    if (!groups.has(k)) groups.set(k, { due: [], fresh: [], up: [], stale: [], confirm: [], open: [], remind: [] });
     groups.get(k)[kind].push(l);
   };
+  remind.forEach((l) => add(l, 'remind'));
   confirm.forEach((l) => add(l, 'confirm'));
   inProgress.forEach((l) => add(l, 'open'));
   due.forEach((l) => add(l, 'due'));
@@ -890,6 +937,7 @@ function clinicCallsBlock(due, fresh, upcoming, stale, confirm = [], inProgress 
     <div class="callgroups">${rows.map(({ cid, g, calls, c }) => {
       const open = openCallGroups.has(cid);
       const parts = [];
+      if (g.remind.length) parts.push(`<span class="chip lost">${g.remind.length} υπενθυμίσεις SMS</span>`);
       if (g.due.length) parts.push(`<span class="chip lost">${g.due.length} για σήμερα</span>`);
       if (g.fresh.length) parts.push(`<span class="chip epik">${g.fresh.length} νέα</span>`);
       if (g.stale.length) parts.push(`<span class="chip plain">${g.stale.length} ξεχασμένα</span>`);
@@ -907,6 +955,7 @@ function clinicCallsBlock(due, fresh, upcoming, stale, confirm = [], inProgress 
           <span class="cgchips">${parts.join('')}</span>
         </button>
         ${open ? `<div class="cgbody">
+          ${sub('Υπενθυμίσεις ραντεβού — στείλε SMS τώρα', 'lost', g.remind, (l) => todayRow(l, 'remind'))}
           ${sub('Προς επιβεβαίωση · ραντεβού σήμερα/αύριο — κάλεσε τον ασθενή', 'epik', g.confirm, (l) => todayRow(l, 'confirm'))}
           ${sub('Για σήμερα', 'lost', g.due, (l) => todayRow(l, 'due'))}
           ${sub('Νέα χωρίς επικοινωνία (48ω+)', 'epik', g.fresh, (l) => todayRow(l, 'fresh'))}
@@ -920,6 +969,7 @@ function clinicCallsBlock(due, fresh, upcoming, stale, confirm = [], inProgress 
 $('btnTodayRefresh').onclick = refresh;
 $('todayBody').addEventListener('click', async (e) => {
   if (e.target.closest('[data-fstep],[data-fsent],[data-fcopy],[data-fcall],[data-freply],[data-fnoans],[data-flost]')) { await followClick(e); return; }
+  if (e.target.closest('[data-asent],[data-acopy]')) { const row = e.target.closest('[data-id]'); const l = row && leadById(row.dataset.id); if (l) await apptClick(e, l); return; }
   const tg = e.target.closest('[data-cgrp]');
   if (tg) {
     const k = tg.dataset.cgrp;
@@ -1056,13 +1106,7 @@ $('lmTemplates').addEventListener('click', (e) => {
   try { navigator.clipboard.writeText(text).then(() => toast('Αντιγράφηκε το μήνυμα «' + t.t + '».')).catch(() => toast(text)); } catch { toast(text); }
 });
 function renderApptStrip(l) { const h = apptStrip(l); $('lmAppt').innerHTML = h; $('lmAppt').hidden = !h; }
-$('lmAppt').addEventListener('click', async (e) => {
-  const l = modalLeadId && leadById(modalLeadId); if (!l) return;
-  const a = e.target.closest('[data-asent]'); const cp = e.target.closest('[data-acopy]');
-  const done = async (ch) => { await logCall(l, { kind: 'msg', attempt: 4, channel: ch.toLowerCase(), outcome: 'sent' }); await logAct(l.id, 'status', 'Στάλθηκε μήνυμα ραντεβού · ' + ch); await refresh(); const l2 = leadById(l.id); if (l2) { renderApptStrip(l2); renderTimeline(l2); } };
-  if (a) { setTimeout(() => done(a.dataset.asent), 300); return; } // το link ανοίγει κανονικά
-  if (cp) { e.preventDefault(); try { await navigator.clipboard.writeText(apptText(l)); } catch { /* ok */ } toast('Αντιγράφηκε — στείλ\' το από το κινητό.'); await done('αντιγραφή'); }
-});
+$('lmAppt').addEventListener('click', async (e) => { const l = modalLeadId && leadById(modalLeadId); if (l) await apptClick(e, l); });
 $('lmFollow').addEventListener('click', async (e) => { if (await followClick(e)) { const l = leadById(modalLeadId); if (l) { $('lmFollow').innerHTML = followStrip(l); $('lmFollow').hidden = !inFollow(l); renderTimeline(l); } } });
 $('lmClose').onclick = () => { $('leadModal').hidden = true; modalLeadId = null; };
 $('leadModal').addEventListener('click', (e) => { if (e.target === $('leadModal')) { $('leadModal').hidden = true; modalLeadId = null; } });
@@ -3513,6 +3557,7 @@ function renderSettings() {
   $('st_followMsg3').value = s.followMsg3 || DEF_MSG3;
   $('st_followMsg4').value = s.followMsg4 || DEF_MSG4;
   $('st_followMsg5').value = s.followMsg5 || DEF_MSG5;
+  $('st_followMsg6').value = s.followMsg6 || DEF_MSG6;
 }
 $('btnSaveSettings').onclick = async () => {
   const d = {
@@ -3536,6 +3581,7 @@ $('btnSaveSettings').onclick = async () => {
     followMsg3: $('st_followMsg3').value.trim() || null,
     followMsg4: $('st_followMsg4').value.trim() || null,
     followMsg5: $('st_followMsg5').value.trim() || null,
+    followMsg6: $('st_followMsg6').value.trim() || null,
   };
   try {
     if (S.settings) await data.update('settings', 'main', d);
