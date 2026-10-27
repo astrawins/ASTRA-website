@@ -601,7 +601,7 @@ function apptText(l) {
   const day = l.nextAction ? new Date(l.nextAction + 'T12:00:00').toLocaleDateString('el-GR', { weekday: 'long', day: 'numeric', month: 'long' }) : '—';
   const addr = (c && c.address || '').trim();
   // Link οδηγιών: ανοίγει Google Maps (app σε iPhone/Android αν υπάρχει, αλλιώς web) με διαδρομή προς το ιατρείο
-  const map = addr ? 'https://www.google.com/maps/dir/?api=1&destination=' + encodeURIComponent(addr.replace(/\s*\(.*?\)\s*/g, ' ').trim()) : '';
+  const map = (c && c.mapUrl || '').trim() || (addr ? 'https://www.google.com/maps/dir/?api=1&destination=' + encodeURIComponent(addr.replace(/\s*\(.*?\)\s*/g, ' ').trim()) : '');
   return (st.followMsg4 || DEF_MSG4).replaceAll('{όνομα}', first).replaceAll('{κλινική}', c ? c.name : 'την κλινική').replaceAll('{εγώ}', st.followSender || 'Πέτρος')
     .replaceAll('{ημέρα}', day).replaceAll('{ώρα}', hhmm(l.apptTime) || '—').replaceAll('{διεύθυνση}', addr || (c && c.name) || '').replaceAll('{χάρτης}', map)
     .replace(/\n{2,}/g, '\n').trim();
@@ -1457,7 +1457,7 @@ document.addEventListener('keydown', (e) => {
 let editClinicId = null;
 $('btnNewClinic').onclick = () => {
   editClinicId = null; $('clinicFormTitle').textContent = 'Νέα κλινική';
-  ['cf_name', 'cf_doctor', 'cf_spec', 'cf_phone', 'cf_address', 'cf_email', 'cf_portalEmail', 'cf_fee', 'cf_apptFee', 'cf_sharePct', 'cf_dailyBudget', 'cf_monthlyBudget', 'cf_goalLeads', 'cf_goalSales', 'cf_contractStart', 'cf_contractEnd', 'cf_nextTouch', 'cf_tags', 'cf_contacts', 'cf_sheet', 'cf_metaAd', 'cf_metaSince', 'cf_metaFilter', 'cf_spendShare', 'cf_gcalId', 'cf_script', 'cf_templates', 'cf_notes'].forEach((i) => { $(i).value = ''; });
+  ['cf_name', 'cf_doctor', 'cf_spec', 'cf_phone', 'cf_address', 'cf_mapUrl', 'cf_email', 'cf_portalEmail', 'cf_fee', 'cf_apptFee', 'cf_sharePct', 'cf_dailyBudget', 'cf_monthlyBudget', 'cf_goalLeads', 'cf_goalSales', 'cf_contractStart', 'cf_contractEnd', 'cf_nextTouch', 'cf_tags', 'cf_contacts', 'cf_sheet', 'cf_metaAd', 'cf_metaSince', 'cf_metaFilter', 'cf_spendShare', 'cf_gcalId', 'cf_script', 'cf_templates', 'cf_notes'].forEach((i) => { $(i).value = ''; });
   $('clinicForm').hidden = false; $('cf_name').focus();
 };
 $('btnCancelClinic').onclick = () => { $('clinicForm').hidden = true; };
@@ -1481,6 +1481,7 @@ $('btnSaveClinic').onclick = async () => {
     script: $('cf_script').value.trim(),
     gcalId: gcalIdFrom($('cf_gcalId').value),
     address: $('cf_address').value.trim(),
+    mapUrl: $('cf_mapUrl').value.trim(),
     templates: $('cf_templates').value.split('\n').map((ln) => {
       const i = ln.indexOf(':'); if (i < 1) return null;
       return { t: ln.slice(0, i).trim(), b: ln.slice(i + 1).trim() };
@@ -1580,6 +1581,7 @@ function openClinicEdit(id) {
   $('cf_script').value = c.script || '';
   $('cf_gcalId').value = c.gcalId || '';
   $('cf_address').value = c.address || '';
+  $('cf_mapUrl').value = c.mapUrl || '';
   $('cf_templates').value = (Array.isArray(c.templates) ? c.templates : []).map((t) => t.t + ': ' + t.b).join('\n');
   $('cf_sheet').value = c.sheetUrl || ''; $('cf_metaAd').value = c.metaAdAccount || ''; $('cf_metaSince').value = c.metaSince || ''; $('cf_metaFilter').value = c.metaFilter || ''; $('cf_spendShare').value = c.spendShare && +c.spendShare !== 100 ? c.spendShare : ''; $('cf_notes').value = c.notes || '';
   $('clinicForm').hidden = false; window.scrollTo({ top: 0 });

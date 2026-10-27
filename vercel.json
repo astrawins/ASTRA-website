@@ -141,6 +141,26 @@
       "source": "/el/ypiresies/",
       "destination": "/el/",
       "permanent": true
+    },
+    {
+      "source": "/m/hd",
+      "destination": "https://www.google.com/maps/dir/?api=1&destination=%CE%9C%CE%B9%CE%BB%CF%84%CE%B9%CE%AC%CE%B4%CE%BF%CF%85%2010%2C%20%CE%9A%CE%B7%CF%86%CE%B9%CF%83%CE%B9%CE%AC%20145%2062",
+      "permanent": false
+    },
+    {
+      "source": "/m/facemed",
+      "destination": "https://www.google.com/maps/dir/?api=1&destination=%CE%91%CF%81%CE%B3%CE%BF%CE%BB%CE%AF%CE%B4%CE%BF%CF%82%202%2C%20%CE%91%CE%BC%CF%80%CE%B5%CE%BB%CF%8C%CE%BA%CE%B7%CF%80%CE%BF%CE%B9%20115%2023",
+      "permanent": false
+    },
+    {
+      "source": "/m/karma",
+      "destination": "https://www.google.com/maps/dir/?api=1&destination=%CE%91%CE%BA%CE%B1%CE%B4%CE%B7%CE%BC%CE%AF%CE%B1%CF%82%2052%2C%20%CE%91%CE%B8%CE%AE%CE%BD%CE%B1%20106%2079",
+      "permanent": false
+    },
+    {
+      "source": "/m/artista",
+      "destination": "https://www.google.com/maps/dir/?api=1&destination=%CE%A7%CF%81%CE%AE%CF%83%CF%84%CE%BF%CF%85%20%CE%92%CE%BF%CF%85%CF%81%CE%BD%CE%AC%CE%B6%CE%BF%CF%85%2010-12%2C%20%CE%91%CE%BC%CF%80%CE%B5%CE%BB%CF%8C%CE%BA%CE%B7%CF%80%CE%BF%CE%B9%20115%2021",
+      "permanent": false
     }
   ]
 }
