@@ -602,7 +602,7 @@ const DEF_MSG4 = 'Γεια σας {όνομα}, {εγώ} από {κλινική}
 /* Μήνυμα ραντεβού: ημέρα + ώρα από την καρτέλα, διεύθυνση από την κλινική, link χάρτη. */
 const DEF_MSG6 = 'Γεια σας {όνομα}, σας θυμίζουμε το ραντεβού σας στην {κλινική} {πότε}.\n📍 {διεύθυνση}\nΑν κάτι αλλάξει, στείλτε μας ένα μήνυμα εδώ. 😊';
 /* Υπενθυμίσεις ραντεβού (όρισε ο χρήστης 27/10/2026): 3 μέρες πριν (10:00), 1 μέρα πριν (10:00), 1 ώρα πριν.
-   Κάθε μία στέλνεται με ένα πάτημα (SMS/WhatsApp) και καταγράφεται στο call_log ως msg με attempt 6/7/8. */
+   Κάθε μία στέλνεται με ένα πάτημα (SMS/Viber) και καταγράφεται στο call_log ως msg με attempt 6/7/8. */
 const REMINDERS = [
   { w: 6, short: '3 μέρες πριν', days: 3, pote: (l) => 'σε 3 μέρες, ' + apptDayText(l, 'την ') + ' στις ' + (hhmm(l.apptTime) || '—') },
   { w: 7, short: '1 μέρα πριν', days: 1, pote: (l) => 'αύριο ' + apptDayText(l) + ' στις ' + (hhmm(l.apptTime) || '—') },
@@ -637,14 +637,14 @@ function apptText(l, w = 4) {
     .replaceAll('{διεύθυνση}', addr || (c && c.name) || '').replaceAll('{χάρτης}', map)
     .replace(/\n{2,}/g, '\n').trim();
 }
-/* Μία γραμμή κουμπιών SMS/WhatsApp/Αντιγραφή για μήνυμα w */
+/* Μία γραμμή κουμπιών SMS/Viber/Αντιγραφή για μήνυμα w */
 function apptBtns(l, w, title, extra = '') {
   const ph = intlPhone(l.phone); const t = apptText(l, w);
   const r = REMINDERS.find((x) => x.w === w); const sent = r ? reminderSent(l, r) : S.calls.filter((x) => x.leadId === l.id && x.kind === 'msg' && +x.attempt === 4).sort((a, b) => String(b.at).localeCompare(String(a.at)))[0];
   const chip = sent ? `<span class="chip plain">στάλθηκε ${new Date(sent.at).toLocaleDateString('el-GR', { day: 'numeric', month: 'short' })} · ${esc(sent.channel)}</span>` : '';
   return `<div class="followstrip"><span class="ftitle">${title}</span>${extra}
       <span class="fmsg">${ph ? `<a class="btn small${sent ? '' : ' primary'}" href="sms:+${ph}&body=${encodeURIComponent(t)}" data-asent="SMS" data-aw="${w}">SMS</a>
-      <a class="btn small" href="https://wa.me/${ph}?text=${encodeURIComponent(t)}" target="_blank" rel="noopener" data-asent="WhatsApp" data-aw="${w}">WhatsApp</a>` : ''}
+      <a class="btn small" href="viber://chat?number=%2B${ph}" data-asent="Viber" data-aw="${w}" title="Αντιγράφει το κείμενο και ανοίγει το Viber — επικόλλησέ το">Viber</a>` : ''}
       <button class="btn small" data-acopy="1" data-aw="${w}" title="Αντιγραφή κειμένου">Αντιγραφή</button></span>${chip}</div>`;
 }
 /* Κουμπιά μηνύματος ραντεβού + υπενθυμίσεων στην καρτέλα (μόνο σε στάδιο Ραντεβού με ημερομηνία).
@@ -664,7 +664,7 @@ async function apptClick(e, l) {
   const w = +((a || cp).dataset.aw || 4); const r = REMINDERS.find((x) => x.w === w);
   const label = r ? `υπενθύμισης ραντεβού (${r.short})` : 'ραντεβού';
   const done = async (ch) => { await logCall(l, { kind: 'msg', attempt: w, channel: ch.toLowerCase(), outcome: 'sent' }); await logAct(l.id, 'status', `Στάλθηκε μήνυμα ${label} · ${ch}`); await refresh(); const l2 = leadById(l.id); if (l2 && !$('leadModal').hidden) { renderApptStrip(l2); renderTimeline(l2); } };
-  if (a) { setTimeout(() => done(a.dataset.asent), 300); return true; } // το link ανοίγει κανονικά
+  if (a) { if (a.dataset.asent === 'Viber') { try { await navigator.clipboard.writeText(apptText(l, w)); } catch { /* ok */ } toast('Το κείμενο αντιγράφηκε — επικόλλησέ το στο Viber.'); } setTimeout(() => done(a.dataset.asent), 300); return true; } // το link ανοίγει κανονικά
   e.preventDefault(); try { await navigator.clipboard.writeText(apptText(l, w)); } catch { /* ok */ } toast('Αντιγράφηκε — στείλ\' το από το κινητό.'); await done('αντιγραφή'); return true;
 }
 /* Υπογραφή {εγώ} ανά κλινική: κενό = γενική ρύθμιση, «-» = χωρίς όνομα (τότε «{εγώ} από {κλινική}» → «σας γράφουμε από την {κλινική}») */
@@ -721,7 +721,7 @@ function msgBtns(l, w) {
   const ph = intlPhone(l.phone);
   return `<span class="fmsg" data-fmsg="${w}">
       ${ph ? `<a class="btn small primary" href="sms:+${ph}&body=${encodeURIComponent(followText(l, w))}" data-fsent="${w}">SMS</a>
-      <a class="btn small" href="https://wa.me/${ph}?text=${encodeURIComponent(followText(l, w))}" target="_blank" rel="noopener" data-fsent="${w}">WhatsApp</a>` : ''}
+      <a class="btn small" href="viber://chat?number=%2B${ph}" data-fsent="${w}" title="Αντιγράφει το κείμενο και ανοίγει το Viber — επικόλλησέ το">Viber</a>` : ''}
       ${l.email ? `<a class="btn small" href="${gmailLink(l, w)}" target="_blank" rel="noopener" data-fsent="${w}" title="Για όσους έδωσαν λάθος τηλέφωνο">Gmail</a>` : ''}
       <button class="btn small" data-fcopy="${w}" title="Αντιγραφή κειμένου">Αντιγραφή</button></span>`;
 }
@@ -733,7 +733,7 @@ function followStrip(l) {
       <span class="fcall"><span class="ftitle">☎ επανάκληση</span>
       <button class="btn small primary" data-fcall="answered">✓ Απάντησε</button>
       <button class="btn small" data-fcall="no_answer">Δεν σήκωσε</button></span>
-      <button class="btn small" data-freply="1" title="Απάντησε σε SMS / WhatsApp / email">↩ Απάντησε σε μήνυμα</button>
+      <button class="btn small" data-freply="1" title="Απάντησε σε SMS / Viber / email">↩ Απάντησε σε μήνυμα</button>
       <span class="fnow">επανάκληση ${l.nextAction ? esc(dueText(l.nextAction + 'T10:00')) : '—'}</span></div>`;
   }
   const cur = Math.min(FOLLOW_MAX, +l.followStep || 0);
@@ -748,7 +748,7 @@ function followStrip(l) {
       <button class="btn small" data-fcall="wrong" title="Λάθος / ανύπαρκτο νούμερο → Χαμένο">Λάθος νούμερο</button></span>`;
   }
   if (cur === 7) action = `<button class="btn small danger" data-flost="1" title="Δεν απάντησε σε 3 μηνύματα και 4 κλήσεις">Κλείσε ως χαμένο</button>`;
-  if (cur >= 1) action += `<button class="btn small" data-freply="1" title="Απάντησε σε SMS / WhatsApp / email">↩ Απάντησε σε μήνυμα</button>`;
+  if (cur >= 1) action += `<button class="btn small" data-freply="1" title="Απάντησε σε SMS / Viber / email">↩ Απάντησε σε μήνυμα</button>`;
   const nxt = cur >= 1 && l.followDue ? ` · επόμενο: <b>${NEXT_LABEL[cur]} ${esc(dueText(l.followDue))}</b>` : '';
   return `<div class="followstrip"><span class="ftitle">Follow-up</span>${dots}${action}<span class="fnow">${esc(FOLLOW[cur].label)}${nxt}</span></div>`;
 }
@@ -765,7 +765,7 @@ async function followClick(e) {
   const st = e.target.closest('[data-fstep]');
   if (st) { const k = +st.dataset.fstep; await setFollow(id, (+l.followStep || 0) === k ? k - 1 : k, 'χειροκίνητα'); return true; }
   const sent = e.target.closest('[data-fsent]');
-  if (sent) { const w = +sent.dataset.fsent; const ch = sent.textContent.trim(); setTimeout(async () => { await logCall(l, { kind: 'msg', attempt: w, channel: ch.toLowerCase(), outcome: 'sent' }); if (w === 3) await updateLead(id, { nextAction: l.nextAction && l.nextAction > todayISO() ? l.nextAction : addDays(2) }, 'status', 'Στάλθηκε μήνυμα «θα το σκεφτεί» · ' + ch); else await setFollow(id, w === 1 ? 1 : w === 5 ? 7 : 6, ch); }, 300); return true; } // το link ανοίγει κανονικά
+  if (sent) { const w = +sent.dataset.fsent; const ch = sent.textContent.trim(); if (ch === 'Viber') { try { await navigator.clipboard.writeText(followText(l, w)); } catch { /* ok */ } toast('Το κείμενο αντιγράφηκε — επικόλλησέ το στο Viber.'); } setTimeout(async () => { await logCall(l, { kind: 'msg', attempt: w, channel: ch.toLowerCase(), outcome: 'sent' }); if (w === 3) await updateLead(id, { nextAction: l.nextAction && l.nextAction > todayISO() ? l.nextAction : addDays(2) }, 'status', 'Στάλθηκε μήνυμα «θα το σκεφτεί» · ' + ch); else await setFollow(id, w === 1 ? 1 : w === 5 ? 7 : 6, ch); }, 300); return true; } // το link ανοίγει κανονικά
   const cp = e.target.closest('[data-fcopy]');
   if (cp) { e.preventDefault(); const w = +cp.dataset.fcopy; const t = followText(l, w); try { await navigator.clipboard.writeText(t); } catch { /* ok */ } await logCall(l, { kind: 'msg', attempt: w, channel: 'copy', outcome: 'sent' }); if (w === 3) await updateLead(id, { nextAction: l.nextAction && l.nextAction > todayISO() ? l.nextAction : addDays(2) }, 'status', 'Στάλθηκε μήνυμα «θα το σκεφτεί» · αντιγραφή'); else await setFollow(id, w === 1 ? 1 : w === 5 ? 7 : 6, 'αντιγραφή κειμένου'); toast('Αντιγράφηκε — στείλ\' το από το κινητό.'); return true; }
   const fc = e.target.closest('[data-fcall]');
@@ -3342,7 +3342,7 @@ $('btnCopyReport').onclick = () => {
     `• Διαφημιστική δαπάνη: ${eur(s.spend)}` + (s.cpl ? ` (CPL ${eur(s.cpl)})` : ''),
     s.spend > 0 ? `• Απόδοση (ROAS): ${s.roas.toFixed(2)}×` : null,
   ].filter(Boolean).join('\n');
-  try { navigator.clipboard.writeText(lines).then(() => toast('Η αναφορά αντιγράφηκε — έτοιμη για Viber/WhatsApp.')).catch(() => toast(lines)); } catch { toast(lines); }
+  try { navigator.clipboard.writeText(lines).then(() => toast('Η αναφορά αντιγράφηκε — έτοιμη για Viber.')).catch(() => toast(lines)); } catch { toast(lines); }
 };
 function renderReport() {
   fillClinicSelect($('rpClinic'));
@@ -3934,7 +3934,7 @@ function renderCallStats() {
     return `<tr><td>${d}</td>${row.map((c) => `<td class="num"${c[1] ? ` style="background:color-mix(in srgb, var(--bronze, #9C6B3F) ${Math.round((c[0] / c[1]) * 45)}%, transparent)"` : ''}>${c[1] ? `${csPct(c[0], c[1])} <span class="tmeta">(${c[1]})</span>` : '·'}</td>`).join('')}<td class="num"><b>${csPct(tot[0], tot[1])}</b> <span class="tmeta">(${tot[1]})</span></td></tr>`;
   }).join('')}</tbody></table>` : '<div class="empty" style="padding:14px">Δεν υπάρχουν ακόμη κλήσεις.</div>';
   /* 8. κανάλι ✉1 */
-  const CH = { sms: 'SMS', whatsapp: 'WhatsApp', gmail: 'Gmail', copy: 'Αντιγραφή (άλλο app)' };
+  const CH = { sms: 'SMS', viber: 'Viber', whatsapp: 'WhatsApp (παλιό)', gmail: 'Gmail', copy: 'Αντιγραφή (άλλο app)' };
   const chRows = Object.keys(CH).map((k) => { const g = m1.filter((x) => (x.msg1.channel || '') === k); return [CH[k], g.length, csPct(g.filter((x) => x.lg.some((y) => y.kind === 'reply' && +y.attempt === 1)).length, g.length), csPct(g.filter((x) => x.first && x.first.outcome === 'answered').length, g.filter((x) => x.first).length), csPct(g.filter((x) => x.contacted).length, g.length)]; }).filter((r) => r[1]);
   /* 9. funnel ανά κλινική */
   const funnel = (xs) => [xs.length, `${xs.filter((x) => x.contacted).length} <span class="tmeta">${csPct(xs.filter((x) => x.contacted).length, xs.length)}</span>`, `${xs.filter((x) => x.booked).length} <span class="tmeta">${csPct(xs.filter((x) => x.booked).length, xs.length)}</span>`, `${xs.filter((x) => x.showed).length} <span class="tmeta">${csPct(xs.filter((x) => x.showed).length, xs.filter((x) => x.booked).length)}</span>`, `${xs.filter((x) => x.l.status === 'won').length} <span class="tmeta">${csPct(xs.filter((x) => x.l.status === 'won').length, xs.length)}</span>`];

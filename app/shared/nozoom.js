@@ -7,7 +7,7 @@
   document.addEventListener('gesturechange', function (e) { e.preventDefault(); }, { passive: false });
   document.addEventListener('touchmove', function (e) { if (e.scale !== undefined && e.scale !== 1) e.preventDefault(); }, { passive: false });
 
-  // 2) Πληκτρολόγιο / επιστροφή από άλλη εφαρμογή (SMS, WhatsApp, Gmail): το iOS αφήνει πότε-πότε τη σελίδα
+  // 2) Πληκτρολόγιο / επιστροφή από άλλη εφαρμογή (SMS, Viber, Gmail): το iOS αφήνει πότε-πότε τη σελίδα
   //    μετατοπισμένη και τα fixed στοιχεία (κάτω μπάρα) «κολλημένα» ψηλά. Κρύβουμε τη μπάρα όσο είναι ανοιχτό το
   //    πληκτρολόγιο και «ξυπνάμε» το layout όταν κλείνει ή όταν επιστρέφουμε στο app.
   var root = document.documentElement, vv = window.visualViewport;
