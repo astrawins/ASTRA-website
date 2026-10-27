@@ -578,19 +578,20 @@ function todayItems() {
   return { due, fresh, upcoming, stale, confirm, inProgress };
 }
 /* ===== Follow-up ακολουθία (όρισε ο χρήστης 27/10/2026 — 0 απαντήσεις σε 4η/5η κλήση, άρα κόπηκαν):
-   μήνυμα γνωριμίας → 3 κλήσεις (η 3η από το 2ο τηλέφωνο, Πέτρος) → 2ο μήνυμα → τελικό μήνυμα 5 μέρες μετά → χαμένο. ===== */
+   μήνυμα γνωριμίας → 4 κλήσεις (3η και 4η από το 2ο τηλέφωνο, Πέτρος) → 2ο μήνυμα → τελικό μήνυμα 5 μέρες μετά → χαμένο. ===== */
 const FOLLOW = [
   { k: 0, short: 'Νέο', label: 'Νέο, τίποτα ακόμα' },
   { k: 1, short: '✉ 1', label: 'Στάλθηκε μήνυμα γνωριμίας' },
   { k: 2, short: '☎ 1', label: '1η κλήση αναπάντητη' },
   { k: 3, short: '☎ 2', label: '2η κλήση αναπάντητη' },
   { k: 4, short: '☎ 3', label: '3η κλήση αναπάντητη (από το 2ο τηλέφωνο)' },
-  { k: 5, short: '✉ 2', label: 'Στάλθηκε μήνυμα μετά τις κλήσεις' },
-  { k: 6, short: '✉ 3', label: 'Στάλθηκε τελικό μήνυμα (5 μέρες μετά)' },
+  { k: 5, short: '☎ 4', label: '4η κλήση αναπάντητη (από το 2ο τηλέφωνο)' },
+  { k: 6, short: '✉ 2', label: 'Στάλθηκε μήνυμα μετά τις κλήσεις' },
+  { k: 7, short: '✉ 3', label: 'Στάλθηκε τελικό μήνυμα (5 μέρες μετά)' },
 ];
 const FOLLOW_MAX = FOLLOW.length - 1;
-/* Αριθμός κλήσης που αντιστοιχεί σε κάθε στάδιο: 0-3 → 1η-3η (μετά δεν καλούμε) */
-const callNo = (cur) => Math.min(3, Math.max(1, cur));
+/* Αριθμός κλήσης που αντιστοιχεί σε κάθε στάδιο: 0-4 → 1η-4η (3η/4η από το 2ο τηλέφωνο· μετά δεν καλούμε) */
+const callNo = (cur) => Math.min(4, Math.max(1, cur));
 const DEF_MSG1 = 'Λάβαμε το αίτημά σας για την προσφορά της {κλινική}! Θα σας καλέσουμε σε λίγα λεπτά από αυτόν τον αριθμό, για να βρούμε μαζί μια ώρα για ραντεβού. 😊';
 const DEF_MSG2 = 'Γεια σας {όνομα}! Σας καλέσαμε από την {κλινική} για το αίτημά σας, αλλά δεν σας βρήκαμε. Πείτε μας πότε σας βολεύει να μιλήσουμε, ή γράψτε μας εδώ ποια μέρα θέλετε να έρθετε και σας κλείνουμε ραντεβού. 😊';
 const DEF_MSG5 = 'Γεια σας {όνομα}, σας γράφουμε για τελευταία φορά από την {κλινική} για το αίτημά σας. Αν θέλετε ακόμα να κλείσουμε ραντεβού, απαντήστε εδώ με τη μέρα που σας βολεύει. Αλλιώς κλείνουμε το αίτημα — καλή συνέχεια! 😊';
@@ -641,7 +642,7 @@ const intlPhone = (p) => { const d = String(p || '').replace(/[^\d]/g, '').repla
    18:00 → 8 %, Σάββατο πρωί 33 %, >3 μέρες → 6 %):
    μήνυμα → 1η κλήση αμέσως, εκτός αν είναι μετά τις 20:30 ή πριν τις 9:00 → επόμενο πρωί 10:00 ·
    1η αναπάντητη το πρωί → 2η το ίδιο απόγευμα 15:00, το απόγευμα → 2η το επόμενο πρωί ·
-   3η (από το 2ο τηλέφωνο) την επόμενη μέρα, στο ΑΝΤΙΘΕΤΟ μέρος της ημέρας · 3η αναπάντητη → 2ο μήνυμα αμέσως ·
+   3η και 4η (από το 2ο τηλέφωνο) την επόμενη μέρα η καθεμία, στο ΑΝΤΙΘΕΤΟ μέρος της ημέρας · 4η αναπάντητη → 2ο μήνυμα αμέσως ·
    τελικό μήνυμα 5 μέρες μετά το 2ο · κλείσιμο 2 μέρες μετά το τελικό. Κυριακή ποτέ, Σάββατο μόνο πρωί. */
 const AM = 10, PM = 15, NOON = 13, LATE = 20.5; // πρωί 10:00, απόγευμα 15:00, όριο πρωί/απόγευμα 13:00, μετά τις 20:30 = αύριο
 const at = (d, h) => { const x = new Date(d); x.setHours(h, 0, 0, 0); return x; };
@@ -654,15 +655,15 @@ function workSlot(d) {
 }
 function followDue(step, when = new Date()) {
   const h = when.getHours() + when.getMinutes() / 60; const pm = h >= NOON; const tomorrow = nextDay(when);
-  if (step === 4) return when;                                                           // 2ο μήνυμα τώρα
+  if (step === 5) return when;                                                           // 2ο μήνυμα τώρα
   if (step === 1) return workSlot(h >= LATE ? at(tomorrow, AM) : h < 9 ? at(when, AM) : when); // 1η κλήση: τώρα, ή το επόμενο πρωί αν είναι αργά
   if (step === 2) return workSlot(pm ? at(tomorrow, AM) : at(when, PM));                 // 2η κλήση
-  if (step === 3) return workSlot(at(tomorrow, pm ? AM : PM));                           // 3η κλήση (2ο τηλέφωνο): επόμενη μέρα, αντίθετο μέρος
-  if (step === 5) { const d = new Date(when); d.setDate(d.getDate() + 5); return workSlot(at(d, AM)); } // τελικό μήνυμα
-  if (step === 6) { const d = new Date(when); d.setDate(d.getDate() + 2); return workSlot(at(d, AM)); } // κλείσιμο ως χαμένο
+  if (step === 3 || step === 4) return workSlot(at(tomorrow, pm ? AM : PM));             // 3η / 4η κλήση (2ο τηλέφωνο): επόμενη μέρα, αντίθετο μέρος
+  if (step === 6) { const d = new Date(when); d.setDate(d.getDate() + 5); return workSlot(at(d, AM)); } // τελικό μήνυμα
+  if (step === 7) { const d = new Date(when); d.setDate(d.getDate() + 2); return workSlot(at(d, AM)); } // κλείσιμο ως χαμένο
   return null;
 }
-const NEXT_LABEL = { 1: '☎ 1η κλήση', 2: '☎ 2η κλήση', 3: '☎ 3η κλήση (2ο τηλ.)', 4: '✉ 2ο μήνυμα', 5: '✉ τελικό μήνυμα', 6: 'κλείσιμο ως χαμένο' };
+const NEXT_LABEL = { 1: '☎ 1η κλήση', 2: '☎ 2η κλήση', 3: '☎ 3η κλήση (2ο τηλ.)', 4: '☎ 4η κλήση (2ο τηλ.)', 5: '✉ 2ο μήνυμα', 6: '✉ τελικό μήνυμα', 7: 'κλείσιμο ως χαμένο' };
 function dueText(iso) {
   if (!iso) return ''; const d = new Date(iso); const t = d.toLocaleTimeString('el-GR', { hour: '2-digit', minute: '2-digit' });
   const day = isoDate(d) === todayISO() ? 'σήμερα' : isoDate(d) === addDays(1) ? 'αύριο' : d.toLocaleDateString('el-GR', { weekday: 'short', day: 'numeric', month: 'short' });
@@ -692,15 +693,15 @@ function followStrip(l) {
   const cur = Math.min(FOLLOW_MAX, +l.followStep || 0);
   const dots = FOLLOW.slice(1).map((f) => `<button class="fstep${cur >= f.k ? ' done' : ''}${cur + 1 === f.k ? ' next' : ''}" data-fstep="${f.k}" title="${f.label} — πάτα για να ορίσεις αυτό το στάδιο">${f.short}</button>`).join('');
   let action = '';
-  if (cur === 0 || cur === 4 || cur === 5) action = msgBtns(l, cur === 0 ? 1 : cur === 4 ? 2 : 5);
-  if (cur <= 3) { // αποτέλεσμα κλήσης με ένα πάτημα → call_log (Στατιστικά κλήσεων)· η 3η από το 2ο τηλέφωνο (Πέτρος)
-    action += `<span class="fcall"><span class="ftitle">☎ ${callNo(cur)}η κλήση${callNo(cur) === 3 ? ' <b title="Από το 2ο τηλέφωνο (Πέτρος) — άγνωστο νούμερο για τον πελάτη">· 2ο τηλ.</b>' : ''}</span>
+  if (cur === 0 || cur === 5 || cur === 6) action = msgBtns(l, cur === 0 ? 1 : cur === 5 ? 2 : 5);
+  if (cur <= 4) { // αποτέλεσμα κλήσης με ένα πάτημα → call_log (Στατιστικά κλήσεων)· 3η/4η από το 2ο τηλέφωνο (Πέτρος)
+    action += `<span class="fcall"><span class="ftitle">☎ ${callNo(cur)}η κλήση${callNo(cur) >= 3 ? ' <b title="Από το 2ο τηλέφωνο (Πέτρος) — άγνωστο νούμερο για τον πελάτη">· 2ο τηλ.</b>' : ''}</span>
       <button class="btn small primary" data-fcall="answered">✓ Απάντησε</button>
       <button class="btn small" data-fcall="no_answer">Δεν σήκωσε</button>
       <button class="btn small" data-fcall="closed">Κλειστό</button>
       <button class="btn small" data-fcall="wrong" title="Λάθος / ανύπαρκτο νούμερο → Χαμένο">Λάθος νούμερο</button></span>`;
   }
-  if (cur === 6) action = `<button class="btn small danger" data-flost="1" title="Δεν απάντησε σε 3 μηνύματα και 3 κλήσεις">Κλείσε ως χαμένο</button>`;
+  if (cur === 7) action = `<button class="btn small danger" data-flost="1" title="Δεν απάντησε σε 3 μηνύματα και 4 κλήσεις">Κλείσε ως χαμένο</button>`;
   if (cur >= 1) action += `<button class="btn small" data-freply="1" title="Απάντησε σε SMS / WhatsApp / email">↩ Απάντησε σε μήνυμα</button>`;
   const nxt = cur >= 1 && l.followDue ? ` · επόμενο: <b>${NEXT_LABEL[cur]} ${esc(dueText(l.followDue))}</b>` : '';
   return `<div class="followstrip"><span class="ftitle">Follow-up</span>${dots}${action}<span class="fnow">${esc(FOLLOW[cur].label)}${nxt}</span></div>`;
@@ -718,29 +719,29 @@ async function followClick(e) {
   const st = e.target.closest('[data-fstep]');
   if (st) { const k = +st.dataset.fstep; await setFollow(id, (+l.followStep || 0) === k ? k - 1 : k, 'χειροκίνητα'); return true; }
   const sent = e.target.closest('[data-fsent]');
-  if (sent) { const w = +sent.dataset.fsent; const ch = sent.textContent.trim(); setTimeout(async () => { await logCall(l, { kind: 'msg', attempt: w, channel: ch.toLowerCase(), outcome: 'sent' }); if (w === 3) await updateLead(id, { nextAction: l.nextAction && l.nextAction > todayISO() ? l.nextAction : addDays(2) }, 'status', 'Στάλθηκε μήνυμα «θα το σκεφτεί» · ' + ch); else await setFollow(id, w === 1 ? 1 : w === 5 ? 6 : 5, ch); }, 300); return true; } // το link ανοίγει κανονικά
+  if (sent) { const w = +sent.dataset.fsent; const ch = sent.textContent.trim(); setTimeout(async () => { await logCall(l, { kind: 'msg', attempt: w, channel: ch.toLowerCase(), outcome: 'sent' }); if (w === 3) await updateLead(id, { nextAction: l.nextAction && l.nextAction > todayISO() ? l.nextAction : addDays(2) }, 'status', 'Στάλθηκε μήνυμα «θα το σκεφτεί» · ' + ch); else await setFollow(id, w === 1 ? 1 : w === 5 ? 7 : 6, ch); }, 300); return true; } // το link ανοίγει κανονικά
   const cp = e.target.closest('[data-fcopy]');
-  if (cp) { e.preventDefault(); const w = +cp.dataset.fcopy; const t = followText(l, w); try { await navigator.clipboard.writeText(t); } catch { /* ok */ } await logCall(l, { kind: 'msg', attempt: w, channel: 'copy', outcome: 'sent' }); if (w === 3) await updateLead(id, { nextAction: l.nextAction && l.nextAction > todayISO() ? l.nextAction : addDays(2) }, 'status', 'Στάλθηκε μήνυμα «θα το σκεφτεί» · αντιγραφή'); else await setFollow(id, w === 1 ? 1 : w === 5 ? 6 : 5, 'αντιγραφή κειμένου'); toast('Αντιγράφηκε — στείλ\' το από το κινητό.'); return true; }
+  if (cp) { e.preventDefault(); const w = +cp.dataset.fcopy; const t = followText(l, w); try { await navigator.clipboard.writeText(t); } catch { /* ok */ } await logCall(l, { kind: 'msg', attempt: w, channel: 'copy', outcome: 'sent' }); if (w === 3) await updateLead(id, { nextAction: l.nextAction && l.nextAction > todayISO() ? l.nextAction : addDays(2) }, 'status', 'Στάλθηκε μήνυμα «θα το σκεφτεί» · αντιγραφή'); else await setFollow(id, w === 1 ? 1 : w === 5 ? 7 : 6, 'αντιγραφή κειμένου'); toast('Αντιγράφηκε — στείλ\' το από το κινητό.'); return true; }
   const fc = e.target.closest('[data-fcall]');
   if (fc) {
     e.preventDefault(); const out = fc.dataset.fcall; const cur = +l.followStep || 0; const think = l.status === 'think';
     const n = think ? S.calls.filter((x) => x.leadId === id && x.kind === 'call').length + 1 : callNo(cur);
     const dial = S.calls.find((x) => x.leadId === id && x.kind === 'dial' && Date.now() - new Date(x.at).getTime() < 60 * 60000
       && !S.calls.some((y) => y.leadId === id && y.kind === 'call' && new Date(y.at) >= new Date(x.at))); // τελευταίο πάτημα τηλεφώνου που δεν έχει ακόμη αποτέλεσμα
-    await logCall(l, { kind: 'call', attempt: n, channel: !think && n === 3 ? 'phone2' : 'phone', outcome: out, ...(dial ? { at: dial.at } : {}) }); // phone2 = 3η κλήση από το 2ο τηλέφωνο
+    await logCall(l, { kind: 'call', attempt: n, channel: !think && n >= 3 ? 'phone2' : 'phone', outcome: out, ...(dial ? { at: dial.at } : {}) }); // phone2 = 3η/4η κλήση από το 2ο τηλέφωνο
     if (out === 'answered') { await updateLead(id, { status: 'epik', nextAction: todayISO(), followDue: null }, 'status', `☎ Απάντησε στην ${n}η κλήση → Επικοινωνία`); toast('Απάντησε ✓ — όρισε στάδιο / ραντεβού.'); openLeadModal(id); }
     else if (out === 'wrong') { await updateLead(id, { status: 'lost', lostReason: 'Λάθος νούμερο', nextAction: null, followDue: null }, 'status', '☎ Λάθος νούμερο → Χαμένο'); }
     else if (think) await updateLead(id, { nextAction: addDays(1) }, 'status', `☎ Επανάκληση «θα το σκεφτεί»: ${out === 'closed' ? 'κλειστό' : 'δεν σήκωσε'} → ξανά αύριο`);
-    else await setFollow(id, cur <= 3 ? Math.min(4, Math.max(cur, 1) + 1) : cur + 1, out === 'closed' ? 'κλειστό τηλέφωνο' : 'δεν σήκωσε');
+    else await setFollow(id, cur <= 4 ? Math.min(5, Math.max(cur, 1) + 1) : cur + 1, out === 'closed' ? 'κλειστό τηλέφωνο' : 'δεν σήκωσε');
     return true;
   }
   if (e.target.closest('[data-freply]')) {
     e.preventDefault(); const cur = +l.followStep || 0;
-    await logCall(l, { kind: 'reply', attempt: cur >= 6 ? 3 : cur >= 5 ? 2 : 1, channel: '', outcome: 'replied' });
-    await updateLead(id, { status: 'epik', nextAction: todayISO(), followDue: null }, 'status', `↩ Απάντησε στο ${cur >= 6 ? 'τελικό' : cur >= 5 ? '2ο' : '1ο'} μήνυμα → Επικοινωνία`);
+    await logCall(l, { kind: 'reply', attempt: cur >= 7 ? 3 : cur >= 6 ? 2 : 1, channel: '', outcome: 'replied' });
+    await updateLead(id, { status: 'epik', nextAction: todayISO(), followDue: null }, 'status', `↩ Απάντησε στο ${cur >= 7 ? 'τελικό' : cur >= 6 ? '2ο' : '1ο'} μήνυμα → Επικοινωνία`);
     toast('Καταγράφηκε η απάντηση ✓'); return true;
   }
-  if (e.target.closest('[data-flost]')) { e.preventDefault(); await updateLead(id, { status: 'lost', lostReason: 'Δεν απάντησε ποτέ', nextAction: null, followDue: null }, 'status', 'Δεν απάντησε σε 3 μηνύματα και 3 κλήσεις → χαμένο'); return true; }
+  if (e.target.closest('[data-flost]')) { e.preventDefault(); await updateLead(id, { status: 'lost', lostReason: 'Δεν απάντησε ποτέ', nextAction: null, followDue: null }, 'status', 'Δεν απάντησε σε 3 μηνύματα και 4 κλήσεις → χαμένο'); return true; }
   return false;
 }
 
@@ -3924,7 +3925,7 @@ function renderCallStats() {
   $('callStats').innerHTML = tiles
     + card('Ταχύτητα 1ης κλήσης → απάντηση', 'όσο πιο γρήγορα, τόσο περισσότεροι σηκώνουν', csTable(['Χρόνος από τη φόρμα', 'Leads', 'Σήκωσε την 1η', 'Μιλήσαμε τελικά', 'Ραντεβού'], speedRows))
     + card('Μήνυμα ✉1 → κλήση', 'πόσο να περιμένεις μετά το SMS', csTable(['Κλήση μετά το μήνυμα', 'Leads', 'Σήκωσε την 1η', 'Μιλήσαμε τελικά'], lagRows))
-    + card('Απάντηση ανά προσπάθεια', 'από 27/10 σταματάμε στην 3η (η 3η από το 2ο τηλέφωνο)', csTable(['Κλήση', 'Κλήσεις', OUT.answered, OUT.no_answer, OUT.closed, OUT.wrong], attRows))
+    + card('Απάντηση ανά προσπάθεια', 'από 27/10: 4 κλήσεις, η 3η και η 4η από το 2ο τηλέφωνο', csTable(['Κλήση', 'Κλήσεις', OUT.answered, OUT.no_answer, OUT.closed, OUT.wrong], attRows))
     + card('Απαντήσεις σε μηνύματα', '«↩ Απάντησε σε μήνυμα»', csTable(['Μήνυμα', 'Στάλθηκε', 'Απάντησε'], msgRows))
     + card('Πότε σηκώνουν', '% απάντησης ανά ημέρα και ώρα κλήσης (πλήθος κλήσεων)', heat)
     + card('Κανάλι του ✉1', '', csTable(['Κανάλι', 'Leads', 'Απάντησε στο μήνυμα', 'Σήκωσε την 1η κλήση', 'Μιλήσαμε τελικά'], chRows))
