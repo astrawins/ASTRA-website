@@ -619,7 +619,7 @@ function apptStrip(l) {
       ${sent ? `<span class="chip plain">στάλθηκε ${new Date(sent.at).toLocaleDateString('el-GR', { day: 'numeric', month: 'short' })} · ${esc(sent.channel)}</span>` : ''}</div>`;
 }
 /* Υπογραφή {εγώ} ανά κλινική: κενό = γενική ρύθμιση, «-» = χωρίς όνομα (τότε «{εγώ} από {κλινική}» → «σας γράφουμε από την {κλινική}») */
-function senderFor(c) { const s = (c && c.followSender || '').trim(); return s === '-' ? '' : (s || SET().followSender || 'Πέτρος'); }
+function senderFor(c) { const s = (c && c.followSender || '').trim() || (SET().followSender || '').trim(); return s === '-' ? '' : s; }
 function fillSender(tpl, c) { const me = senderFor(c); return me ? tpl.replaceAll('{εγώ}', me) : tpl.replaceAll('{εγώ} από {κλινική}', 'σας γράφουμε από την {κλινική}').replaceAll('{εγώ} από την {κλινική}', 'σας γράφουμε από την {κλινική}').replaceAll('{εγώ}', '').replace(/  +/g, ' '); }
 function followText(l, which) {
   const c = clinicById(l.clinicId); const st = SET();
@@ -3493,7 +3493,7 @@ function renderSettings() {
   renderTrash();
   $('st_metaToken').value = s.metaToken || '';
   $('st_metaAccount').value = s.metaAccount || '';
-  $('st_followSender').value = s.followSender || 'Πέτρος';
+  $('st_followSender').value = s.followSender || '-';
   $('st_followMsg1').value = s.followMsg1 || DEF_MSG1;
   $('st_followMsg2').value = s.followMsg2 || DEF_MSG2;
   $('st_followMsg3').value = s.followMsg3 || DEF_MSG3;
@@ -3515,7 +3515,7 @@ $('btnSaveSettings').onclick = async () => {
     autoCharge: $('st_autoCharge').checked,
     metaToken: $('st_metaToken').value.trim(),
     metaAccount: $('st_metaAccount').value.trim(),
-    followSender: $('st_followSender').value.trim() || 'Πέτρος',
+    followSender: $('st_followSender').value.trim() || '-',
     followMsg1: $('st_followMsg1').value.trim() || null,
     followMsg2: $('st_followMsg2').value.trim() || null,
     followMsg3: $('st_followMsg3').value.trim() || null,
