@@ -1,8 +1,8 @@
 // sw.js (root) — ελέγχει ΟΛΟ το site (scope /) ώστε το app (/portal, /login, /client-portal, /app) να
 // παίρνει πάντα φρέσκο HTML/JS/CSS: network-first με επανεπικύρωση (cache: 'no-cache' → το ETag
 // του host απαντά 304 σε δευτερόλεπτα), και cache fallback μόνο όταν δεν υπάρχει δίκτυο.
-// Οι push ειδοποιήσεις μένουν στο /app/sw.js (εκεί είναι γραμμένες οι συσκευές).
-const CACHE = 'astra-site-v1';
+// Είναι ο ΜΟΝΑΔΙΚΟΣ worker του scope '/' και χειρίζεται και τα push (οι συσκευές είναι γραμμένες σε αυτό το scope).
+const CACHE = 'astra-site-v2';
 const APP = /^\/(portal|client-portal|login|app)(\/|$)/;
 
 self.addEventListener('install', () => { self.skipWaiting(); });
@@ -19,4 +19,23 @@ self.addEventListener('fetch', (e) => {
       return res;
     }).catch(() => caches.match(e.request)),
   );
+});
+
+/* ---- push ειδοποιήσεις: εμφανίζονται και με το app κλειστό ---- */
+self.addEventListener('push', (e) => {
+  let d = {};
+  try { d = e.data ? e.data.json() : {}; } catch { d = { body: e.data ? e.data.text() : '' }; }
+  e.waitUntil(self.registration.showNotification(d.title || 'Astra HQ', {
+    body: d.body || '', tag: d.tag || undefined, data: { url: d.url || '/portal/' },
+    icon: '/app/assets/icon-192.png', badge: '/app/assets/icon-192.png',
+  }));
+});
+self.addEventListener('notificationclick', (e) => {
+  e.notification.close();
+  const url = (e.notification.data && e.notification.data.url) || '/portal/';
+  e.waitUntil(self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((list) => {
+    const open = list.find((c) => new URL(c.url).pathname.startsWith('/portal'));
+    if (open) return open.focus().then(() => open.navigate(url).catch(() => {}));
+    return self.clients.openWindow(url);
+  }));
 });

@@ -322,12 +322,10 @@ function notifyNewLeads(clinic, n) {
 }
 
 /* ---- push ειδοποιήσεις (Web Push μέσω service worker — έρχονται και με το app κλειστό) ---- */
-/* Scope '/' θέλει header Service-Worker-Allowed που ο host δεν στέλνει — τότε πέφτει στο προεπιλεγμένο scope /app/ (αρκεί για push). */
-const swReg = navigator.serviceWorker
-  ? navigator.serviceWorker.register('/app/sw.js', { scope: '/' }).catch(() => navigator.serviceWorker.register('/app/sw.js')).catch(() => null)
-  : Promise.resolve(null);
-/* Δεύτερος worker στη ρίζα (/sw.js, scope /): φρέσκο HTML/JS σε κάθε άνοιγμα, και offline fallback. */
-if (navigator.serviceWorker) navigator.serviceWorker.register('/sw.js').catch(() => {});
+/* ΕΝΑΣ worker στη ρίζα (/sw.js, scope /): push + φρέσκο HTML/JS + offline fallback.
+   ΟΧΙ δεύτερος worker στο ίδιο scope: μέχρι 2026-10-27 γράφονταν /app/sw.js (push) ΚΑΙ /sw.js (χωρίς push) στο scope '/'
+   (ο host στέλνει Service-Worker-Allowed), ο δεύτερος αντικαθιστούσε τον πρώτο και τα push έφταναν στο κινητό χωρίς να εμφανίζονται. */
+const swReg = navigator.serviceWorker ? navigator.serviceWorker.register('/sw.js').catch(() => null) : Promise.resolve(null);
 
 /* ---- νέα έκδοση: το PWA στο κινητό μένει «ζωντανό» στη μνήμη και δεν ξαναφορτώνει μόνο του.
    Ελέγχουμε το ETag του dashboard.js όταν το app έρχεται μπροστά (και κάθε 5′)· αν άλλαξε → reload. ---- */

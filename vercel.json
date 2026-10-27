@@ -98,6 +98,15 @@
           "value": "public, max-age=3600"
         }
       ]
+    },
+    {
+      "source": "/sw.js",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "no-cache"
+        }
+      ]
     }
   ],
   "trailingSlash": true,
