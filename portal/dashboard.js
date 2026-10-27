@@ -899,12 +899,12 @@ function renderToday() {
         + '</div></div>';
     }).join('')}</div>`;
   const ti = todayItems();
-  $('todayBody').innerHTML = scheduleBlock() + portalBlock + taskBlock + '<div style="height:20px"></div>' + touchBlock + subBlock + clinicCallsBlock(due, fresh, upcoming, stale, ti.confirm, ti.inProgress);
+  $('todayBody').innerHTML = scheduleBlock() + portalBlock + taskBlock + '<div style="height:20px"></div>' + touchBlock + subBlock + clinicCallsBlock(due, fresh, upcoming, stale, ti.confirm, ti.inProgress, ti.remind);
 }
 /* Κλήσεις ημέρας ομαδοποιημένες ανά κλινική — κλειστές κάρτες με σύνοψη, ανοίγουν με κλικ. */
 let openCallGroups = new Set();
 try { openCallGroups = new Set(JSON.parse(localStorage.getItem('astra-today-open') || '[]')); } catch { /* ok */ }
-function clinicCallsBlock(due, fresh, upcoming, stale, confirm = [], inProgress = []) {
+function clinicCallsBlock(due, fresh, upcoming, stale, confirm = [], inProgress = [], remind = []) {
   const groups = new Map();
   const add = (l, kind) => {
     const k = l.clinicId || '_none';
