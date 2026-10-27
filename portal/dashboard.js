@@ -602,7 +602,7 @@ function apptText(l) {
   const addr = (c && c.address || '').trim();
   // {χάρτης}: μόνο αν η κλινική έχει σύντομο link (π.χ. maps.app.goo.gl)· αλλιώς τίποτα — η διεύθυνση γίνεται πατητή μόνη της στο SMS
   const map = (c && c.mapUrl || '').trim();
-  return (st.followMsg4 || DEF_MSG4).replaceAll('{όνομα}', first).replaceAll('{κλινική}', c ? c.name : 'την κλινική').replaceAll('{εγώ}', st.followSender || 'Πέτρος')
+  return fillSender(st.followMsg4 || DEF_MSG4, c).replaceAll('{όνομα}', first).replaceAll('{κλινική}', c ? c.name : 'την κλινική')
     .replaceAll('{ημέρα}', day).replaceAll('{ώρα}', hhmm(l.apptTime) || '—').replaceAll('{διεύθυνση}', addr || (c && c.name) || '').replaceAll('{χάρτης}', map)
     .replace(/\n{2,}/g, '\n').trim();
 }
@@ -618,11 +618,14 @@ function apptStrip(l) {
       <button class="btn small" data-acopy="1" title="Αντιγραφή κειμένου">Αντιγραφή</button></span>
       ${sent ? `<span class="chip plain">στάλθηκε ${new Date(sent.at).toLocaleDateString('el-GR', { day: 'numeric', month: 'short' })} · ${esc(sent.channel)}</span>` : ''}</div>`;
 }
+/* Υπογραφή {εγώ} ανά κλινική: κενό = γενική ρύθμιση, «-» = χωρίς όνομα (τότε «{εγώ} από {κλινική}» → «σας γράφουμε από την {κλινική}») */
+function senderFor(c) { const s = (c && c.followSender || '').trim(); return s === '-' ? '' : (s || SET().followSender || 'Πέτρος'); }
+function fillSender(tpl, c) { const me = senderFor(c); return me ? tpl.replaceAll('{εγώ}', me) : tpl.replaceAll('{εγώ} από {κλινική}', 'σας γράφουμε από την {κλινική}').replaceAll('{εγώ} από την {κλινική}', 'σας γράφουμε από την {κλινική}').replaceAll('{εγώ}', '').replace(/  +/g, ' '); }
 function followText(l, which) {
   const c = clinicById(l.clinicId); const st = SET();
   const tpl = (which === 3 ? st.followMsg3 : which === 2 ? st.followMsg2 : st.followMsg1) || (which === 3 ? DEF_MSG3 : which === 2 ? DEF_MSG2 : DEF_MSG1);
   const first = (l.name || '').trim().split(/\s+/)[0] || '';
-  return tpl.replaceAll('{όνομα}', first).replaceAll('{κλινική}', c ? c.name : 'την κλινική').replaceAll('{εγώ}', st.followSender || 'Πέτρος');
+  return fillSender(tpl, c).replaceAll('{όνομα}', first).replaceAll('{κλινική}', c ? c.name : 'την κλινική');
 }
 /* Gmail: στο iPhone/iPad ανοίγει την εφαρμογή Gmail (googlegmail://), αλλού το Gmail στο web — όχι το Mail της Apple. */
 function gmailLink(l, w) {
@@ -1457,7 +1460,7 @@ document.addEventListener('keydown', (e) => {
 let editClinicId = null;
 $('btnNewClinic').onclick = () => {
   editClinicId = null; $('clinicFormTitle').textContent = 'Νέα κλινική';
-  ['cf_name', 'cf_doctor', 'cf_spec', 'cf_phone', 'cf_address', 'cf_mapUrl', 'cf_email', 'cf_portalEmail', 'cf_fee', 'cf_apptFee', 'cf_sharePct', 'cf_dailyBudget', 'cf_monthlyBudget', 'cf_goalLeads', 'cf_goalSales', 'cf_contractStart', 'cf_contractEnd', 'cf_nextTouch', 'cf_tags', 'cf_contacts', 'cf_sheet', 'cf_metaAd', 'cf_metaSince', 'cf_metaFilter', 'cf_spendShare', 'cf_gcalId', 'cf_script', 'cf_templates', 'cf_notes'].forEach((i) => { $(i).value = ''; });
+  ['cf_name', 'cf_doctor', 'cf_spec', 'cf_phone', 'cf_address', 'cf_mapUrl', 'cf_followSender', 'cf_email', 'cf_portalEmail', 'cf_fee', 'cf_apptFee', 'cf_sharePct', 'cf_dailyBudget', 'cf_monthlyBudget', 'cf_goalLeads', 'cf_goalSales', 'cf_contractStart', 'cf_contractEnd', 'cf_nextTouch', 'cf_tags', 'cf_contacts', 'cf_sheet', 'cf_metaAd', 'cf_metaSince', 'cf_metaFilter', 'cf_spendShare', 'cf_gcalId', 'cf_script', 'cf_templates', 'cf_notes'].forEach((i) => { $(i).value = ''; });
   $('clinicForm').hidden = false; $('cf_name').focus();
 };
 $('btnCancelClinic').onclick = () => { $('clinicForm').hidden = true; };
@@ -1482,6 +1485,7 @@ $('btnSaveClinic').onclick = async () => {
     gcalId: gcalIdFrom($('cf_gcalId').value),
     address: $('cf_address').value.trim(),
     mapUrl: $('cf_mapUrl').value.trim(),
+    followSender: $('cf_followSender').value.trim(),
     templates: $('cf_templates').value.split('\n').map((ln) => {
       const i = ln.indexOf(':'); if (i < 1) return null;
       return { t: ln.slice(0, i).trim(), b: ln.slice(i + 1).trim() };
@@ -1582,6 +1586,7 @@ function openClinicEdit(id) {
   $('cf_gcalId').value = c.gcalId || '';
   $('cf_address').value = c.address || '';
   $('cf_mapUrl').value = c.mapUrl || '';
+  $('cf_followSender').value = c.followSender || '';
   $('cf_templates').value = (Array.isArray(c.templates) ? c.templates : []).map((t) => t.t + ': ' + t.b).join('\n');
   $('cf_sheet').value = c.sheetUrl || ''; $('cf_metaAd').value = c.metaAdAccount || ''; $('cf_metaSince').value = c.metaSince || ''; $('cf_metaFilter').value = c.metaFilter || ''; $('cf_spendShare').value = c.spendShare && +c.spendShare !== 100 ? c.spendShare : ''; $('cf_notes').value = c.notes || '';
   $('clinicForm').hidden = false; window.scrollTo({ top: 0 });
