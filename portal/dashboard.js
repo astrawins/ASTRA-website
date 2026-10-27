@@ -593,6 +593,30 @@ const callNo = (cur) => (cur <= 3 ? Math.max(1, cur) : cur - 1);
 const DEF_MSG1 = 'Λάβαμε το αίτημά σας για την προσφορά της {κλινική}! Θα σας καλέσουμε σε λίγα λεπτά από αυτόν τον αριθμό, για να βρούμε μαζί μια ώρα για ραντεβού. 😊';
 const DEF_MSG2 = 'Γεια σας {όνομα}! Σας καλέσαμε από την {κλινική} για το αίτημά σας, αλλά δεν σας βρήκαμε. Πείτε μας πότε σας βολεύει να μιλήσουμε, ή γράψτε μας εδώ ποια μέρα θέλετε να έρθετε και σας κλείνουμε ραντεβού. 😊';
 const DEF_MSG3 = 'Γεια σας {όνομα}, {εγώ} από την {κλινική}. Χάρηκα που μιλήσαμε! Όπως είπαμε, σας στέλνω εδώ την προσφορά για να τη δείτε με την ησυχία σας. Θα σας καλέσω ξανά σε 2 μέρες — αν στο μεταξύ αποφασίσετε, γράψτε μου εδώ ποια μέρα σας βολεύει και σας κλείνω ραντεβού. 😊';
+const DEF_MSG4 = 'Γεια σας {όνομα}, {εγώ} από {κλινική}. Το ραντεβού σας είναι {ημέρα} στις {ώρα}.\n📍 {διεύθυνση}\n{χάρτης}\nΑν χρειαστεί αλλαγή ώρας, στείλτε μου ένα μήνυμα εδώ. Θα τα πούμε από κοντά! 😊';
+/* Μήνυμα ραντεβού: ημέρα + ώρα από την καρτέλα, διεύθυνση από την κλινική, link χάρτη. */
+function apptText(l) {
+  const c = clinicById(l.clinicId); const st = SET();
+  const first = (l.name || '').trim().split(/\s+/)[0] || '';
+  const day = l.nextAction ? new Date(l.nextAction + 'T12:00:00').toLocaleDateString('el-GR', { weekday: 'long', day: 'numeric', month: 'long' }) : '—';
+  const addr = (c && c.address || '').trim();
+  const map = addr ? 'https://maps.google.com/?q=' + encodeURIComponent(addr + ' ' + (c ? c.name : '')) : '';
+  return (st.followMsg4 || DEF_MSG4).replaceAll('{όνομα}', first).replaceAll('{κλινική}', c ? c.name : 'την κλινική').replaceAll('{εγώ}', st.followSender || 'Πέτρος')
+    .replaceAll('{ημέρα}', day).replaceAll('{ώρα}', hhmm(l.apptTime) || '—').replaceAll('{διεύθυνση}', addr || (c && c.name) || '').replaceAll('{χάρτης}', map)
+    .replace(/\n{2,}/g, '\n').trim();
+}
+/* Κουμπιά μηνύματος ραντεβού στην καρτέλα (φαίνονται μόνο σε στάδιο Ραντεβού με ημερομηνία) */
+function apptStrip(l) {
+  if (l.status !== 'rv' || !l.nextAction) return '';
+  const ph = intlPhone(l.phone); const t = apptText(l);
+  const sent = S.calls.filter((x) => x.leadId === l.id && x.kind === 'msg' && +x.attempt === 4).sort((a, b) => String(b.at).localeCompare(String(a.at)))[0];
+  const warn = !(clinicById(l.clinicId) || {}).address ? ' <span class="chip lost" title="Βάλε διεύθυνση στην καρτέλα της κλινικής">χωρίς διεύθυνση</span>' : '';
+  return `<div class="followstrip"><span class="ftitle">✉ Μήνυμα ραντεβού</span>${warn}
+      <span class="fmsg">${ph ? `<a class="btn small primary" href="sms:+${ph}&body=${encodeURIComponent(t)}" data-asent="SMS">SMS</a>
+      <a class="btn small" href="https://wa.me/${ph}?text=${encodeURIComponent(t)}" target="_blank" rel="noopener" data-asent="WhatsApp">WhatsApp</a>` : ''}
+      <button class="btn small" data-acopy="1" title="Αντιγραφή κειμένου">Αντιγραφή</button></span>
+      ${sent ? `<span class="chip plain">στάλθηκε ${new Date(sent.at).toLocaleDateString('el-GR', { day: 'numeric', month: 'short' })} · ${esc(sent.channel)}</span>` : ''}</div>`;
+}
 function followText(l, which) {
   const c = clinicById(l.clinicId); const st = SET();
   const tpl = (which === 3 ? st.followMsg3 : which === 2 ? st.followMsg2 : st.followMsg1) || (which === 3 ? DEF_MSG3 : which === 2 ? DEF_MSG2 : DEF_MSG1);
@@ -974,6 +998,7 @@ function openLeadModal(id) {
   $('lm_notes').value = l.notes || '';
   setLostReason(l);
   setConfirmBtn(l);
+  renderApptStrip(l);
   renderTimeline(l);
   $('leadModal').hidden = false;
 }
@@ -1011,6 +1036,14 @@ $('lmTemplates').addEventListener('click', (e) => {
   const first = (l.name || '').trim().split(/\s+/)[0] || '';
   const text = t.b.replaceAll('{όνομα}', first).replaceAll('{name}', first);
   try { navigator.clipboard.writeText(text).then(() => toast('Αντιγράφηκε το μήνυμα «' + t.t + '».')).catch(() => toast(text)); } catch { toast(text); }
+});
+function renderApptStrip(l) { const h = apptStrip(l); $('lmAppt').innerHTML = h; $('lmAppt').hidden = !h; }
+$('lmAppt').addEventListener('click', async (e) => {
+  const l = modalLeadId && leadById(modalLeadId); if (!l) return;
+  const a = e.target.closest('[data-asent]'); const cp = e.target.closest('[data-acopy]');
+  const done = async (ch) => { await logCall(l, { kind: 'msg', attempt: 4, channel: ch.toLowerCase(), outcome: 'sent' }); await logAct(l.id, 'status', 'Στάλθηκε μήνυμα ραντεβού · ' + ch); await refresh(); const l2 = leadById(l.id); if (l2) { renderApptStrip(l2); renderTimeline(l2); } };
+  if (a) { setTimeout(() => done(a.dataset.asent), 300); return; } // το link ανοίγει κανονικά
+  if (cp) { e.preventDefault(); try { await navigator.clipboard.writeText(apptText(l)); } catch { /* ok */ } toast('Αντιγράφηκε — στείλ\' το από το κινητό.'); await done('αντιγραφή'); }
 });
 $('lmFollow').addEventListener('click', async (e) => { if (await followClick(e)) { const l = leadById(modalLeadId); if (l) { $('lmFollow').innerHTML = followStrip(l); $('lmFollow').hidden = !inFollow(l); renderTimeline(l); } } });
 $('lmClose').onclick = () => { $('leadModal').hidden = true; modalLeadId = null; };
@@ -1423,7 +1456,7 @@ document.addEventListener('keydown', (e) => {
 let editClinicId = null;
 $('btnNewClinic').onclick = () => {
   editClinicId = null; $('clinicFormTitle').textContent = 'Νέα κλινική';
-  ['cf_name', 'cf_doctor', 'cf_spec', 'cf_phone', 'cf_email', 'cf_portalEmail', 'cf_fee', 'cf_apptFee', 'cf_sharePct', 'cf_dailyBudget', 'cf_monthlyBudget', 'cf_goalLeads', 'cf_goalSales', 'cf_contractStart', 'cf_contractEnd', 'cf_nextTouch', 'cf_tags', 'cf_contacts', 'cf_sheet', 'cf_metaAd', 'cf_metaSince', 'cf_metaFilter', 'cf_spendShare', 'cf_gcalId', 'cf_script', 'cf_templates', 'cf_notes'].forEach((i) => { $(i).value = ''; });
+  ['cf_name', 'cf_doctor', 'cf_spec', 'cf_phone', 'cf_address', 'cf_email', 'cf_portalEmail', 'cf_fee', 'cf_apptFee', 'cf_sharePct', 'cf_dailyBudget', 'cf_monthlyBudget', 'cf_goalLeads', 'cf_goalSales', 'cf_contractStart', 'cf_contractEnd', 'cf_nextTouch', 'cf_tags', 'cf_contacts', 'cf_sheet', 'cf_metaAd', 'cf_metaSince', 'cf_metaFilter', 'cf_spendShare', 'cf_gcalId', 'cf_script', 'cf_templates', 'cf_notes'].forEach((i) => { $(i).value = ''; });
   $('clinicForm').hidden = false; $('cf_name').focus();
 };
 $('btnCancelClinic').onclick = () => { $('clinicForm').hidden = true; };
@@ -1446,6 +1479,7 @@ $('btnSaveClinic').onclick = async () => {
     }).filter(Boolean),
     script: $('cf_script').value.trim(),
     gcalId: gcalIdFrom($('cf_gcalId').value),
+    address: $('cf_address').value.trim(),
     templates: $('cf_templates').value.split('\n').map((ln) => {
       const i = ln.indexOf(':'); if (i < 1) return null;
       return { t: ln.slice(0, i).trim(), b: ln.slice(i + 1).trim() };
@@ -1544,6 +1578,7 @@ function openClinicEdit(id) {
   $('cf_contacts').value = (Array.isArray(c.contacts) ? c.contacts : []).map((x) => [x.name, x.role, x.phone, x.email].join(' | ')).join('\n');
   $('cf_script').value = c.script || '';
   $('cf_gcalId').value = c.gcalId || '';
+  $('cf_address').value = c.address || '';
   $('cf_templates').value = (Array.isArray(c.templates) ? c.templates : []).map((t) => t.t + ': ' + t.b).join('\n');
   $('cf_sheet').value = c.sheetUrl || ''; $('cf_metaAd').value = c.metaAdAccount || ''; $('cf_metaSince').value = c.metaSince || ''; $('cf_metaFilter').value = c.metaFilter || ''; $('cf_spendShare').value = c.spendShare && +c.spendShare !== 100 ? c.spendShare : ''; $('cf_notes').value = c.notes || '';
   $('clinicForm').hidden = false; window.scrollTo({ top: 0 });
@@ -3454,6 +3489,7 @@ function renderSettings() {
   $('st_followMsg1').value = s.followMsg1 || DEF_MSG1;
   $('st_followMsg2').value = s.followMsg2 || DEF_MSG2;
   $('st_followMsg3').value = s.followMsg3 || DEF_MSG3;
+  $('st_followMsg4').value = s.followMsg4 || DEF_MSG4;
 }
 $('btnSaveSettings').onclick = async () => {
   const d = {
@@ -3475,6 +3511,7 @@ $('btnSaveSettings').onclick = async () => {
     followMsg1: $('st_followMsg1').value.trim() || null,
     followMsg2: $('st_followMsg2').value.trim() || null,
     followMsg3: $('st_followMsg3').value.trim() || null,
+    followMsg4: $('st_followMsg4').value.trim() || null,
   };
   try {
     if (S.settings) await data.update('settings', 'main', d);
