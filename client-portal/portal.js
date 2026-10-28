@@ -1,7 +1,7 @@
 // portal/portal.js — προβολή στατιστικών ΜΟΝΟ της κλινικής του συνδεδεμένου πελάτη.
 // Η βάση (RLS) εγγυάται ότι βλέπει αποκλειστικά τα δικά του monthly_stats & campaigns.
 import { currentSession, sessionRole, logout } from '/app/shared/auth.js';
-import { rest, updatePassword, callFunction } from '/app/shared/supabase.js';
+import { rest, updatePassword, callFunction, getSession } from '/app/shared/supabase.js';
 import { esc, eur, num, mLabel, nowMonth, todayISO, addDays } from '/app/shared/util.js';
 import * as gcal from '/app/shared/gcal.js';
 gcal.useClientAuth(); // ο πελάτης συνδέει το ΔΙΚΟ του Google Calendar (client-gcal-auth), όχι της ομάδας
@@ -498,7 +498,11 @@ document.getElementById('pTabs').addEventListener('click', () => {}); // (κρα
 load();
 
 /* ---- Αλλαγή κωδικού ---- */
-document.getElementById('pwSave').addEventListener('click', async () => {
+// Κλινικές χωρίς δυνατότητα αλλαγής κωδικού (τον κρατά η Astra): Jorge: Wellness - Aesthetics
+const NO_PW_CHANGE = ['9fbb7482-027b-4195-ae95-9f95582dca16'];
+const pwLocked = NO_PW_CHANGE.includes(((getSession() || {}).user || {}).app_metadata?.clinic_id);
+if (pwLocked) document.getElementById('pwCard').remove();
+else document.getElementById('pwSave').addEventListener('click', async () => {
   const a = document.getElementById('pw1').value, b = document.getElementById('pw2').value;
   const say = (m) => { const t = document.createElement('div'); t.className = 'toast'; t.textContent = m; document.body.appendChild(t); setTimeout(() => t.remove(), 4200); };
   if (a.length < 10 || !/[A-Za-zΑ-Ωα-ω]/.test(a) || !/\d/.test(a)) { say('Ο κωδικός θέλει τουλάχιστον 10 χαρακτήρες, με γράμματα και αριθμούς.'); return; }
