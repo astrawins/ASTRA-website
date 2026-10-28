@@ -2022,7 +2022,7 @@ function fillClinicSelect(sel, withEmpty) {
 }
 ['flClinic', 'flStatus', 'flSearch'].forEach((i) => $(i).addEventListener('input', renderLeads));
 function funnelHTML(leads) {
-  const order = ['neo', 'noans', 'epik', 'think', 'rv', 'show', 'won', 'lost'];
+  const order = ['neo', 'noans', 'epik', 'think', 'rv', 'won', 'lost'];
   return order.map((k) => `<span class="chip ${k}">${STATUS[k]} · ${leads.filter((l) => l.status === k).length}</span>`).join('')
     + `<span class="chip plain">Σύνολο ${leads.length}</span>`;
 }

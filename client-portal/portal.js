@@ -77,8 +77,8 @@ function funnel(s) {
 /* Στάδια με λόγια πελάτη */
 const P_STAGE = {
   neo: ['Νέα επικοινωνία', 'neo'], noans: ['Δεν απάντησε', 'noans'], epik: ['Σε επικοινωνία', 'epik'], think: ['Το σκέφτεται', 'epik'],
-  rv: ['Ραντεβού κλεισμένο', 'rv'], show: ['Ήρθε στο ιατρείο', 'show'],
-  won: ['Ξεκίνησε θεραπεία', 'won'], lost: ['Δεν προχώρησε', 'lost'],
+  rv: ['Ραντεβού κλεισμένο', 'rv'], show: ['Ήρθε στο ιατρείο', 'won'],
+  won: ['Ήρθε στο ιατρείο', 'won'], lost: ['Δεν προχώρησε', 'lost'],
 };
 let pTab = 'stats';
 let D = { stats: [], camps: [], leads: [] };
@@ -225,7 +225,7 @@ function renderAppts() {
   const body = document.getElementById('pBody');
   const _n = new Date(); const today = _n.getFullYear() + '-' + String(_n.getMonth() + 1).padStart(2, '0') + '-' + String(_n.getDate()).padStart(2, '0');
   const rv = D.leads.filter((l) => l.status === 'rv').sort((a, b) => String(a.nextAction || '9999').localeCompare(String(b.nextAction || '9999')));
-  const shown = D.leads.filter((l) => l.status === 'show').sort((a, b) => String(b.createdTime).localeCompare(String(a.createdTime))).slice(0, 15);
+  const shown = D.leads.filter((l) => ['show', 'won'].includes(l.status) && l.attendedAt).sort((a, b) => String(b.createdTime).localeCompare(String(a.createdTime))).slice(0, 15);
   const row = (l) => `<div class="todayrow" data-id="${l.id}">
       <div class="who"><b>${esc(l.name)}</b><div class="sub">${esc(l.phone || '')}</div></div>
       <span class="due ${l.nextAction && l.nextAction < today ? 'over' : ''}">${l.nextAction ? new Date(l.nextAction).toLocaleDateString('el-GR', { weekday: 'short', day: 'numeric', month: 'short' }) + (l.apptTime ? ' · ' + hhmm(l.apptTime) : '') : 'χωρίς ημερομηνία'}</span>
