@@ -2021,16 +2021,27 @@ function fillClinicSelect(sel, withEmpty) {
   if (cur && [...sel.options].some((o) => o.value === cur)) sel.value = cur;
 }
 ['flClinic', 'flStatus', 'flSearch'].forEach((i) => $(i).addEventListener('input', renderLeads));
+/* «Πέτρος»: leads που κλήθηκαν 3+ φορές χωρίς απάντηση (call_log: δεν σήκωσε / κλειστό, ή follow-up ☎ 3+) και είναι ακόμη
+   Νέο / Δεν απάντησε — αυτούς τους παίρνει μετά ο Πέτρος από το 2ο τηλέφωνο. */
+function unansweredCalls(l) { return S.calls.filter((x) => x.leadId === l.id && x.kind === 'call' && (x.outcome === 'no_answer' || x.outcome === 'closed')).length; }
+function forPetros(l) { return (l.status === 'neo' || l.status === 'noans') && (unansweredCalls(l) >= 3 || (+l.followStep || 0) >= 4); }
+function petrosChip(l) {
+  if (!forPetros(l)) return '';
+  const n = Math.max(unansweredCalls(l), (+l.followStep || 0) - 1);
+  const p2 = S.calls.some((x) => x.leadId === l.id && x.kind === 'call' && x.channel === 'phone2');
+  return `<span class="chip noans" title="Κλήθηκε ${n} φορές χωρίς απάντηση — σειρά του Πέτρου από το 2ο τηλέφωνο">☎ ${n} → Πέτρος${p2 ? ' ✓' : ''}</span>`;
+}
 function funnelHTML(leads) {
   const order = ['neo', 'noans', 'epik', 'think', 'rv', 'won', 'lost'];
   return order.map((k) => `<span class="chip ${k}">${STATUS[k]} · ${leads.filter((l) => l.status === k).length}</span>`).join('')
+    + `<span class="chip noans" title="3+ κλήσεις χωρίς απάντηση — για τον Πέτρο">Πέτρος · ${leads.filter(forPetros).length}</span>`
     + `<span class="chip plain">Σύνολο ${leads.length}</span>`;
 }
 function filteredLeads() {
   const fc = $('flClinic').value, fs = $('flStatus').value, q = $('flSearch').value.trim().toLowerCase();
   let ls = [...S.leads];
   if (fc) ls = ls.filter((l) => l.clinicId === fc);
-  if (fs) ls = ls.filter((l) => l.status === fs);
+  if (fs === 'petros') ls = ls.filter(forPetros); else if (fs) ls = ls.filter((l) => l.status === fs);
   if (q) ls = ls.filter((l) => (l.name + ' ' + l.phone + ' ' + l.email).toLowerCase().includes(q));
   ls.sort((a, b) => String(b.createdTime || '').localeCompare(String(a.createdTime || '')));
   return ls;
@@ -2089,7 +2100,7 @@ function kanbanCard(l) {
   return `<div class="kcard" draggable="true" data-id="${l.id}">
     <b>${esc(l.name)}</b>
     <span class="ksub">${esc(c ? c.name : '—')}${d && !isNaN(d) ? ' · ' + d.toLocaleDateString('el-GR', { day: 'numeric', month: 'short' }) : ''}</span>
-    ${apptBadge(l)}
+    ${petrosChip(l)}${apptBadge(l)}
     ${+l.amount ? `<span class="kamt">${eur(+l.amount)}</span>` : ''}
   </div>`;
 }
@@ -2162,7 +2173,7 @@ $('leadTable').addEventListener('toggle', (e) => {
 }, true);
 function renderLeadClinicBar() {
   const fs = $('flStatus').value, q = $('flSearch').value.trim().toLowerCase(), cur = $('flClinic').value;
-  const base = S.leads.filter((l) => (!fs || l.status === fs) && (!q || (l.name + ' ' + l.phone + ' ' + l.email).toLowerCase().includes(q)));
+  const base = S.leads.filter((l) => (!fs || (fs === 'petros' ? forPetros(l) : l.status === fs)) && (!q || (l.name + ' ' + l.phone + ' ' + l.email).toLowerCase().includes(q)));
   const chip = (id, name, n, nNew) => `<button type="button" class="btn small${cur === id ? ' primary' : ''}" data-clinic="${id}">${esc(name)} · ${n}${nNew ? ` <b style="color:${cur === id ? 'inherit' : 'var(--crit)'}">(${nNew} νέα)</b>` : ''}</button>`;
   $('leadClinicBar').innerHTML = chip('', 'Όλες', base.length, base.filter((l) => l.status === 'neo').length)
     + S.clinics.map((c) => { const x = base.filter((l) => l.clinicId === c.id); return chip(c.id, c.name, x.length, x.filter((l) => l.status === 'neo').length); }).join('');
@@ -2177,7 +2188,7 @@ function leadRowHTML(l) {
   const over = l.nextAction && l.nextAction < todayISO() && !['won', 'lost'].includes(l.status);
   return `<tr data-id="${l.id}">
     <td class="mono" title="${esc(l.createdTime)}">${dstr}</td>
-    <td><b data-act="open" style="cursor:pointer">${esc(l.name)}</b>${apptBadge(l) ? '<div>' + apptBadge(l) + '</div>' : ''}${l.notes ? `<div style="font-size:11.5px;color:var(--soft)">${esc(l.notes)}</div>` : ''}${l.sheetNotes && !l.notes ? `<div style="font-size:11.5px;color:var(--soft)" title="Σημείωση από το sheet"><span class="srctag">sheet</span> ${esc(l.sheetNotes)}</div>` : ''}</td>
+    <td><b data-act="open" style="cursor:pointer">${esc(l.name)}</b>${petrosChip(l) ? ' ' + petrosChip(l) : ''}${apptBadge(l) ? '<div>' + apptBadge(l) + '</div>' : ''}${l.notes ? `<div style="font-size:11.5px;color:var(--soft)">${esc(l.notes)}</div>` : ''}${l.sheetNotes && !l.notes ? `<div style="font-size:11.5px;color:var(--soft)" title="Σημείωση από το sheet"><span class="srctag">sheet</span> ${esc(l.sheetNotes)}</div>` : ''}</td>
     <td class="mono" style="font-size:12.5px">${l.phone ? telLink(l.phone) + `<button class="copybtn" data-copy="${esc(l.phone)}" title="Αντιγραφή">${COPY_ICON}</button>` : ''}${l.phone && l.email ? '<br>' : ''}${esc(l.email || '')}</td>
     <td>${esc(c ? c.name : '—')}</td>
     <td style="font-size:12.5px">${esc(l.campaign || '—')}${plat ? ` <span class="chip plain">${plat}</span>` : ''}</td>
