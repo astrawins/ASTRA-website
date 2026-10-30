@@ -58,7 +58,7 @@ async function refresh() {
     const all = await data.loadAll();
     S.clinics = all.clinics; S.leads = all.leads; S.camps = all.campaigns; S.fin = all.finance;
     S.rec = all.recurring || []; S.act = all.activity || []; S.tasks = all.tasks || []; S.cr = all.creatives || [];
-    S.stats = all.monthly_stats || []; S.trash = all.trash || []; S.acct = all.accountant || []; S.clog = all.client_log || []; S.billing = all.billing || []; S.subs = all.subscriptions || []; S.calls = all.call_log || []; S.blocked = all.blocked_leads || []; S.archive = all.archive_leads || [];
+    S.stats = all.monthly_stats || []; S.trash = all.trash || []; S.acct = all.accountant || []; S.clog = all.client_log || []; S.billing = all.billing || []; S.subs = all.subscriptions || []; S.calls = all.call_log || []; S.blocked = all.blocked_leads || []; S.archive = all.archive_leads || []; S.sms = all.sms_log || [];
     notifyRemoteLeads();
     S.settings = (all.settings && all.settings[0]) || null;
     $('dbBanner').hidden = true;
@@ -1917,37 +1917,84 @@ let clDocKind = 'contract';
    Παλιά leads από τα sheets της κλινικής (π.χ. Jorge: Facial / Laser / Massage / Τριχόπτωση).
    Δύο καρτέλες: «Sheet» = όσα δεν έχουμε δουλέψει ακόμη (στάδιο όπως το είχε το sheet, μόνο για ανάγνωση)
    και «Astra» = όσα δουλέψαμε εμείς (δικό μας στάδιο astraStage). Μόλις βάλεις στάδιο Astra, το lead περνά στην «Astra».
-   Από εδώ καλούμε (tel/SMS), κρατάμε σημείωση, ή το κάνουμε κανονικό lead («→ Lead»). */
-let arTab = 'sheet', arCat = '', arStage = '', arQ = '';
+   Από εδώ καλούμε (tel/SMS), κρατάμε σημείωση, στέλνουμε μαζικό SMS (Apifon, two-way) ή το κάνουμε κανονικό lead («→ Lead»). */
+let arTab = 'sheet', arCat = '', arStage = '', arQ = '', arReplied = false;
 const AR_STAGES = ['neo', 'noans', 'epik', 'think', 'rv', 'won', 'lost'];
 const AR_ORDER = { rv: 0, epik: 1, think: 2, neo: 3, noans: 4, won: 5, lost: 6 };
 const archiveRows = (c) => (S.archive || []).filter((r) => r.clinicId === c.id);
 const archiveById = (id) => (S.archive || []).find((r) => r.id === id);
 const arStageOf = (r) => (arTab === 'astra' ? r.astraStage : r.stage);
-function archiveHTML(c) {
+/* SMS ανά lead αρχείου (sms_log): εξερχόμενα/εισερχόμενα */
+const smsFor = (r) => (S.sms || []).filter((x) => x.archiveId === r.id).sort((a, b) => String(b.at).localeCompare(String(a.at)));
+const smsReplies = (r) => smsFor(r).filter((x) => x.direction === 'in');
+const SMS_ST = { queued: 'σε ουρά', accepted: 'στάλθηκε', delivered: 'παραδόθηκε ✓', open: 'σε παράδοση', failed: 'απέτυχε', unknown: '—' };
+/* Πάνελ μαζικού SMS: κρατά την κατάσταση ανάμεσα σε re-render */
+const arSms = { open: false, sender: '', text: '', skip: true, busy: false };
+const AR_SMS_TPL = {
+  Laser: 'Jorge Clinic: Full Body laser 95€ αντί 160€, λίγες θέσεις. Ραντεβού: {τηλ}',
+  Facial: 'Jorge Clinic: Facial 8 βημάτων σε ειδική τιμή αυτόν τον μήνα. Ραντεβού: {τηλ}',
+  '': 'Γεια σας {όνομα}, σας γράφουμε από την κλινική για την προσφορά που είχατε ζητήσει. Ραντεβού: {τηλ}',
+};
+const GSM7_RE = /^[A-Za-z0-9 @£$¥èéùìòÇØøÅåΔ_ΦΓΛΩΠΨΣΘΞÆæßÉ!"#¤%&'()*+,\-./:;<=>?¡ÄÖÑÜ§¿äöñüà\n\r€[\]{}~\\|^]*$/;
+function smsSegments(text) {
+  const t = text.replace(/\{όνομα\}/g, 'Κωνσταντίνα'); const gsm = GSM7_RE.test(t); const len = t.length;
+  return { gsm, len, n: gsm ? (len <= 160 ? 1 : Math.ceil(len / 153)) : (len <= 70 ? 1 : Math.ceil(len / 67)) };
+}
+function archiveFiltered(c) {
   const all = archiveRows(c);
-  if (!all.length) return '<div class="card empty"><div class="big">Κανένα αρχείο</div>Εδώ μπαίνουν παλιά leads της κλινικής (από παλιά sheets) για να τα καλέσουμε, χωρίς να μπαίνουν στο pipeline «Leads».</div>';
   const mine = all.filter((r) => r.astraStage), old = all.filter((r) => !r.astraStage);
   const pool = arTab === 'astra' ? mine : old;
-  const cats = [...new Set(pool.map((r) => r.category))].sort((a, b) => pool.filter((r) => r.category === b).length - pool.filter((r) => r.category === a).length);
   const inCat = arCat ? pool.filter((r) => r.category === arCat) : pool;
   const q = arQ.trim().toLowerCase();
-  const ls = inCat.filter((r) => (!arStage || arStageOf(r) === arStage) && (!q || (r.name + ' ' + r.phone + ' ' + r.email).toLowerCase().includes(q)))
+  const ls = inCat.filter((r) => (!arStage || arStageOf(r) === arStage) && (!arReplied || smsReplies(r).length) && (!q || (r.name + ' ' + r.phone + ' ' + r.email).toLowerCase().includes(q)))
     .sort((a, b) => (arTab === 'astra' ? String(b.updatedAt || '').localeCompare(String(a.updatedAt || '')) : 0) || (AR_ORDER[arStageOf(a)] ?? 9) - (AR_ORDER[arStageOf(b)] ?? 9) || String(b.createdTime || '').localeCompare(String(a.createdTime || '')));
+  return { all, mine, old, pool, inCat, ls };
+}
+/* Παραλήπτες μαζικού SMS = τα φιλτραρισμένα με κινητό (προαιρετικά μόνο όσοι δεν έχουν λάβει) */
+const smsRecipients = (ls) => ls.filter((r) => intlPhone(r.phone) && (!arSms.skip || !smsFor(r).some((x) => x.direction === 'out' && x.status !== 'failed')));
+function archiveHTML(c) {
+  const { all, mine, old, pool, inCat, ls } = archiveFiltered(c);
+  if (!all.length) return '<div class="card empty"><div class="big">Κανένα αρχείο</div>Εδώ μπαίνουν παλιά leads της κλινικής (από παλιά sheets) για να τα καλέσουμε, χωρίς να μπαίνουν στο pipeline «Leads».</div>';
+  const cats = [...new Set(pool.map((r) => r.category))].sort((a, b) => pool.filter((r) => r.category === b).length - pool.filter((r) => r.category === a).length);
   const chipCat = (k, lb, n) => `<button type="button" class="chip plain${arCat === k ? ' on' : ''}" data-arcat="${esc(k)}">${esc(lb)} · ${n}</button>`;
   const chipSt = (k, lb, n) => `<button type="button" class="chip ${k || 'plain'}${arStage === k ? ' on' : ''}" data-arst="${k}">${lb} · ${n}</button>`;
   const called = all.filter((r) => r.calledAt).length, promoted = all.filter((r) => r.promotedLeadId).length;
+  const replied = pool.filter((r) => smsReplies(r).length).length, smsOut = all.filter((r) => smsFor(r).some((x) => x.direction === 'out')).length;
   return `
     <div class="clsubs" style="margin-bottom:12px">
       <button data-artab="sheet" class="${arTab === 'sheet' ? 'on' : ''}">Sheet (παλιά) · ${old.length}</button>
       <button data-artab="astra" class="${arTab === 'astra' ? 'on' : ''}">Astra (δουλεμένα) · ${mine.length}</button>
     </div>
     <div class="pill-row" style="margin-bottom:8px">${chipCat('', 'Όλες οι υπηρεσίες', pool.length)}${cats.map((k) => chipCat(k, k, pool.filter((r) => r.category === k).length)).join('')}</div>
-    <div class="pill-row" style="margin-bottom:10px">${chipSt('', 'Όλα τα στάδια', inCat.length)}${AR_STAGES.map((k) => chipSt(k, STATUS[k], inCat.filter((r) => arStageOf(r) === k).length)).join('')}</div>
+    <div class="pill-row" style="margin-bottom:10px">${chipSt('', 'Όλα τα στάδια', inCat.length)}${AR_STAGES.map((k) => chipSt(k, STATUS[k], inCat.filter((r) => arStageOf(r) === k).length)).join('')}
+      <button type="button" class="chip epik${arReplied ? ' on' : ''}" data-arreplied="1" title="Όσοι απάντησαν σε SMS μας">💬 Απάντησαν · ${replied}</button></div>
     <div class="filters"><input id="arQ" placeholder="Αναζήτηση ονόματος / τηλεφώνου…" value="${esc(arQ)}" style="min-width:220px">
-      <span class="fhint">${ls.length} από ${pool.length} · ${arTab === 'astra' ? 'στάδιο όπως το βάλαμε εμείς — το στάδιο του sheet φαίνεται δίπλα για αναφορά' : 'στάδιο όπως το είχε το sheet της κλινικής — μόλις βάλεις στάδιο Astra, το lead περνά στην καρτέλα «Astra»'} · καλέσαμε ${called} · στα Leads ${promoted}</span></div>
-    <div class="card tablewrap">${ls.length ? `<table><thead><tr><th>Όνομα</th><th>Υπηρεσία</th><th>${arTab === 'astra' ? 'Στάδιο Astra' : 'Στάδιο sheet'}</th><th>Από το sheet</th><th>Σημείωσή μας</th><th>Astra</th></tr></thead><tbody>${ls.map(archiveRowHTML).join('')}</tbody></table>` : '<div class="empty">Κανένα αποτέλεσμα με αυτά τα φίλτρα.</div>'}</div>`;
+      <button class="btn small${arSms.open ? '' : ' primary'}" data-act="arsmstoggle">✉ Μαζικό SMS${arSms.open ? ' ▲' : ` σε ${smsRecipients(ls).length}`}</button>
+      <span class="fhint">${ls.length} από ${pool.length} · ${arTab === 'astra' ? 'στάδιο όπως το βάλαμε εμείς — το στάδιο του sheet φαίνεται δίπλα' : 'στάδιο όπως το είχε το sheet — μόλις βάλεις στάδιο Astra, το lead περνά στην καρτέλα «Astra»'} · καλέσαμε ${called} · SMS σε ${smsOut} · στα Leads ${promoted}</span></div>
+    ${arSms.open ? smsPanelHTML(c, ls) : ''}
+    <div class="card tablewrap">${ls.length ? `<table><thead><tr><th>Όνομα</th><th>Υπηρεσία</th><th>${arTab === 'astra' ? 'Στάδιο Astra' : 'Στάδιο sheet'}</th><th>Από το sheet</th><th>SMS</th><th>Σημείωσή μας</th><th>Astra</th></tr></thead><tbody>${ls.map(archiveRowHTML).join('')}</tbody></table>` : '<div class="empty">Κανένα αποτέλεσμα με αυτά τα φίλτρα.</div>'}</div>`;
 }
+function smsPanelHTML(c, ls) {
+  const st = SET();
+  if (!arSms.sender) arSms.sender = st.smsSender || 'Astra';
+  if (!arSms.text) arSms.text = (AR_SMS_TPL[arCat] || AR_SMS_TPL['']).replace('{τηλ}', (c.phone || '').trim() || '69XXXXXXXX');
+  const rec = smsRecipients(ls); const seg = smsSegments(arSms.text); const price = +st.smsPrice || 0.05;
+  return `<div class="card" id="arSmsPanel" style="padding:14px 16px;margin-bottom:12px;display:grid;gap:10px">
+    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap"><b>✉ Μαζικό SMS μέσω Apifon</b>
+      <span class="fhint">στους ${rec.length} που βλέπεις τώρα${arReplied || arStage || arCat ? ' (με τα φίλτρα)' : ''} · <code>{όνομα}</code> = μικρό όνομα</span>
+      <label style="margin-left:auto;font-size:12.5px;display:flex;gap:6px;align-items:center"><input type="checkbox" id="arSmsSkip"${arSms.skip ? ' checked' : ''}> μόνο όσοι δεν έχουν λάβει SMS</label></div>
+    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap"><span style="font-size:12.5px">Αποστολέας</span>
+      <input id="arSmsSender" value="${esc(arSms.sender)}" maxlength="16" style="width:150px" title="Όνομα έως 11 λατινικά γράμματα, ή ο αριθμός two-way της Apifon για να απαντούν">
+      <span class="fhint">για απαντήσεις βάλε τον αριθμό two-way που έδωσε η Apifon</span></div>
+    <textarea id="arSmsText" rows="3" style="width:100%;font:inherit;padding:8px;border:1px solid var(--hair);border-radius:8px;background:var(--card2);color:var(--ink)">${esc(arSms.text)}</textarea>
+    <div id="arSmsInfo" class="fhint">${smsInfoText(rec.length, seg, price)}</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <button class="btn small" data-act="arsmstest" title="Στέλνει το μήνυμα στο δικό σου κινητό για έλεγχο">Δοκιμή στο κινητό μου</button>
+      <button class="btn small" data-act="arsmsbalance">Υπόλοιπο Apifon</button>
+      <button class="btn small primary" data-act="arsmssend" style="margin-left:auto"${arSms.busy || !rec.length ? ' disabled' : ''}>Αποστολή σε ${rec.length}</button>
+    </div></div>`;
+}
+const smsInfoText = (n, seg, price) => `${seg.len} χαρακτήρες · ${seg.gsm ? 'λατινικά (160/segment)' : 'ελληνικά (70/segment)'} · ${seg.n} segment${seg.n > 1 ? 's' : ''} ανά SMS · ${n} × ${seg.n} × ${price.toFixed(3)} € ≈ <b>${(n * seg.n * price).toFixed(2)} €</b>`;
 function archiveRowHTML(r) {
   const ph = intlPhone(r.phone);
   const when = r.createdTime ? new Date(r.createdTime).toLocaleDateString('el-GR', { day: 'numeric', month: 'short', year: '2-digit' }) : '';
@@ -1956,15 +2003,20 @@ function archiveRowHTML(r) {
   const stageCell = arTab === 'astra'
     ? `<span class="chip ${r.astraStage}">${STATUS[r.astraStage] || r.astraStage}</span> <span class="chip plain" title="Στάδιο όπως το είχε το sheet">sheet: ${STATUS[r.stage] || r.stage}</span>`
     : `<span class="chip ${r.stage}">${STATUS[r.stage] || r.stage}</span>`;
+  const sms = smsFor(r); const out = sms.find((x) => x.direction === 'out'); const ins = sms.filter((x) => x.direction === 'in');
+  const fmt = (x) => new Date(x.at).toLocaleDateString('el-GR', { day: 'numeric', month: 'short' });
+  const smsCell = (out ? `<span class="chip ${out.status === 'failed' ? 'lost' : out.status === 'delivered' ? 'won' : 'plain'}" title="${esc(out.text)}">✉ ${SMS_ST[out.status] || out.status} · ${fmt(out)}</span>` : '')
+    + ins.slice(0, 2).map((x) => `<div style="font-size:12px;margin-top:3px"><b>💬 ${fmt(x)}:</b> ${esc(x.text)}</div>`).join('') + (ins.length > 2 ? `<div class="fhint">+${ins.length - 2} ακόμη</div>` : '');
   return `<tr data-arid="${esc(r.id)}">
     <td><b>${esc(r.name)}</b>${when ? ` <span style="color:var(--soft);font-size:11.5px">${when}</span>` : ''}
       <div class="mono" style="font-size:12px">${ph ? `<a href="tel:+${ph}" data-arcall="phone">${esc(r.phone)}</a>` : '<span style="color:var(--soft)">χωρίς τηλέφωνο</span>'}${r.email ? ` · ${esc(r.email)}` : ''}</div>
       ${r.promotedLeadId ? '<span class="chip won" title="Έγινε κανονικό lead — δούλεψέ το από τα «Leads»">→ στα Leads</span>' : ''}</td>
     <td><span class="chip plain">${esc(r.category)}</span></td>
     <td style="white-space:nowrap">${stageCell}${called}</td>
-    <td style="font-size:12px;color:var(--soft);max-width:340px;white-space:normal">${info.map(esc).join('<br>')}</td>
-    <td><input data-arnotes="1" value="${esc(r.ourNotes || '')}" placeholder="σημείωση…" style="width:160px"></td>
-    <td style="white-space:nowrap">${ph ? `<a class="btn small primary" href="tel:+${ph}" data-arcall="phone" title="Κλήση">☎</a> <a class="btn small" href="sms:+${ph}" data-arcall="sms" title="SMS">SMS</a> ` : ''}
+    <td style="font-size:12px;color:var(--soft);max-width:300px;white-space:normal">${info.map(esc).join('<br>')}</td>
+    <td style="max-width:240px;white-space:normal">${smsCell || '<span class="fhint">—</span>'}</td>
+    <td><input data-arnotes="1" value="${esc(r.ourNotes || '')}" placeholder="σημείωση…" style="width:150px"></td>
+    <td style="white-space:nowrap">${ph ? `<a class="btn small primary" href="tel:+${ph}" data-arcall="phone" title="Κλήση">☎</a> <a class="btn small" href="sms:+${ph}" data-arcall="sms" title="SMS από το κινητό">SMS</a> ` : ''}
       <select data-arstage="1" title="Στάδιο Astra — τι έγινε στη δική μας επικοινωνία"><option value=""${r.astraStage ? '' : ' selected'}>Στάδιο Astra…</option>${AR_STAGES.map((k) => `<option value="${k}"${r.astraStage === k ? ' selected' : ''}>${STATUS[k]}</option>`).join('')}</select>
       ${r.promotedLeadId ? '' : ' <button class="btn small" data-act="arpromote" title="Μεταφορά στα κανονικά Leads για follow-up">→ Lead</button>'}</td>
   </tr>`;
@@ -1988,11 +2040,42 @@ async function archivePromote(r, c) {
   await archivePatch(r.id, { promotedLeadId: id, astraStage: r.astraStage || stage });
   return id;
 }
+/* Μαζικό SMS → edge function sms-send (Apifon). items = αρχείο leads με κινητό. */
+async function archiveSmsSend(c, rec, testNumber) {
+  const items = testNumber ? [{ id: 'test', kind: 'archive', number: testNumber, name: 'Πέτρος' }] : rec.map((r) => ({ id: r.id, kind: 'archive', number: intlPhone(r.phone), name: r.name }));
+  return callFunction('sms-send', { action: 'send', clinicId: c.id, items, text: arSms.text.trim(), sender: arSms.sender.trim() });
+}
 $('clinicView').addEventListener('click', async (e) => {
   const c = clinicById(currentClinicId); if (!c) return;
-  const tab = e.target.closest('[data-artab]'); if (tab) { arTab = tab.dataset.artab; arCat = ''; arStage = ''; renderClinicView(); return; }
-  const cat = e.target.closest('[data-arcat]'); if (cat) { arCat = cat.dataset.arcat; arStage = ''; renderClinicView(); return; }
+  const tab = e.target.closest('[data-artab]'); if (tab) { arTab = tab.dataset.artab; arCat = ''; arStage = ''; arReplied = false; renderClinicView(); return; }
+  const cat = e.target.closest('[data-arcat]'); if (cat) { arCat = cat.dataset.arcat; arStage = ''; arSms.text = ''; renderClinicView(); return; }
   const st = e.target.closest('[data-arst]'); if (st) { arStage = arStage === st.dataset.arst ? '' : st.dataset.arst; renderClinicView(); return; }
+  const rp = e.target.closest('[data-arreplied]'); if (rp) { arReplied = !arReplied; renderClinicView(); return; }
+  const act = e.target.closest('[data-act]');
+  if (act && act.dataset.act.startsWith('arsms')) {
+    const a = act.dataset.act; const { ls } = archiveFiltered(c); const rec = smsRecipients(ls);
+    if (a === 'arsmstoggle') { arSms.open = !arSms.open; renderClinicView(); return; }
+    if (a === 'arsmsbalance') { act.disabled = true; try { const b = await callFunction('sms-send', { action: 'balance' }); toast(`Υπόλοιπο Apifon: ${b.balance} €${+b.reserved ? ` (δεσμευμένα ${b.reserved})` : ''}`); } catch (err) { toast(err.message); } act.disabled = false; return; }
+    if (!arSms.text.trim()) { toast('Γράψε το μήνυμα.'); return; }
+    if (a === 'arsmstest') {
+      const my = (localStorage.getItem('astra-my-mobile') || '').trim() || prompt('Το κινητό σου για τη δοκιμή (69…):', ''); if (!my) return;
+      try { localStorage.setItem('astra-my-mobile', my); } catch { /* ok */ }
+      act.disabled = true;
+      try { const r = await archiveSmsSend(c, [], intlPhone(my)); toast(r.sent ? 'Το δοκιμαστικό SMS στάλθηκε στο κινητό σου.' : 'Δεν στάλθηκε: ' + (r.errors || []).join(', ')); } catch (err) { toast(err.message); }
+      act.disabled = false; return;
+    }
+    if (a === 'arsmssend') {
+      if (!rec.length) { toast('Κανένας παραλήπτης με κινητό.'); return; }
+      if (act.dataset.sure !== '1') { act.dataset.sure = '1'; act.textContent = `Σίγουρα; Αποστολή σε ${rec.length} — ξανά κλικ`; setTimeout(() => { act.dataset.sure = ''; act.textContent = `Αποστολή σε ${rec.length}`; }, 4000); return; }
+      arSms.busy = true; act.disabled = true; act.textContent = 'Αποστολή…';
+      try {
+        const r = await archiveSmsSend(c, rec);
+        toast(r.ok ? `Στάλθηκαν ${r.sent} από ${r.total} SMS.` : `Στάλθηκαν ${r.sent} από ${r.total}. Σφάλματα: ${(r.errors || []).join(' · ')}`);
+        arSms.open = false;
+      } catch (err) { toast('Αποτυχία: ' + err.message); }
+      arSms.busy = false; await refresh(); return;
+    }
+  }
   const tr = e.target.closest('tr[data-arid]'); if (!tr) return;
   const r = archiveById(tr.dataset.arid); if (!r) return;
   const call = e.target.closest('[data-arcall]');
@@ -2001,14 +2084,14 @@ $('clinicView').addEventListener('click', async (e) => {
     setTimeout(async () => { await archivePatch(r.id, patch); if (clSub === 'archive') renderClinicView(); }, 400);
     return;
   }
-  const act = e.target.closest('[data-act="arpromote"]');
-  if (act) {
+  if (act && act.dataset.act === 'arpromote') {
     act.disabled = true;
     try { await archivePromote(r, c); toast(`«${r.name}» μπήκε στα Leads της κλινικής.`); await refresh(); }
     catch (err) { toast('Αποτυχία: ' + err.message); act.disabled = false; }
   }
 });
 $('clinicView').addEventListener('change', async (e) => {
+  if (e.target.id === 'arSmsSkip') { arSms.skip = e.target.checked; renderClinicView(); return; }
   const tr = e.target.closest('tr[data-arid]'); if (!tr) return;
   if (e.target.matches('[data-arstage]')) {
     const r = archiveById(tr.dataset.arid);
@@ -2019,6 +2102,12 @@ $('clinicView').addEventListener('change', async (e) => {
   if (e.target.matches('[data-arnotes]')) { await archivePatch(tr.dataset.arid, { ourNotes: e.target.value.trim() }); toast('Η σημείωση αποθηκεύτηκε.'); }
 });
 $('clinicView').addEventListener('input', (e) => {
+  if (e.target.id === 'arSmsText' || e.target.id === 'arSmsSender') { // χωρίς re-render: μόνο η γραμμή κόστους
+    if (e.target.id === 'arSmsText') arSms.text = e.target.value; else arSms.sender = e.target.value;
+    const c = clinicById(currentClinicId); const info = $('arSmsInfo'); if (!c || !info) return;
+    const rec = smsRecipients(archiveFiltered(c).ls); info.innerHTML = smsInfoText(rec.length, smsSegments(arSms.text), +SET().smsPrice || 0.05);
+    return;
+  }
   if (e.target.id !== 'arQ') return;
   arQ = e.target.value; const pos = e.target.selectionStart;
   renderClinicView();
