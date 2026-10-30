@@ -24,11 +24,13 @@ const QUERY = {
   billing: 'billing?select=*&order=month.desc&limit=200',
   subscriptions: 'subscriptions?select=*&order=renew_date.asc',
   call_log: 'call_log?select=*&order=at.desc&limit=5000',
+  blocked_leads: 'blocked_leads?select=*&order=at.desc&limit=5000',
 };
 
 export async function loadAll() {
   const keys = Object.keys(QUERY);
-  const res = await Promise.all(keys.map((k) => rest(QUERY[k])));
+  // blocked_leads: προαιρετικός πίνακας (migration 0047) — αν λείπει ακόμη, η εφαρμογή δουλεύει κανονικά
+  const res = await Promise.all(keys.map((k) => rest(QUERY[k]).catch((e) => { if (k === 'blocked_leads') return []; throw e; })));
   return Object.fromEntries(keys.map((k, i) => [k, res[i].map(rowOut)]));
 }
 

@@ -58,7 +58,7 @@ async function refresh() {
     const all = await data.loadAll();
     S.clinics = all.clinics; S.leads = all.leads; S.camps = all.campaigns; S.fin = all.finance;
     S.rec = all.recurring || []; S.act = all.activity || []; S.tasks = all.tasks || []; S.cr = all.creatives || [];
-    S.stats = all.monthly_stats || []; S.trash = all.trash || []; S.acct = all.accountant || []; S.clog = all.client_log || []; S.billing = all.billing || []; S.subs = all.subscriptions || []; S.calls = all.call_log || [];
+    S.stats = all.monthly_stats || []; S.trash = all.trash || []; S.acct = all.accountant || []; S.clog = all.client_log || []; S.billing = all.billing || []; S.subs = all.subscriptions || []; S.calls = all.call_log || []; S.blocked = all.blocked_leads || [];
     notifyRemoteLeads();
     S.settings = (all.settings && all.settings[0]) || null;
     $('dbBanner').hidden = true;
@@ -253,9 +253,15 @@ function safeRender() {
 /* ---- κάδος: κάθε διαγραφή κρατά αντίγραφο 30 ημερών ---- */
 const COLL_LABEL = { clinics: 'Κλινική', leads: 'Lead', campaigns: 'Καμπάνια', finance: 'Εγγραφή', recurring: 'Πάγια', subscriptions: 'Συνδρομή', creatives: 'Δημιουργικό', tasks: 'Task' };
 function collSource(coll) { return { clinics: S.clinics, leads: S.leads, campaigns: S.camps, finance: S.fin, recurring: S.rec, subscriptions: S.subs, creatives: S.cr, tasks: S.tasks }[coll]; }
+/* Μόνιμο «μην το ξαναφέρεις»: το id ενός σβησμένου lead μπαίνει στα blocked_leads ώστε ο συγχρονισμός από sheet να το προσπερνά. */
+async function blockLead(id, row) {
+  try { await data.create('blocked_leads', { clinicId: (row && row.clinicId) || null, name: (row && row.name) || '', by: userEmail(), at: new Date().toISOString() }, id); }
+  catch { /* ίσως υπάρχει ήδη */ }
+}
 async function trashRemove(coll, id) {
   const src = collSource(coll);
   const row = src && src.find((r) => r.id === id);
+  if (coll === 'leads') await blockLead(id, row);
   if (row) {
     const { id: _drop, ...body } = row;
     try { await data.create('trash', { coll, docId: id, body, by: userEmail(), deletedAt: new Date().toISOString() }, 'tr' + uid()); }
@@ -302,6 +308,10 @@ async function importRows(rows, clinic, label, silent) {
   try { leads = mapLeads(rows, clinic.id); }
   catch (e) { if (!silent) toast(e.message); return 0; }
   if (!leads.length) { if (!silent) toast('Δεν βρέθηκαν leads στο ' + label + '.'); return 0; }
+  /* Σβησμένα leads (blocked_leads) δεν ξαναμπαίνουν όσο η γραμμή τους μένει στο sheet */
+  const blocked = new Set((S.blocked || []).map((b) => b.id));
+  leads = leads.filter((l) => !blocked.has(l.id));
+  if (!leads.length) { try { await data.update('clinics', clinic.id, { lastSync: new Date().toISOString() }); } catch { /* δευτερεύον */ } return 0; }
   let added = 0;
   try {
     const before = new Set(S.leads.map((l) => l.id));
@@ -1178,6 +1188,7 @@ $('lm_gdpr').onclick = async () => {
     const acts = S.act.filter((x) => x.leadId === id); const calls = S.calls.filter((x) => x.leadId === id);
     await data.create('trash', { coll: 'leads', docId: id, body: { ...body, _activity: acts, _calls: calls }, by: userEmail(), deletedAt: new Date().toISOString() }, 'tr' + uid());
     for (const a of acts) await data.remove('activity', a.id);
+    await blockLead(id, row);
     await data.remove('leads', id); // το call_log σβήνεται από τη βάση (cascade) — υπάρχει αντίγραφο στον κάδο
     $('leadModal').hidden = true; modalLeadId = null;
     await refresh();
@@ -3674,6 +3685,7 @@ $('trashList').addEventListener('click', async (e) => {
   try {
     const { _activity, _calls, ...body } = t.body || {};
     await data.create(t.coll, body, t.docId);
+    if (t.coll === 'leads') { try { await data.remove('blocked_leads', t.docId); } catch { /* δεν ήταν μπλοκαρισμένο */ } }
     for (const a of _activity || []) { try { await data.create('activity', a, a.id); } catch { /* ίσως υπάρχει ήδη */ } }
     for (const c of _calls || []) { const { id: cid, ...rest } = c; try { await data.create('call_log', rest, cid); } catch { /* ίσως υπάρχει ήδη */ } }
     await data.remove('trash', id);
