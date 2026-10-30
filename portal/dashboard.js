@@ -1914,67 +1914,83 @@ function renderClinicView() {
 }
 let clDocKind = 'contract';
 /* ===== Αρχείο παλιών leads (archive_leads) — ανά κλινική, ΕΚΤΟΣ pipeline «Leads» =====
-   Παλιά leads από τα sheets της κλινικής (π.χ. Jorge: Facial / Laser / Massage / Τριχόπτωση), με το στάδιο όπως το είχε το sheet.
-   Από εδώ καλούμε (tel/SMS), αλλάζουμε στάδιο, κρατάμε σημείωση, ή το κάνουμε κανονικό lead («→ Lead»). */
-let arCat = '', arStage = '', arQ = '';
+   Παλιά leads από τα sheets της κλινικής (π.χ. Jorge: Facial / Laser / Massage / Τριχόπτωση).
+   Δύο καρτέλες: «Sheet» = όσα δεν έχουμε δουλέψει ακόμη (στάδιο όπως το είχε το sheet, μόνο για ανάγνωση)
+   και «Astra» = όσα δουλέψαμε εμείς (δικό μας στάδιο astraStage). Μόλις βάλεις στάδιο Astra, το lead περνά στην «Astra».
+   Από εδώ καλούμε (tel/SMS), κρατάμε σημείωση, ή το κάνουμε κανονικό lead («→ Lead»). */
+let arTab = 'sheet', arCat = '', arStage = '', arQ = '';
 const AR_STAGES = ['neo', 'noans', 'epik', 'think', 'rv', 'won', 'lost'];
 const AR_ORDER = { rv: 0, epik: 1, think: 2, neo: 3, noans: 4, won: 5, lost: 6 };
 const archiveRows = (c) => (S.archive || []).filter((r) => r.clinicId === c.id);
 const archiveById = (id) => (S.archive || []).find((r) => r.id === id);
+const arStageOf = (r) => (arTab === 'astra' ? r.astraStage : r.stage);
 function archiveHTML(c) {
   const all = archiveRows(c);
   if (!all.length) return '<div class="card empty"><div class="big">Κανένα αρχείο</div>Εδώ μπαίνουν παλιά leads της κλινικής (από παλιά sheets) για να τα καλέσουμε, χωρίς να μπαίνουν στο pipeline «Leads».</div>';
-  const cats = [...new Set(all.map((r) => r.category))].sort((a, b) => all.filter((r) => r.category === b).length - all.filter((r) => r.category === a).length);
-  const inCat = arCat ? all.filter((r) => r.category === arCat) : all;
+  const mine = all.filter((r) => r.astraStage), old = all.filter((r) => !r.astraStage);
+  const pool = arTab === 'astra' ? mine : old;
+  const cats = [...new Set(pool.map((r) => r.category))].sort((a, b) => pool.filter((r) => r.category === b).length - pool.filter((r) => r.category === a).length);
+  const inCat = arCat ? pool.filter((r) => r.category === arCat) : pool;
   const q = arQ.trim().toLowerCase();
-  const ls = inCat.filter((r) => (!arStage || r.stage === arStage) && (!q || (r.name + ' ' + r.phone + ' ' + r.email).toLowerCase().includes(q)))
-    .sort((a, b) => (AR_ORDER[a.stage] ?? 9) - (AR_ORDER[b.stage] ?? 9) || String(b.createdTime || '').localeCompare(String(a.createdTime || '')));
+  const ls = inCat.filter((r) => (!arStage || arStageOf(r) === arStage) && (!q || (r.name + ' ' + r.phone + ' ' + r.email).toLowerCase().includes(q)))
+    .sort((a, b) => (arTab === 'astra' ? String(b.updatedAt || '').localeCompare(String(a.updatedAt || '')) : 0) || (AR_ORDER[arStageOf(a)] ?? 9) - (AR_ORDER[arStageOf(b)] ?? 9) || String(b.createdTime || '').localeCompare(String(a.createdTime || '')));
   const chipCat = (k, lb, n) => `<button type="button" class="chip plain${arCat === k ? ' on' : ''}" data-arcat="${esc(k)}">${esc(lb)} · ${n}</button>`;
   const chipSt = (k, lb, n) => `<button type="button" class="chip ${k || 'plain'}${arStage === k ? ' on' : ''}" data-arst="${k}">${lb} · ${n}</button>`;
   const called = all.filter((r) => r.calledAt).length, promoted = all.filter((r) => r.promotedLeadId).length;
   return `
-    <div class="pill-row" style="margin-bottom:8px">${chipCat('', 'Όλες οι υπηρεσίες', all.length)}${cats.map((k) => chipCat(k, k, all.filter((r) => r.category === k).length)).join('')}</div>
-    <div class="pill-row" style="margin-bottom:10px">${chipSt('', 'Όλα τα στάδια', inCat.length)}${AR_STAGES.map((k) => chipSt(k, STATUS[k], inCat.filter((r) => r.stage === k).length)).join('')}</div>
+    <div class="clsubs" style="margin-bottom:12px">
+      <button data-artab="sheet" class="${arTab === 'sheet' ? 'on' : ''}">Sheet (παλιά) · ${old.length}</button>
+      <button data-artab="astra" class="${arTab === 'astra' ? 'on' : ''}">Astra (δουλεμένα) · ${mine.length}</button>
+    </div>
+    <div class="pill-row" style="margin-bottom:8px">${chipCat('', 'Όλες οι υπηρεσίες', pool.length)}${cats.map((k) => chipCat(k, k, pool.filter((r) => r.category === k).length)).join('')}</div>
+    <div class="pill-row" style="margin-bottom:10px">${chipSt('', 'Όλα τα στάδια', inCat.length)}${AR_STAGES.map((k) => chipSt(k, STATUS[k], inCat.filter((r) => arStageOf(r) === k).length)).join('')}</div>
     <div class="filters"><input id="arQ" placeholder="Αναζήτηση ονόματος / τηλεφώνου…" value="${esc(arQ)}" style="min-width:220px">
-      <span class="fhint">${ls.length} από ${all.length} · παλιά leads από τα sheets της κλινικής (δεν εμφανίζονται στα «Leads») · καλέσαμε ${called} · στα Leads ${promoted}</span></div>
-    <div class="card tablewrap">${ls.length ? `<table><thead><tr><th>Όνομα</th><th>Υπηρεσία</th><th>Στάδιο</th><th>Από το sheet</th><th>Σημείωσή μας</th><th></th></tr></thead><tbody>${ls.map(archiveRowHTML).join('')}</tbody></table>` : '<div class="empty">Κανένα αποτέλεσμα με αυτά τα φίλτρα.</div>'}</div>`;
+      <span class="fhint">${ls.length} από ${pool.length} · ${arTab === 'astra' ? 'στάδιο όπως το βάλαμε εμείς — το στάδιο του sheet φαίνεται δίπλα για αναφορά' : 'στάδιο όπως το είχε το sheet της κλινικής — μόλις βάλεις στάδιο Astra, το lead περνά στην καρτέλα «Astra»'} · καλέσαμε ${called} · στα Leads ${promoted}</span></div>
+    <div class="card tablewrap">${ls.length ? `<table><thead><tr><th>Όνομα</th><th>Υπηρεσία</th><th>${arTab === 'astra' ? 'Στάδιο Astra' : 'Στάδιο sheet'}</th><th>Από το sheet</th><th>Σημείωσή μας</th><th>Astra</th></tr></thead><tbody>${ls.map(archiveRowHTML).join('')}</tbody></table>` : '<div class="empty">Κανένα αποτέλεσμα με αυτά τα φίλτρα.</div>'}</div>`;
 }
 function archiveRowHTML(r) {
   const ph = intlPhone(r.phone);
   const when = r.createdTime ? new Date(r.createdTime).toLocaleDateString('el-GR', { day: 'numeric', month: 'short', year: '2-digit' }) : '';
   const info = [r.answers, r.stageRaw, r.appt ? 'Ραντεβού: ' + r.appt : '', r.notes, r.campaign && r.campaign !== r.category ? 'Καμπάνια: ' + r.campaign : '', r.source && r.source !== r.category ? 'Πηγή: ' + r.source : ''].filter(Boolean);
   const called = r.calledAt ? ` <span class="chip plain" title="${esc(r.calledBy || '')}">☎ ${r.calls || 1}× · ${new Date(r.calledAt).toLocaleDateString('el-GR', { day: 'numeric', month: 'short' })}</span>` : '';
+  const stageCell = arTab === 'astra'
+    ? `<span class="chip ${r.astraStage}">${STATUS[r.astraStage] || r.astraStage}</span> <span class="chip plain" title="Στάδιο όπως το είχε το sheet">sheet: ${STATUS[r.stage] || r.stage}</span>`
+    : `<span class="chip ${r.stage}">${STATUS[r.stage] || r.stage}</span>`;
   return `<tr data-arid="${esc(r.id)}">
     <td><b>${esc(r.name)}</b>${when ? ` <span style="color:var(--soft);font-size:11.5px">${when}</span>` : ''}
       <div class="mono" style="font-size:12px">${ph ? `<a href="tel:+${ph}" data-arcall="phone">${esc(r.phone)}</a>` : '<span style="color:var(--soft)">χωρίς τηλέφωνο</span>'}${r.email ? ` · ${esc(r.email)}` : ''}</div>
       ${r.promotedLeadId ? '<span class="chip won" title="Έγινε κανονικό lead — δούλεψέ το από τα «Leads»">→ στα Leads</span>' : ''}</td>
     <td><span class="chip plain">${esc(r.category)}</span></td>
-    <td style="white-space:nowrap"><select data-arstage="1">${AR_STAGES.map((k) => `<option value="${k}"${r.stage === k ? ' selected' : ''}>${STATUS[k]}</option>`).join('')}</select>${called}</td>
-    <td style="font-size:12px;color:var(--soft);max-width:360px;white-space:normal">${info.map(esc).join('<br>')}</td>
-    <td><input data-arnotes="1" value="${esc(r.ourNotes || '')}" placeholder="σημείωση…" style="width:170px"></td>
-    <td class="num" style="white-space:nowrap">${ph ? `<a class="btn small primary" href="tel:+${ph}" data-arcall="phone" title="Κλήση">☎</a> <a class="btn small" href="sms:+${ph}" data-arcall="sms" title="SMS">SMS</a> ` : ''}${r.promotedLeadId ? '' : '<button class="btn small" data-act="arpromote" title="Μεταφορά στα κανονικά Leads για follow-up">→ Lead</button>'}</td>
+    <td style="white-space:nowrap">${stageCell}${called}</td>
+    <td style="font-size:12px;color:var(--soft);max-width:340px;white-space:normal">${info.map(esc).join('<br>')}</td>
+    <td><input data-arnotes="1" value="${esc(r.ourNotes || '')}" placeholder="σημείωση…" style="width:160px"></td>
+    <td style="white-space:nowrap">${ph ? `<a class="btn small primary" href="tel:+${ph}" data-arcall="phone" title="Κλήση">☎</a> <a class="btn small" href="sms:+${ph}" data-arcall="sms" title="SMS">SMS</a> ` : ''}
+      <select data-arstage="1" title="Στάδιο Astra — τι έγινε στη δική μας επικοινωνία"><option value=""${r.astraStage ? '' : ' selected'}>Στάδιο Astra…</option>${AR_STAGES.map((k) => `<option value="${k}"${r.astraStage === k ? ' selected' : ''}>${STATUS[k]}</option>`).join('')}</select>
+      ${r.promotedLeadId ? '' : ' <button class="btn small" data-act="arpromote" title="Μεταφορά στα κανονικά Leads για follow-up">→ Lead</button>'}</td>
   </tr>`;
 }
 async function archivePatch(id, patch) {
   const r = archiveById(id); if (!r) return;
-  Object.assign(r, patch);
-  try { await data.update('archive_leads', id, { ...patch, updatedAt: new Date().toISOString() }); } catch (e) { toast('Αποτυχία: ' + e.message); }
+  Object.assign(r, patch, { updatedAt: new Date().toISOString() });
+  try { await data.update('archive_leads', id, { ...patch, updatedAt: r.updatedAt }); } catch (e) { toast('Αποτυχία: ' + e.message); }
 }
-/* «→ Lead»: γίνεται κανονικό lead της κλινικής με το στάδιο του αρχείου, ώστε να μπει στο follow-up· το αρχείο κρατά τη σύνδεση. */
+/* «→ Lead»: γίνεται κανονικό lead της κλινικής με το στάδιο Astra (ή του sheet), ώστε να μπει στο follow-up· το αρχείο κρατά τη σύνδεση. */
 async function archivePromote(r, c) {
   const id = 'AL-' + uid();
   const notes = [r.ourNotes, r.stageRaw ? 'Sheet: ' + r.stageRaw : '', r.appt ? 'Ραντεβού (sheet): ' + r.appt : '', r.notes].filter(Boolean).join(' · ');
-  const stage = ['won', 'lost'].includes(r.stage) ? 'epik' : r.stage;
+  const base = r.astraStage || r.stage;
+  const stage = ['won', 'lost'].includes(base) ? 'epik' : base;
   await data.create('leads', {
     clinicId: c.id, name: r.name, phone: r.phone, email: r.email, campaign: r.campaign || r.category, adName: '', platform: r.platform || 'archive',
     createdTime: new Date().toISOString(), status: stage, amount: 0, notes, sheetNotes: [r.category, r.answers].filter(Boolean).join(' · '), source: 'archive', importedAt: new Date().toISOString(),
   }, id);
   await logAct(id, 'create', `Από το αρχείο παλιών leads (${r.category}${r.createdTime ? ', ' + new Date(r.createdTime).toLocaleDateString('el-GR') : ''})`);
-  await archivePatch(r.id, { promotedLeadId: id });
+  await archivePatch(r.id, { promotedLeadId: id, astraStage: r.astraStage || stage });
   return id;
 }
 $('clinicView').addEventListener('click', async (e) => {
   const c = clinicById(currentClinicId); if (!c) return;
+  const tab = e.target.closest('[data-artab]'); if (tab) { arTab = tab.dataset.artab; arCat = ''; arStage = ''; renderClinicView(); return; }
   const cat = e.target.closest('[data-arcat]'); if (cat) { arCat = cat.dataset.arcat; arStage = ''; renderClinicView(); return; }
   const st = e.target.closest('[data-arst]'); if (st) { arStage = arStage === st.dataset.arst ? '' : st.dataset.arst; renderClinicView(); return; }
   const tr = e.target.closest('tr[data-arid]'); if (!tr) return;
@@ -1994,7 +2010,12 @@ $('clinicView').addEventListener('click', async (e) => {
 });
 $('clinicView').addEventListener('change', async (e) => {
   const tr = e.target.closest('tr[data-arid]'); if (!tr) return;
-  if (e.target.matches('[data-arstage]')) { await archivePatch(tr.dataset.arid, { stage: e.target.value }); if (clSub === 'archive') renderClinicView(); }
+  if (e.target.matches('[data-arstage]')) {
+    const r = archiveById(tr.dataset.arid);
+    await archivePatch(tr.dataset.arid, { astraStage: e.target.value });
+    if (e.target.value && arTab === 'sheet') toast(`«${r ? r.name : ''}» → ${STATUS[e.target.value]} · πέρασε στην καρτέλα «Astra».`);
+    if (clSub === 'archive') renderClinicView();
+  }
   if (e.target.matches('[data-arnotes]')) { await archivePatch(tr.dataset.arid, { ourNotes: e.target.value.trim() }); toast('Η σημείωση αποθηκεύτηκε.'); }
 });
 $('clinicView').addEventListener('input', (e) => {
