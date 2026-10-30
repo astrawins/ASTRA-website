@@ -899,14 +899,15 @@ function renderToday() {
   const tdue = undoneTasksDue();
   const tnext = S.tasks.filter((t) => !t.done && t.date > todayISO()).sort((a, b) => String(a.date).localeCompare(String(b.date)));
   const taskBlock = `<h3 class="sectionhead">Tasks <span class="chip ${tdue.length ? 'epik' : 'plain'}">${tdue.length} για σήμερα</span>${tnext.length ? ` <span class="chip plain">${tnext.length} επόμενα</span>` : ''}</h3>
-    <div class="taskcols">${taskOwners().map((o) => {
-      const mine = tdue.filter((t) => t.owner === o).sort((a, b) => String(a.date).localeCompare(String(b.date)));
-      const later = tnext.filter((t) => t.owner === o);
-      return `<div class="taskcol"><h3>${esc(o)}</h3><div class="card">`
+    <div class="taskcols">${(() => {
+      /* Στην αρχική φαίνονται μόνο τα άτομα που έχουν ενεργά tasks (σήμερα ή επόμενα) — π.χ. χωρίς στήλη «Marga» όταν δεν έχει τίποτα. */
+      const cols = taskOwners().map((o) => ({ o, mine: tdue.filter((t) => t.owner === o).sort((a, b) => String(a.date).localeCompare(String(b.date))), later: tnext.filter((t) => t.owner === o) })).filter((x) => x.mine.length || x.later.length);
+      if (!cols.length) return '<div class="taskcol"><div class="card"><div class="empty" style="padding:14px">Κανένα ενεργό task ✓</div></div></div>';
+      return cols.map(({ o, mine, later }) => `<div class="taskcol"><h3>${esc(o)}</h3><div class="card">`
         + (mine.length ? mine.map(taskRow).join('') : '<div class="empty" style="padding:14px">Τίποτα για σήμερα ✓</div>')
         + (later.length ? `<div class="taskday">Επόμενα</div>${later.map(taskRow).join('')}` : '')
-        + '</div></div>';
-    }).join('')}</div>`;
+        + '</div></div>').join('');
+    })()}</div>`;
   const ti = todayItems();
   $('todayBody').innerHTML = scheduleBlock() + portalBlock + taskBlock + '<div style="height:20px"></div>' + touchBlock + subBlock + clinicCallsBlock(due, fresh, upcoming, stale, ti.confirm, ti.inProgress, ti.remind);
 }
