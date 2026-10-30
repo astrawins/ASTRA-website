@@ -602,7 +602,7 @@ const DEF_MSG6 = 'Γεια σας {όνομα}, σας θυμίζουμε το �
 /* Υπενθυμίσεις ραντεβού (όρισε ο χρήστης 27/10/2026): 3 μέρες πριν (10:00), 1 μέρα πριν (10:00), 1 ώρα πριν.
    Κάθε μία στέλνεται με ένα πάτημα (SMS/Viber) και καταγράφεται στο call_log ως msg με attempt 6/7/8. */
 const REMINDERS = [
-  { w: 6, short: '3 μέρες πριν', days: 3, pote: (l) => 'σε 3 μέρες, ' + apptDayText(l, 'την ') + ' στις ' + (hhmm(l.apptTime) || '—') },
+  { w: 6, short: '3 μέρες πριν', days: 3, pote: (l) => apptDayText(l, 'την ') + ' στις ' + (hhmm(l.apptTime) || '—') },
   { w: 7, short: '1 μέρα πριν', days: 1, pote: (l) => 'αύριο ' + apptDayText(l) + ' στις ' + (hhmm(l.apptTime) || '—') },
   { w: 8, short: '1 ώρα πριν', mins: 60, pote: (l) => 'σήμερα στις ' + (hhmm(l.apptTime) || '—') + ', σε περίπου μία ώρα' },
 ];
