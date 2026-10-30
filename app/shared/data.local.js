@@ -3,7 +3,7 @@
 import { uid } from './util.js';
 
 const KEY = 'astra_db';
-const EMPTY = { clinics: [], leads: [], campaigns: [], finance: [], recurring: [], activity: [], settings: [], tasks: [], creatives: [], monthly_stats: [], trash: [], accountant: [], client_log: [], billing: [], subscriptions: [], call_log: [], blocked_leads: [] };
+const EMPTY = { clinics: [], leads: [], campaigns: [], finance: [], recurring: [], activity: [], settings: [], tasks: [], creatives: [], monthly_stats: [], trash: [], accountant: [], client_log: [], billing: [], subscriptions: [], call_log: [], blocked_leads: [], archive_leads: [] };
 
 function load() {
   try {
