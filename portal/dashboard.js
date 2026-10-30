@@ -909,7 +909,9 @@ function renderToday() {
         + '</div></div>').join('');
     })()}</div>`;
   const ti = todayItems();
-  $('todayBody').innerHTML = scheduleBlock() + portalBlock + taskBlock + '<div style="height:20px"></div>' + touchBlock + subBlock + clinicCallsBlock(due, fresh, upcoming, stale, ti.confirm, ti.inProgress, ti.remind);
+  /* Τα tasks δεν εμφανίζονται στη «Σήμερα» (οδηγία 30/10/2026) — υπάρχει η δική τους καρτέλα. */
+  void taskBlock;
+  $('todayBody').innerHTML = scheduleBlock() + portalBlock + '<div style="height:20px"></div>' + touchBlock + subBlock + clinicCallsBlock(due, fresh, upcoming, stale, ti.confirm, ti.inProgress, ti.remind);
 }
 /* Κλήσεις ημέρας ομαδοποιημένες ανά κλινική — κλειστές κάρτες με σύνοψη, ανοίγουν με κλικ. */
 let openCallGroups = new Set();
