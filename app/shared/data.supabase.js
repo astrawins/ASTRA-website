@@ -26,13 +26,12 @@ const QUERY = {
   call_log: 'call_log?select=*&order=at.desc&limit=5000',
   blocked_leads: 'blocked_leads?select=*&order=at.desc&limit=5000',
   archive_leads: 'archive_leads?select=*&order=updated_at.desc&limit=5000',
-  sms_log: 'sms_log?select=*&order=at.desc&limit=5000',
 };
 
 export async function loadAll() {
   const keys = Object.keys(QUERY);
   // blocked_leads / archive_leads: προαιρετικοί πίνακες (migrations 0047/0048) — αν λείπει ακόμη, η εφαρμογή δουλεύει κανονικά
-  const res = await Promise.all(keys.map((k) => rest(QUERY[k]).catch((e) => { if (k === 'blocked_leads' || k === 'archive_leads' || k === 'sms_log') return []; throw e; })));
+  const res = await Promise.all(keys.map((k) => rest(QUERY[k]).catch((e) => { if (k === 'blocked_leads' || k === 'archive_leads') return []; throw e; })));
   return Object.fromEntries(keys.map((k, i) => [k, res[i].map(rowOut)]));
 }
 
