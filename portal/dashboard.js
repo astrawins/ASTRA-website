@@ -2032,12 +2032,24 @@ function petrosChip(l) {
   const p2 = S.calls.some((x) => x.leadId === l.id && x.kind === 'call' && x.channel === 'phone2');
   return `<span class="chip noans" title="Κλήθηκε ${n} φορές χωρίς απάντηση — σειρά του Πέτρου από το 2ο τηλέφωνο">☎ ${n} → Πέτρος${p2 ? ' ✓' : ''}</span>`;
 }
-function funnelHTML(leads) {
+/* Funnel: κάθε chip είναι φίλτρο — κλικ δείχνει μόνο αυτό το στάδιο (ή τους «Πέτρος»), ξανά κλικ το καθαρίζει. Από την Επισκόπηση πάει στα Leads. */
+function funnelHTML(leads, active = '') {
   const order = ['neo', 'noans', 'epik', 'think', 'rv', 'won', 'lost'];
-  return order.map((k) => `<span class="chip ${k}">${STATUS[k]} · ${leads.filter((l) => l.status === k).length}</span>`).join('')
-    + `<span class="chip noans" title="3+ κλήσεις χωρίς απάντηση — για τον Πέτρο">Πέτρος · ${leads.filter(forPetros).length}</span>`
-    + `<span class="chip plain">Σύνολο ${leads.length}</span>`;
+  const chip = (k, cls, label, n, title) => `<button type="button" class="chip ${cls}${active === k ? ' on' : ''}" data-fs="${k}" title="${title || (active === k ? 'Κλικ για όλα τα στάδια' : 'Κλικ: μόνο αυτά')}">${label} · ${n}</button>`;
+  return order.map((k) => chip(k, k, STATUS[k], leads.filter((l) => l.status === k).length)).join('')
+    + chip('petros', 'noans', 'Πέτρος', leads.filter(forPetros).length, '3+ κλήσεις χωρίς απάντηση — για τον Πέτρο')
+    + `<button type="button" class="chip plain${active ? '' : ' on'}" data-fs="" title="Όλα τα στάδια">Σύνολο ${leads.length}</button>`;
 }
+/* Κλικ σε chip του funnel (Leads ή Επισκόπηση) → φίλτρο σταδίου στα Leads */
+function funnelClick(e) {
+  const b = e.target.closest('[data-fs]'); if (!b) return;
+  const fs = b.dataset.fs; const sel = $('flStatus');
+  sel.value = sel.value === fs ? '' : fs;
+  if (activeTab !== 'leads') showTab('leads');
+  renderLeads();
+}
+$('leadFunnel').addEventListener('click', funnelClick);
+$('ovFunnel').addEventListener('click', funnelClick);
 function filteredLeads() {
   const fc = $('flClinic').value, fs = $('flStatus').value, q = $('flSearch').value.trim().toLowerCase();
   let ls = [...S.leads];
@@ -2140,8 +2152,10 @@ function renderLeads() {
   fillClinicSelect($('flClinic'), 'Όλες οι κλινικές');
   renderLeadClinicBar();
   const ls = filteredLeads();
-  const filtered = $('flClinic').value || $('flStatus').value || $('flSearch').value.trim();
-  $('leadFunnel').innerHTML = funnelHTML(filtered ? ls : S.leads);
+  const fsNow = $('flStatus').value;
+  const fc = $('flClinic').value, q = $('flSearch').value.trim().toLowerCase();
+  const funnelBase = S.leads.filter((l) => (!fc || l.clinicId === fc) && (!q || (l.name + ' ' + l.phone + ' ' + l.email).toLowerCase().includes(q)));
+  $('leadFunnel').innerHTML = funnelHTML(funnelBase, fsNow);
   renderDupBanner();
   document.querySelectorAll('.viewtoggle button').forEach((b) => b.classList.toggle('on', b.dataset.view === leadView));
   $('leadTable').hidden = leadView !== 'list';

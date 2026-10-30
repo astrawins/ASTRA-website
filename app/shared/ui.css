@@ -205,6 +205,10 @@ tfoot td { font-weight: 700; border-top: 2px solid var(--hair); background: var(
 .chip.won { color: var(--good); background: var(--good-bg); }
 .chip.lost { color: var(--crit); background: var(--crit-bg); }
 .chip.show { color: var(--chip-show); background: var(--chip-show-bg); }
+/* chips-φίλτρα στο funnel των leads */
+button.chip { border: 1.5px solid transparent; cursor: pointer; font: inherit; font-size: 12px; font-weight: 600; line-height: 1.5; }
+button.chip:hover { filter: brightness(0.94); }
+button.chip.on { border-color: currentColor; box-shadow: 0 0 0 2px var(--card, #fff) inset; }
 .chip.plain { color: var(--soft); background: var(--card2); }
 .chip.plain::before { display: none; }
 
