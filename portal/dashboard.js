@@ -2523,6 +2523,16 @@ function renderFin() {
     <div class="tile"><div class="lb">Έξοδα (καθαρά)</div><div class="v">${eur(sum(exp, 'net'))}</div><div class="d">${exp.length} εγγραφές${cloud && noRc ? ` · <span class="neg">${noRc} χωρίς παραστατικό</span>` : ''}</div></div>
     <div class="tile"><div class="lb">Αποτέλεσμα</div><div class="v ${sum(inc, 'net') - sum(exp, 'net') >= 0 ? 'pos' : 'neg'}">${eur(sum(inc, 'net') - sum(exp, 'net'))}</div><div class="d">προ φόρων</div></div>
     <div class="tile"><div class="lb">ΦΠΑ εκροών − εισροών</div><div class="v ${vatDue > 0 ? 'neg' : 'pos'}">${eur(vatDue)}</div><div class="d">${vatDue > 0 ? 'για απόδοση' : 'πιστωτικό'} τον μήνα</div></div>`;
+  const ae = apptEarnings(mk);
+  $('finApptTiles').innerHTML = `
+    <div class="tile"><div class="lb">Κέρδη από ραντεβού που έγιναν · σύνολο</div><div class="v pos">${eur(ae.total)}</div><div class="d">${ae.n} ραντεβού από την αρχή · καθαρά, χωρίς ΦΠΑ</div></div>
+    <div class="tile"><div class="lb">Κέρδη από ραντεβού · ${mLabel(mk)}</div><div class="v">${eur(ae.totalM)}</div><div class="d">${ae.nM} ραντεβού τον μήνα</div></div>
+    <div class="tile"><div class="lb">Έχουν εισπραχθεί</div><div class="v">${eur(ae.paid)}</div><div class="d">${eur(Math.max(0, ae.total - ae.paid))} ακόμη προς χρέωση / είσπραξη</div></div>`;
+  $('finApptTable').innerHTML = ae.rows.length
+    ? '<table><thead><tr><th>Κλινική</th><th>Αμοιβή</th><th class="num">Ραντεβού</th><th class="num">' + mLabel(mk) + '</th><th class="num">Σύνολο</th><th class="num">Εισπράχθηκαν</th></tr></thead><tbody>'
+      + ae.rows.map((r) => `<tr><td>${esc(r.c.name)}</td><td>${esc(r.model)}</td><td class="num">${r.n}</td><td class="num">${eur(r.totalM)}</td><td class="num"><b>${eur(r.total)}</b></td><td class="num">${eur(r.paid)}</td></tr>`).join('')
+      + `<tr><td><b>Σύνολο</b></td><td></td><td class="num"><b>${ae.n}</b></td><td class="num"><b>${eur(ae.totalM)}</b></td><td class="num"><b>${eur(ae.total)}</b></td><td class="num"><b>${eur(ae.paid)}</b></td></tr></tbody></table>`
+    : '<div class="empty">Κανένα ραντεβού δεν έχει σημανθεί «Πελάτης» ακόμη.</div>';
   const kf = $('ffKindFilter').value;
   let rows = inQ; if (kf) rows = rows.filter((f) => f.kind === kf);
   rows = [...rows].sort((a, b) => String(b.date).localeCompare(String(a.date)));
@@ -2786,6 +2796,23 @@ const isBooked = (l) => ['show', 'won'].includes(l.status);
 const isPaying = (l) => ['show', 'won'].includes(l.status) && (+l.amount || 0) > 0;
 const revDate = (l) => l.saleDate || l.attendedAt || l.createdTime;
 const billDate = (l) => String(l.attendedAt || l.saleDate || l.createdTime || '').slice(0, 10);
+/* Κέρδη Astra από ραντεβού που ΕΓΙΝΑΝ (στάδιο «Πελάτης»), ανά κλινική με το μοντέλο της:
+   αμοιβή ανά ραντεβού (50 % καθαρής αξίας αν υπάρχει ποσό, αλλιώς πακέτο/σταθερή αμοιβή) ή ποσοστό επί πωλήσεων.
+   «Εισπράχθηκαν» = εβδομαδιαίες χρεώσεις με κατάσταση «Πληρώθηκε». Το σύνολο είναι από την αρχή της συνεργασίας. */
+function apptEarnings(mk) {
+  const rows = S.clinics.map((c) => {
+    const share = isShare(c);
+    const all = S.leads.filter((l) => l.clinicId === c.id && isBooked(l) && (!share || (+l.amount || 0) > 0));
+    const when = (l) => monthKey(share ? (l.saleDate || l.createdTime) : billDate(l));
+    const inM = all.filter((l) => when(l) === mk);
+    const net = (ls) => (share ? shareNet(c, ls) : sumFees(c, ls));
+    const paid = S.billing.filter((b) => b.clinicId === c.id && b.payStatus === 'paid').reduce((s, b) => s + (+b.total || 0), 0);
+    const model = share ? `${+c.sharePct || 50}% επί καθαρού πωλήσεων` : (feeOpts(c).length ? feeOpts(c).map((o) => `${o.label}: ${+o.fee}€`).join(' · ') : `${eur(clinicFee(c))} / ραντεβού`);
+    return { c, model, n: all.length, nM: inM.length, total: net(all), totalM: net(inM), paid: +paid.toFixed(2) };
+  }).filter((r) => r.n).sort((a, b) => b.total - a.total);
+  const sum = (k) => +rows.reduce((s, r) => s + r[k], 0).toFixed(2);
+  return { rows, n: sum('n'), nM: sum('nM'), total: sum('total'), totalM: sum('totalM'), paid: sum('paid') };
+}
 function taxEstimate() {
   const mk = nowMonth();
   const year = mk.slice(0, 4);
