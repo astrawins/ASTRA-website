@@ -3637,8 +3637,8 @@ function computeStats(m, clinic) {
   return {
     month: m, clinicId: clinic ? clinic.id : null, clinicName: clinic ? clinic.name : '',
     leads: ls.length,
-    rv: ls.filter((l) => ['rv', 'show', 'won'].includes(l.status)).length,
-    shows: ls.filter((l) => ['show', 'won'].includes(l.status)).length,
+    rv: ls.filter((l) => ['rv', 'show', 'won'].includes(l.status) || !!l.attendedAt).length, // + «Ήρθε χωρίς αγορά» (Χαμένο με προσέλευση)
+    shows: ls.filter((l) => ['show', 'won'].includes(l.status) || !!l.attendedAt).length,
     sales: salesLs.length, revenue: +revenue.toFixed(2), spend: +spend.toFixed(2),
     impressions: cps.reduce((s, c) => s + (+c.impressions || 0), 0),
     clicks: cps.reduce((s, c) => s + (+c.clicks || 0), 0),
