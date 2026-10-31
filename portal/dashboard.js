@@ -298,7 +298,7 @@ function statusPatch(st, l) {
   if (st === 'won') p.saleDate = todayISO();
   if (st === 'think' && !(l && l.nextAction && l.nextAction > todayISO())) p.nextAction = addDays(2); // επανάκληση σε 2 μέρες
   if (['show', 'won'].includes(st)) { if (!(l && l.attendedAt)) p.attendedAt = todayISO(); }
-  else p.attendedAt = null; // πίσω σε κλεισμένο/επικοινωνία/χαμένο → δεν χρεώνεται, και αν ξαναέρθει παίρνει νέα ημερομηνία
+  else if (!(st === 'lost' && l && l.lostReason === NO_SALE)) p.attendedAt = null; // πίσω σε κλεισμένο/επικοινωνία/χαμένο → δεν χρεώνεται, και αν ξαναέρθει παίρνει νέα ημερομηνία. Εξαίρεση: «Ήρθε χωρίς αγορά» κρατά την προσέλευση (μετρά στους «ήρθαν», αμοιβή 0).
   return p;
 }
 
@@ -1141,14 +1141,16 @@ $('lm_status').addEventListener('change', async () => {
   if (v === 'think') toast('Επανάκληση σε 2 μέρες — στείλε και το μήνυμα από το «Σήμερα».');
 });
 /* Λόγος απώλειας (leads.lost_reason) — εμφανίζεται μόνο όταν το lead είναι «Χαμένο». */
-const LOST_REASONS = ['Ακριβό', 'Μακριά', 'Δεν θυμάται τη φόρμα', 'Λάθος νούμερο', 'Δεν απάντησε ποτέ', 'Το σκέφτεται / αργότερα', 'Πήγε αλλού', 'Αδράνεια', 'Άλλο'];
+const NO_SALE = 'Ήρθε χωρίς αγορά'; // ήρθε στο ιατρείο αλλά δεν αγόρασε: Χαμένο με attendedAt → μετρά στους «ήρθαν», αμοιβή 0 (χρεώνουμε μόνο ραντεβού που έγινε ΚΑΙ πληρώθηκε)
+const LOST_REASONS = ['Ακριβό', 'Μακριά', 'Δεν θυμάται τη φόρμα', 'Λάθος νούμερο', 'Δεν απάντησε ποτέ', 'Το σκέφτεται / αργότερα', 'Πήγε αλλού', NO_SALE, 'Αδράνεια', 'Άλλο'];
 function setLostReason(l) {
   $('lm_lostWrap').hidden = l.status !== 'lost';
   $('lm_lost').innerHTML = '<option value="">— διάλεξε —</option>' + LOST_REASONS.map((r) => `<option${l.lostReason === r ? ' selected' : ''}>${esc(r)}</option>`).join('');
 }
 $('lm_lost').addEventListener('change', async () => {
   if (!modalLeadId) return;
-  await updateLead(modalLeadId, { lostReason: $('lm_lost').value }, 'status', 'Λόγος απώλειας: ' + ($('lm_lost').value || '—'));
+  const lr = $('lm_lost').value; const ll = leadById(modalLeadId);
+  await updateLead(modalLeadId, { lostReason: lr, ...(lr === NO_SALE && !(ll && ll.attendedAt) ? { attendedAt: todayISO(), amount: 0 } : {}) }, 'status', 'Λόγος απώλειας: ' + (lr || '—') + (lr === NO_SALE ? ' · ήρθε στο ιατρείο, χωρίς χρέωση' : ''));
   const l = leadById(modalLeadId); if (l) renderTimeline(l);
 });
 $('lm_next').addEventListener('change', async () => {

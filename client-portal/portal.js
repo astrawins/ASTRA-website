@@ -131,7 +131,7 @@ function liveMonth(mk, base) {
   const est = currentWeekEstimate();
   const agencyIncome = D.bills.filter((b) => inM(b.periodEnd)).reduce((s, b) => s + (+b.total || 0), 0) + (est ? est.net : 0);
   const rv = ls.filter((l) => ['rv', 'show', 'won'].includes(l.status)).length;
-  return { ...(base || {}), month: mk, leads: ls.length, rv, shows: ls.filter((l) => ['show', 'won'].includes(l.status)).length,
+  return { ...(base || {}), month: mk, leads: ls.length, rv, shows: ls.filter((l) => ['show', 'won'].includes(l.status) || !!l.attendedAt).length, // ήρθαν = και όσοι ήρθαν χωρίς αγορά (Χαμένο με ημερομηνία προσέλευσης)
     sales: D.leads.filter((l) => l.status === 'won' && inM(l.saleDate || l.createdTime)).length,
     revenue: +revenue.toFixed(2), spend: +spend.toFixed(2), cpl: ls.length && spend ? spend / ls.length : 0, roas: spend > 0 ? revenue / spend : 0,
     agencyIncome: +agencyIncome.toFixed(2) };
@@ -225,7 +225,7 @@ function renderAppts() {
   const body = document.getElementById('pBody');
   const _n = new Date(); const today = _n.getFullYear() + '-' + String(_n.getMonth() + 1).padStart(2, '0') + '-' + String(_n.getDate()).padStart(2, '0');
   const rv = D.leads.filter((l) => l.status === 'rv').sort((a, b) => String(a.nextAction || '9999').localeCompare(String(b.nextAction || '9999')));
-  const shown = D.leads.filter((l) => ['show', 'won'].includes(l.status) && l.attendedAt).sort((a, b) => String(b.createdTime).localeCompare(String(a.createdTime))).slice(0, 15);
+  const shown = D.leads.filter((l) => l.attendedAt && (['show', 'won'].includes(l.status) || l.status === 'lost')).sort((a, b) => String(b.createdTime).localeCompare(String(a.createdTime))).slice(0, 15);
   const row = (l) => `<div class="todayrow" data-id="${l.id}">
       <div class="who"><b>${esc(l.name)}</b><div class="sub">${esc(l.phone || '')}</div></div>
       <span class="due ${l.nextAction && l.nextAction < today ? 'over' : ''}">${l.nextAction ? new Date(l.nextAction).toLocaleDateString('el-GR', { weekday: 'short', day: 'numeric', month: 'short' }) + (l.apptTime ? ' · ' + hhmm(l.apptTime) : '') : 'χωρίς ημερομηνία'}</span>
@@ -240,7 +240,7 @@ function renderAppts() {
     <p style="color:var(--soft);font-size:13px;margin:-4px 0 12px">Επιβεβαιώστε ποιοι προσήλθαν — η αμοιβή της astra χρεώνεται μόνο για τα ραντεβού που έγιναν, και η ομάδα μας κάνει follow-up σε όσους δεν ήρθαν. Αν γράψετε και το ποσό που πλήρωσε ο ασθενής, υπολογίζεται το καθαρό σας κέρδος.</p>
     <div class="card section">${rv.length ? rv.map(row).join('') : '<div class="empty">Κανένα εκκρεμές ραντεβού.</div>'}</div>
     ${shown.length ? `<h3 class="sectionhead">Επιβεβαιωμένα — ήρθαν <span class="chip show">${shown.length}</span></h3>
-    <div class="card">${shown.map((l) => `<div class="todayrow"><div class="who"><b>${esc(l.name)}</b></div><span class="chip show">Ήρθε ✓</span></div>`).join('')}</div>` : ''}`;
+    <div class="card">${shown.map((l) => `<div class="todayrow"><div class="who"><b>${esc(l.name)}</b></div>${l.status === 'lost' ? '<span class="chip plain" title="Ήρθε στο ιατρείο αλλά δεν αγόρασε — χωρίς χρέωση">Ήρθε · χωρίς αγορά</span>' : '<span class="chip show">Ήρθε ✓</span>'}</div>`).join('')}</div>` : ''}`;
 }
 document.getElementById('pBody').addEventListener('click', async (e) => {
   const b = e.target.closest('[data-mark]'); if (!b) return;
