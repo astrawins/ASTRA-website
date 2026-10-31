@@ -130,7 +130,7 @@ function liveMonth(mk, base) {
   const spend = cps.length ? cps.reduce((s, x) => s + (+x.spend || 0), 0) : (base ? +base.spend || 0 : 0);
   const est = currentWeekEstimate();
   const agencyIncome = D.bills.filter((b) => inM(b.periodEnd)).reduce((s, b) => s + (+b.total || 0), 0) + (est ? est.net : 0);
-  const rv = ls.filter((l) => ['rv', 'show', 'won'].includes(l.status)).length;
+  const rv = ls.filter((l) => ['rv', 'show', 'won'].includes(l.status) || !!l.attendedAt).length; // + όσοι ήρθαν χωρίς αγορά
   return { ...(base || {}), month: mk, leads: ls.length, rv, shows: ls.filter((l) => ['show', 'won'].includes(l.status) || !!l.attendedAt).length, // ήρθαν = και όσοι ήρθαν χωρίς αγορά (Χαμένο με ημερομηνία προσέλευσης)
     sales: D.leads.filter((l) => l.status === 'won' && inM(l.saleDate || l.createdTime)).length,
     revenue: +revenue.toFixed(2), spend: +spend.toFixed(2), cpl: ls.length && spend ? spend / ls.length : 0, roas: spend > 0 ? revenue / spend : 0,
@@ -194,7 +194,7 @@ function render() {
     </div>`;
 
   const funnelHtml = `<h3 class="sectionhead">Η πορεία του μήνα</h3><div class="card section">${funnel(c)}</div>`
-    + profitBlock(stats, 'Η συνεργασία μας σε αριθμούς · από την αρχή');
+    + profitBlock([c, ...past], 'Η συνεργασία μας σε αριθμούς · από την αρχή'); // τρέχων μήνας ζωντανά (ίδια νούμερα με τα κουτιά πάνω), παλιοί μήνες από το αρχείο
 
   // Γράφημα 6 μηνών (παρελθόν + τρέχων)
   const last6 = [...past.slice(0, 5)].reverse().concat(cur ? [cur] : []);
