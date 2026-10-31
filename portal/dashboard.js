@@ -500,7 +500,10 @@ function renderTasks() {
       ['Επόμενα', undone.filter((t) => t.date > tomorrow)],
     ];
     const doneRecent = mine.filter((t) => t.done).sort((a, b) => String(b.doneAt || '').localeCompare(String(a.doneAt || ''))).slice(0, 8);
+    const auto = owner === margaOwner() ? S.leads.filter((l) => forPetros(l) && !margaTask(l)).sort((a, b) => unansweredCalls(b) - unansweredCalls(a)) : [];
+    const autoRows = auto.map((l) => { const c = clinicById(l.clinicId); return `<div class="taskrow" data-lead="${l.id}"><span style="margin-top:2px">☎</span><div class="tt"><a href="#" data-tact="openlead" title="Άνοιγμα καρτέλας">${esc(l.name)} ›</a><div class="tm">${esc(c ? c.name : '—')} · ${esc(l.phone || '')} · ${unansweredCalls(l)} κλήσεις χωρίς απάντηση → 2ο τηλέφωνο</div></div></div>`; }).join('');
     const body = groups.map(([lb, arr]) => arr.length ? `<div class="taskday">${lb}</div>` + arr.map(taskRow).join('') : '').join('')
+      + (auto.length ? `<div class="taskday">Για κλήση από 2ο τηλέφωνο (3+ χωρίς απάντηση) · ${auto.length}</div>` + autoRows : '')
       + (doneRecent.length ? `<div class="taskday">Ολοκληρωμένα</div>` + doneRecent.map(taskRow).join('') : '');
     return `<div class="taskcol" data-owner="${esc(owner)}">
       <h3>${esc(owner)} <span class="chip ${undone.length ? 'epik' : 'plain'}">${undone.length} εκκρεμή</span></h3>
@@ -535,6 +538,7 @@ async function handleTaskAction(e) {
     if (await addTask(owner, ti.value, di.value)) { ti.value = ''; ti.focus(); }
     return true;
   }
+  if (tact === 'openlead') { e.preventDefault(); const lr = el.closest('[data-lead]'); if (lr && leadById(lr.dataset.lead)) openLeadModal(lr.dataset.lead); return true; }
   const row = el.closest('[data-task]'); if (!row) return false;
   const id = row.dataset.task; const t = S.tasks.find((x) => x.id === id); if (!t) return false;
   if (tact === 'lead') { e.preventDefault(); if (leadById(t.leadId)) openLeadModal(t.leadId); else toast('Το lead δεν υπάρχει πια.'); return true; }
@@ -589,7 +593,7 @@ function todayItems() {
   return { due, fresh, upcoming, stale, confirm, inProgress, remind };
 }
 /* ===== Follow-up ακολουθία (όρισε ο χρήστης 27/10/2026 — 0 απαντήσεις σε 4η/5η κλήση, άρα κόπηκαν):
-   μήνυμα γνωριμίας → 4 κλήσεις (3η και 4η από το 2ο τηλέφωνο, Πέτρος) → 2ο μήνυμα → τελικό μήνυμα 5 μέρες μετά → χαμένο. ===== */
+   μήνυμα γνωριμίας → 4 κλήσεις (3η και 4η από το 2ο τηλέφωνο, Μάργα) → 2ο μήνυμα → τελικό μήνυμα 5 μέρες μετά → χαμένο. ===== */
 const FOLLOW = [
   { k: 0, short: 'Νέο', label: 'Νέο, τίποτα ακόμα' },
   { k: 1, short: '✉ 1', label: 'Στάλθηκε μήνυμα γνωριμίας' },
@@ -750,8 +754,8 @@ function followStrip(l) {
   const dots = FOLLOW.slice(1).map((f) => `<button class="fstep${cur >= f.k ? ' done' : ''}${cur + 1 === f.k ? ' next' : ''}" data-fstep="${f.k}" title="${f.label} — πάτα για να ορίσεις αυτό το στάδιο">${f.short}</button>`).join('');
   let action = '';
   if (cur === 0 || cur === 5 || cur === 6) action = msgBtns(l, cur === 0 ? 1 : cur === 5 ? 2 : 5);
-  if (cur <= 4) { // αποτέλεσμα κλήσης με ένα πάτημα → call_log (Στατιστικά κλήσεων)· 3η/4η από το 2ο τηλέφωνο (Πέτρος)
-    action += `<span class="fcall"><span class="ftitle">☎ ${callNo(cur)}η κλήση${callNo(cur) >= 3 ? ' <b title="Από το 2ο τηλέφωνο (Πέτρος) — άγνωστο νούμερο για τον πελάτη">· 2ο τηλ.</b>' : ''}</span>
+  if (cur <= 4) { // αποτέλεσμα κλήσης με ένα πάτημα → call_log (Στατιστικά κλήσεων)· 3η/4η από το 2ο τηλέφωνο (Μάργα)
+    action += `<span class="fcall"><span class="ftitle">☎ ${callNo(cur)}η κλήση${callNo(cur) >= 3 ? ' <b title="Από το 2ο τηλέφωνο (Μάργα) — άγνωστο νούμερο για τον πελάτη">· 2ο τηλ.</b>' : ''}</span>
       <button class="btn small primary" data-fcall="answered">✓ Απάντησε</button>
       <button class="btn small" data-fcall="no_answer">Δεν σήκωσε</button>
       <button class="btn small" data-fcall="closed">Κλειστό</button>
@@ -2155,23 +2159,23 @@ function fillClinicSelect(sel, withEmpty) {
   if (cur && [...sel.options].some((o) => o.value === cur)) sel.value = cur;
 }
 ['flClinic', 'flStatus', 'flSearch'].forEach((i) => $(i).addEventListener('input', renderLeads));
-/* «Πέτρος»: leads που κλήθηκαν 3+ φορές χωρίς απάντηση (call_log: δεν σήκωσε / κλειστό, ή follow-up ☎ 3+) και είναι ακόμη
-   Νέο / Δεν απάντησε — αυτούς τους παίρνει μετά ο Πέτρος από το 2ο τηλέφωνο. */
+/* «Μάργα»: leads που κλήθηκαν 3+ φορές χωρίς απάντηση (call_log: δεν σήκωσε / κλειστό, ή follow-up ☎ 3+) και είναι ακόμη
+   Νέο / Δεν απάντησε — αυτούς τους παίρνει μετά η Μάργα από το 2ο τηλέφωνο. */
 function unansweredCalls(l) { return S.calls.filter((x) => x.leadId === l.id && x.kind === 'call' && (x.outcome === 'no_answer' || x.outcome === 'closed')).length; }
 function forPetros(l) { return (l.status === 'neo' || l.status === 'noans') && (unansweredCalls(l) >= 3 || (+l.followStep || 0) >= 4); }
 function petrosChip(l) {
   if (!forPetros(l)) return '';
   const n = Math.max(unansweredCalls(l), (+l.followStep || 0) - 1);
   const p2 = S.calls.some((x) => x.leadId === l.id && x.kind === 'call' && x.channel === 'phone2');
-  return `<span class="chip noans" title="Κλήθηκε ${n} φορές χωρίς απάντηση — σειρά του Πέτρου από το 2ο τηλέφωνο">☎ ${n} → Πέτρος${p2 ? ' ✓' : ''}</span>`;
+  return `<span class="chip noans" title="Κλήθηκε ${n} φορές χωρίς απάντηση — σειρά της Μάργας από το 2ο τηλέφωνο">☎ ${n} → Μάργα${p2 ? ' ✓' : ''}</span>`;
 }
 /* ===== «→ Μάργα»: ανάθεση lead στη Μάργα = ανοιχτό task στη στήλη της (Tasks) με leadId → ανοίγει την καρτέλα.
    Ξανά κλικ (ή ✓ στο task) = αφαίρεση. Το chip «Μάργα» στο funnel φιλτράρει τα δικά της. ===== */
 const margaOwner = () => taskOwners().find((o) => /marga|μάργα/i.test(o)) || 'Marga';
 const margaTask = (l) => S.tasks.find((t) => t.leadId === l.id && !t.done && t.owner === margaOwner());
-const forMarga = (l) => !!margaTask(l);
-const margaBtn = (l) => `<button type="button" class="btn small${forMarga(l) ? ' primary' : ''}" data-act="marga" title="${forMarga(l) ? 'Είναι στη λίστα της Μάργας — κλικ για αφαίρεση' : 'Στείλ\' το στη Μάργα: μπαίνει στη στήλη της στα Tasks με link στην καρτέλα'}">${forMarga(l) ? 'Μάργα ✓' : '→ Μάργα'}</button>`;
-const margaChip = (l) => forMarga(l) ? '<span class="chip epik" title="Στη λίστα της Μάργας (Tasks)">Μάργα</span>' : '';
+const forMarga = (l) => !!margaTask(l) || forPetros(l); // «της Μάργας» = ό,τι της έστειλες με το κουμπί + ό,τι πέρασε 3+ κλήσεις χωρίς απάντηση
+const margaBtn = (l) => `<button type="button" class="btn small${margaTask(l) ? ' primary' : ''}" data-act="marga" title="${margaTask(l) ? 'Είναι στη λίστα της Μάργας — κλικ για αφαίρεση' : 'Στείλ\' το στη Μάργα: μπαίνει στη στήλη της στα Tasks με link στην καρτέλα'}">${margaTask(l) ? 'Μάργα ✓' : '→ Μάργα'}</button>`;
+const margaChip = (l) => margaTask(l) && !forPetros(l) ? '<span class="chip epik" title="Στη λίστα της Μάργας (Tasks)">Μάργα</span>' : '';
 async function toggleMarga(id) {
   const l = leadById(id); if (!l) return;
   const t = margaTask(l);
@@ -2190,13 +2194,12 @@ async function toggleMarga(id) {
     if (!$('leadModal').hidden && modalLeadId === id) openLeadModal(id);
   } catch (e) { toast('Αποτυχία: ' + e.message); }
 }
-/* Funnel: κάθε chip είναι φίλτρο — κλικ δείχνει μόνο αυτό το στάδιο (ή τους «Πέτρος»), ξανά κλικ το καθαρίζει. Από την Επισκόπηση πάει στα Leads. */
+/* Funnel: κάθε chip είναι φίλτρο — κλικ δείχνει μόνο αυτό το στάδιο (ή τους «Μάργα»), ξανά κλικ το καθαρίζει. Από την Επισκόπηση πάει στα Leads. */
 function funnelHTML(leads, active = '') {
   const order = ['neo', 'noans', 'epik', 'think', 'rv', 'won', 'lost'];
   const chip = (k, cls, label, n, title) => `<button type="button" class="chip ${cls}${active === k ? ' on' : ''}" data-fs="${k}" title="${title || (active === k ? 'Κλικ για όλα τα στάδια' : 'Κλικ: μόνο αυτά')}">${label} · ${n}</button>`;
   return order.map((k) => chip(k, k, STATUS[k], leads.filter((l) => l.status === k).length)).join('')
-    + chip('petros', 'noans', 'Πέτρος', leads.filter(forPetros).length, '3+ κλήσεις χωρίς απάντηση — για τον Πέτρο')
-    + chip('marga', 'epik', 'Μάργα', leads.filter(forMarga).length, 'Leads που στάλθηκαν στη Μάργα (κουμπί «→ Μάργα»)')
+    + chip('marga', 'noans', 'Μάργα', leads.filter(forMarga).length, 'Της Μάργας: 3+ κλήσεις χωρίς απάντηση (2ο τηλέφωνο) + ό,τι της έστειλες με «→ Μάργα»')
     + `<button type="button" class="chip plain${active ? '' : ' on'}" data-fs="" title="Όλα τα στάδια">Σύνολο ${leads.length}</button>`;
 }
 /* Κλικ σε chip του funnel (Leads ή Επισκόπηση) → φίλτρο σταδίου στα Leads */
@@ -2213,7 +2216,7 @@ function filteredLeads() {
   const fc = $('flClinic').value, fs = $('flStatus').value, q = $('flSearch').value.trim().toLowerCase();
   let ls = [...S.leads];
   if (fc) ls = ls.filter((l) => l.clinicId === fc);
-  if (fs === 'petros') ls = ls.filter(forPetros); else if (fs === 'marga') ls = ls.filter(forMarga); else if (fs) ls = ls.filter((l) => l.status === fs);
+  if (fs === 'petros' || fs === 'marga') ls = ls.filter(forMarga); else if (fs) ls = ls.filter((l) => l.status === fs);
   if (q) ls = ls.filter((l) => (l.name + ' ' + l.phone + ' ' + l.email).toLowerCase().includes(q));
   ls.sort((a, b) => String(b.createdTime || '').localeCompare(String(a.createdTime || '')));
   return ls;
@@ -2347,7 +2350,7 @@ $('leadTable').addEventListener('toggle', (e) => {
 }, true);
 function renderLeadClinicBar() {
   const fs = $('flStatus').value, q = $('flSearch').value.trim().toLowerCase(), cur = $('flClinic').value;
-  const base = S.leads.filter((l) => (!fs || (fs === 'petros' ? forPetros(l) : fs === 'marga' ? forMarga(l) : l.status === fs)) && (!q || (l.name + ' ' + l.phone + ' ' + l.email).toLowerCase().includes(q)));
+  const base = S.leads.filter((l) => (!fs || (fs === 'petros' || fs === 'marga' ? forMarga(l) : l.status === fs)) && (!q || (l.name + ' ' + l.phone + ' ' + l.email).toLowerCase().includes(q)));
   const chip = (id, name, n, nNew) => `<button type="button" class="btn small${cur === id ? ' primary' : ''}" data-clinic="${id}">${esc(name)} · ${n}${nNew ? ` <b style="color:${cur === id ? 'inherit' : 'var(--crit)'}">(${nNew} νέα)</b>` : ''}</button>`;
   $('leadClinicBar').innerHTML = chip('', 'Όλες', base.length, base.filter((l) => l.status === 'neo').length)
     + S.clinics.map((c) => { const x = base.filter((l) => l.clinicId === c.id); return chip(c.id, c.name, x.length, x.filter((l) => l.status === 'neo').length); }).join('');
