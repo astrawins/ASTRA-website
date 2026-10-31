@@ -485,7 +485,7 @@ function taskRow(t) {
   const dstr = t.date === today ? '' : new Date(t.date).toLocaleDateString('el-GR', { day: 'numeric', month: 'short' });
   return `<div class="taskrow ${t.done ? 'done' : ''} ${over ? 'over' : ''}" data-task="${t.id}">
     <input type="checkbox" data-tact="toggle"${t.done ? ' checked' : ''} aria-label="Ολοκληρώθηκε">
-    <div class="tt">${esc(t.title)}${(over || dstr) ? `<div class="tm">${over ? 'από ' + new Date(t.date).toLocaleDateString('el-GR', { day: 'numeric', month: 'short' }) : dstr}</div>` : ''}</div>
+    <div class="tt">${t.leadId ? `<a href="#" data-tact="lead" title="Άνοιγμα καρτέλας lead">${esc(t.title)} ›</a>` : esc(t.title)}${(over || dstr) ? `<div class="tm">${over ? 'από ' + new Date(t.date).toLocaleDateString('el-GR', { day: 'numeric', month: 'short' }) : dstr}</div>` : ''}</div>
     <button class="del" data-tact="del" title="Διαγραφή">✕</button>
   </div>`;
 }
@@ -537,6 +537,7 @@ async function handleTaskAction(e) {
   }
   const row = el.closest('[data-task]'); if (!row) return false;
   const id = row.dataset.task; const t = S.tasks.find((x) => x.id === id); if (!t) return false;
+  if (tact === 'lead') { e.preventDefault(); if (leadById(t.leadId)) openLeadModal(t.leadId); else toast('Το lead δεν υπάρχει πια.'); return true; }
   if (tact === 'toggle') {
     try { await data.update('tasks', id, { done: !t.done, doneAt: !t.done ? new Date().toISOString() : null }); await refresh(); }
     catch (err) { toast('Αποτυχία: ' + err.message); }
@@ -831,7 +832,7 @@ function todayRow(l, kind) {
   const when = kind === 'open' ? (l.nextAction ? dueTxt : 'χωρίς επόμενη ενέργεια') : dueTxt;
   return `<div class="todayrow" data-id="${l.id}">
     <div class="who"><b data-act="open">${esc(l.name)}</b><div class="sub">${esc(c ? c.name : '—')}${l.campaign ? ' · ' + esc(l.campaign) : ''}</div>${noteTxt}${followStrip(l)}${l.status === 'rv' ? apptStrip(l, true) : ''}</div>
-    <span class="chip ${l.status}">${STATUS[l.status]}</span>
+    <span class="chip ${l.status}">${STATUS[l.status]}</span>${margaChip(l)}
     <span class="due ${over ? 'over' : ''}">${when}</span>
     <span class="mono" style="font-size:12.5px">${telLink(l.phone)}${l.phone ? `<button class="copybtn" data-copy="${esc(l.phone)}" title="Αντιγραφή">${COPY_ICON}</button>` : ''}</span>
     <div class="acts">
@@ -841,6 +842,7 @@ function todayRow(l, kind) {
       <button class="btn small" data-act="p1" title="Μετάθεση της επόμενης ενέργειας για αύριο">Αύριο</button>
       <button class="btn small" data-act="p3" title="Μετάθεση της επόμενης ενέργειας σε 3 μέρες">+3 μέρες</button>
       <button class="btn small" data-act="p7" title="Μετάθεση της επόμενης ενέργειας σε μία εβδομάδα">+1 εβδ.</button>
+      ${margaBtn(l)}
       ${kind !== 'fresh' && kind !== 'confirm' ? '<button class="btn small" data-act="done">✓ Έγινε</button>' : ''}
       ${['confirm', 'up'].includes(kind) && l.status === 'rv' ? (l.confirmedAt ? '<span class="chip show" title="Επιβεβαιώθηκε τηλεφωνικά">Επιβεβαιωμένο ✓</span>' : '<button class="btn small primary" data-act="confirm" title="Ο ασθενής επιβεβαίωσε τηλεφωνικά ότι θα έρθει">✓ Επιβεβαιώθηκε</button>') : ''}
     </div>
@@ -1038,6 +1040,7 @@ $('todayBody').addEventListener('click', async (e) => {
     toast('Θα το σκεφτεί — στείλ\' του το μήνυμα, επανάκληση σε 2 μέρες.');
   }
   if (act === 'confirm') { await updateLead(id, { confirmedAt: new Date().toISOString() }, 'status', 'Το ραντεβού επιβεβαιώθηκε τηλεφωνικά ✓'); toast('Επιβεβαιώθηκε ✓'); }
+  if (act === 'marga') { await toggleMarga(id); return; }
   if (act === 'p1') { await updateLead(id, { nextAction: addDays(1), confirmedAt: null }, 'next', 'Μετάθεση για αύριο'); }
   if (act === 'p3') { await updateLead(id, { nextAction: addDays(3), confirmedAt: null }, 'next', 'Μετάθεση +3 μέρες'); }
   if (act === 'p7') { await updateLead(id, { nextAction: addDays(7), confirmedAt: null }, 'next', 'Μετάθεση +7 μέρες'); }
@@ -1076,6 +1079,8 @@ function openLeadModal(id) {
   const fos = feeOpts(c); $('lm_feeWrap').hidden = !fos.length;
   if (fos.length) { const cur = leadFeeOpt(l, c); $('lm_feeopt').innerHTML = fos.map((o) => `<option value="${esc(o.key)}"${cur && cur.key === o.key ? ' selected' : ''}>${esc(o.label)} · αμοιβή ${eur(o.fee)}</option>`).join(''); }
   $('lm_notes').value = l.notes || '';
+  $('lm_marga').textContent = forMarga(l) ? 'Μάργα ✓ — αφαίρεση' : '→ Στείλ\' το στη Μάργα';
+  $('lm_marga').classList.toggle('primary', forMarga(l));
   setLostReason(l);
   setConfirmBtn(l);
   renderApptStrip(l);
@@ -1179,6 +1184,7 @@ $('lm_addComment').onclick = async () => {
   const l = leadById(modalLeadId); if (l) renderTimeline(l);
 };
 $('lm_comment').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('lm_addComment').click(); });
+$('lm_marga').onclick = () => { if (modalLeadId) toggleMarga(modalLeadId); };
 $('lm_gdpr').onclick = async () => {
   if (!modalLeadId) return;
   const b = $('lm_gdpr');
@@ -2159,12 +2165,38 @@ function petrosChip(l) {
   const p2 = S.calls.some((x) => x.leadId === l.id && x.kind === 'call' && x.channel === 'phone2');
   return `<span class="chip noans" title="Κλήθηκε ${n} φορές χωρίς απάντηση — σειρά του Πέτρου από το 2ο τηλέφωνο">☎ ${n} → Πέτρος${p2 ? ' ✓' : ''}</span>`;
 }
+/* ===== «→ Μάργα»: ανάθεση lead στη Μάργα = ανοιχτό task στη στήλη της (Tasks) με leadId → ανοίγει την καρτέλα.
+   Ξανά κλικ (ή ✓ στο task) = αφαίρεση. Το chip «Μάργα» στο funnel φιλτράρει τα δικά της. ===== */
+const margaOwner = () => taskOwners().find((o) => /marga|μάργα/i.test(o)) || 'Marga';
+const margaTask = (l) => S.tasks.find((t) => t.leadId === l.id && !t.done && t.owner === margaOwner());
+const forMarga = (l) => !!margaTask(l);
+const margaBtn = (l) => `<button type="button" class="btn small${forMarga(l) ? ' primary' : ''}" data-act="marga" title="${forMarga(l) ? 'Είναι στη λίστα της Μάργας — κλικ για αφαίρεση' : 'Στείλ\' το στη Μάργα: μπαίνει στη στήλη της στα Tasks με link στην καρτέλα'}">${forMarga(l) ? 'Μάργα ✓' : '→ Μάργα'}</button>`;
+const margaChip = (l) => forMarga(l) ? '<span class="chip epik" title="Στη λίστα της Μάργας (Tasks)">Μάργα</span>' : '';
+async function toggleMarga(id) {
+  const l = leadById(id); if (!l) return;
+  const t = margaTask(l);
+  try {
+    if (t) { await trashRemove('tasks', t.id); await logAct(id, 'status', 'Αφαιρέθηκε από τη λίστα της Μάργας'); toast('Αφαιρέθηκε από τη Μάργα.'); }
+    else {
+      const c = clinicById(l.clinicId);
+      await data.create('tasks', {
+        owner: margaOwner(), title: `Κάλεσε ${l.name}${c ? ' · ' + c.name : ''}${l.phone ? ' · ' + l.phone : ''}`, date: todayISO(),
+        done: false, doneAt: null, leadId: id, createdAt: new Date().toISOString(), createdBy: userEmail(),
+      }, 't' + uid());
+      await logAct(id, 'status', 'Ανατέθηκε στη Μάργα → Tasks');
+      toast('Πήγε στη Μάργα ✓');
+    }
+    await refresh();
+    if (!$('leadModal').hidden && modalLeadId === id) openLeadModal(id);
+  } catch (e) { toast('Αποτυχία: ' + e.message); }
+}
 /* Funnel: κάθε chip είναι φίλτρο — κλικ δείχνει μόνο αυτό το στάδιο (ή τους «Πέτρος»), ξανά κλικ το καθαρίζει. Από την Επισκόπηση πάει στα Leads. */
 function funnelHTML(leads, active = '') {
   const order = ['neo', 'noans', 'epik', 'think', 'rv', 'won', 'lost'];
   const chip = (k, cls, label, n, title) => `<button type="button" class="chip ${cls}${active === k ? ' on' : ''}" data-fs="${k}" title="${title || (active === k ? 'Κλικ για όλα τα στάδια' : 'Κλικ: μόνο αυτά')}">${label} · ${n}</button>`;
   return order.map((k) => chip(k, k, STATUS[k], leads.filter((l) => l.status === k).length)).join('')
     + chip('petros', 'noans', 'Πέτρος', leads.filter(forPetros).length, '3+ κλήσεις χωρίς απάντηση — για τον Πέτρο')
+    + chip('marga', 'epik', 'Μάργα', leads.filter(forMarga).length, 'Leads που στάλθηκαν στη Μάργα (κουμπί «→ Μάργα»)')
     + `<button type="button" class="chip plain${active ? '' : ' on'}" data-fs="" title="Όλα τα στάδια">Σύνολο ${leads.length}</button>`;
 }
 /* Κλικ σε chip του funnel (Leads ή Επισκόπηση) → φίλτρο σταδίου στα Leads */
@@ -2181,7 +2213,7 @@ function filteredLeads() {
   const fc = $('flClinic').value, fs = $('flStatus').value, q = $('flSearch').value.trim().toLowerCase();
   let ls = [...S.leads];
   if (fc) ls = ls.filter((l) => l.clinicId === fc);
-  if (fs === 'petros') ls = ls.filter(forPetros); else if (fs) ls = ls.filter((l) => l.status === fs);
+  if (fs === 'petros') ls = ls.filter(forPetros); else if (fs === 'marga') ls = ls.filter(forMarga); else if (fs) ls = ls.filter((l) => l.status === fs);
   if (q) ls = ls.filter((l) => (l.name + ' ' + l.phone + ' ' + l.email).toLowerCase().includes(q));
   ls.sort((a, b) => String(b.createdTime || '').localeCompare(String(a.createdTime || '')));
   return ls;
@@ -2240,7 +2272,7 @@ function kanbanCard(l) {
   return `<div class="kcard" draggable="true" data-id="${l.id}">
     <b>${esc(l.name)}</b>
     <span class="ksub">${esc(c ? c.name : '—')}${d && !isNaN(d) ? ' · ' + d.toLocaleDateString('el-GR', { day: 'numeric', month: 'short' }) : ''}</span>
-    ${petrosChip(l)}${apptBadge(l)}
+    ${petrosChip(l)}${margaChip(l)}${apptBadge(l)}
     ${+l.amount ? `<span class="kamt">${eur(+l.amount)}</span>` : ''}
   </div>`;
 }
@@ -2315,7 +2347,7 @@ $('leadTable').addEventListener('toggle', (e) => {
 }, true);
 function renderLeadClinicBar() {
   const fs = $('flStatus').value, q = $('flSearch').value.trim().toLowerCase(), cur = $('flClinic').value;
-  const base = S.leads.filter((l) => (!fs || (fs === 'petros' ? forPetros(l) : l.status === fs)) && (!q || (l.name + ' ' + l.phone + ' ' + l.email).toLowerCase().includes(q)));
+  const base = S.leads.filter((l) => (!fs || (fs === 'petros' ? forPetros(l) : fs === 'marga' ? forMarga(l) : l.status === fs)) && (!q || (l.name + ' ' + l.phone + ' ' + l.email).toLowerCase().includes(q)));
   const chip = (id, name, n, nNew) => `<button type="button" class="btn small${cur === id ? ' primary' : ''}" data-clinic="${id}">${esc(name)} · ${n}${nNew ? ` <b style="color:${cur === id ? 'inherit' : 'var(--crit)'}">(${nNew} νέα)</b>` : ''}</button>`;
   $('leadClinicBar').innerHTML = chip('', 'Όλες', base.length, base.filter((l) => l.status === 'neo').length)
     + S.clinics.map((c) => { const x = base.filter((l) => l.clinicId === c.id); return chip(c.id, c.name, x.length, x.filter((l) => l.status === 'neo').length); }).join('');
@@ -2330,7 +2362,7 @@ function leadRowHTML(l) {
   const over = l.nextAction && l.nextAction < todayISO() && !['won', 'lost'].includes(l.status);
   return `<tr data-id="${l.id}">
     <td class="mono" title="${esc(l.createdTime)}">${dstr}</td>
-    <td><b data-act="open" style="cursor:pointer">${esc(l.name)}</b>${petrosChip(l) ? ' ' + petrosChip(l) : ''}${apptBadge(l) ? '<div>' + apptBadge(l) + '</div>' : ''}${l.notes ? `<div style="font-size:11.5px;color:var(--soft)">${esc(l.notes)}</div>` : ''}${l.sheetNotes && !l.notes ? `<div style="font-size:11.5px;color:var(--soft)" title="Σημείωση από το sheet"><span class="srctag">sheet</span> ${esc(l.sheetNotes)}</div>` : ''}</td>
+    <td><b data-act="open" style="cursor:pointer">${esc(l.name)}</b>${petrosChip(l) ? ' ' + petrosChip(l) : ''} ${margaBtn(l)}${apptBadge(l) ? '<div>' + apptBadge(l) + '</div>' : ''}${l.notes ? `<div style="font-size:11.5px;color:var(--soft)">${esc(l.notes)}</div>` : ''}${l.sheetNotes && !l.notes ? `<div style="font-size:11.5px;color:var(--soft)" title="Σημείωση από το sheet"><span class="srctag">sheet</span> ${esc(l.sheetNotes)}</div>` : ''}</td>
     <td class="mono" style="font-size:12.5px">${l.phone ? telLink(l.phone) + `<button class="copybtn" data-copy="${esc(l.phone)}" title="Αντιγραφή">${COPY_ICON}</button>` : ''}${l.phone && l.email ? '<br>' : ''}${esc(l.email || '')}</td>
     <td>${esc(c ? c.name : '—')}</td>
     <td style="font-size:12.5px">${esc(l.campaign || '—')}${plat ? ` <span class="chip plain">${plat}</span>` : ''}</td>
@@ -2359,6 +2391,8 @@ async function onLeadRowChange(e) {
 }
 $('leadTable').addEventListener('change', onLeadRowChange);
 $('leadTable').addEventListener('click', (e) => {
+  const m = e.target.closest('[data-act=marga]');
+  if (m) { toggleMarga(m.closest('tr').dataset.id); return; }
   const b = e.target.closest('[data-act=open]');
   if (b) openLeadModal(b.closest('tr').dataset.id);
 });
