@@ -311,7 +311,7 @@ const PAY = { pending: ['Προς πληρωμή', 'epik'], processing: ['Σε �
 /* Εκτίμηση τρέχουσας εβδομάδας από τα leads (ίδιος κανόνας με το κλείσιμο της Δευτέρας). */
 /* Αμοιβή ανά ραντεβού: ανά πακέτο αν η κλινική έχει fee_options (επιλογή της ομάδας ή από την «Προσφορά»), αλλιώς appt_fee. */
 function leadFee(c, l) {
-  if ((+l.amount || 0) > 0) return +((+l.amount) / 1.24 / 2).toFixed(2); // 50 % της καθαρής αξίας (ποσό ÷ 1,24) αυτού που πληρώθηκε
+  if ((+l.amount || 0) > 0 && !c.feeFixed) return +((+l.amount) / 1.24 / 2).toFixed(2); // 50 % της καθαρής αξίας (ποσό ÷ 1,24) αυτού που πληρώθηκε· feeFixed = σταθερή αμοιβή
   const os = Array.isArray(c.feeOptions) ? c.feeOptions : [];
   if (!os.length) return +c.apptFee || 50;
   const off = ((String(l.sheetNotes || '').match(/Προσφορά:\s*([^·]*)/) || [])[1] || '').trim();

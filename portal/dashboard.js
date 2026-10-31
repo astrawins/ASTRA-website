@@ -1554,7 +1554,7 @@ $('btnSaveClinic').onclick = async () => {
   const d = {
     name, doctor: $('cf_doctor').value.trim(), specialty: $('cf_spec').value.trim(),
     phone: $('cf_phone').value.trim(), email: $('cf_email').value.trim(), portalEmail: $('cf_portalEmail').value.trim(), fee: parseNum($('cf_fee').value),
-    billingModel: $('cf_billingModel').value, apptFee: parseNum($('cf_apptFee').value) || null, sharePct: parseNum($('cf_sharePct').value) || 50,
+    billingModel: $('cf_billingModel').value, apptFee: parseNum($('cf_apptFee').value) || null, sharePct: parseNum($('cf_sharePct').value) || 50, feeFixed: $('cf_feeFixed').checked,
     dailyBudget: parseNum($('cf_dailyBudget').value), monthlyBudget: parseNum($('cf_monthlyBudget').value),
     goalLeads: Math.round(parseNum($('cf_goalLeads').value)), goalSales: Math.round(parseNum($('cf_goalSales').value)),
     contractStart: $('cf_contractStart').value || null, contractEnd: $('cf_contractEnd').value || null,
@@ -1658,7 +1658,7 @@ function openClinicEdit(id) {
   editClinicId = id; $('clinicFormTitle').textContent = 'Επεξεργασία κλινικής';
   $('cf_name').value = c.name || ''; $('cf_doctor').value = c.doctor || ''; $('cf_spec').value = c.specialty || '';
   $('cf_phone').value = c.phone || ''; $('cf_email').value = c.email || ''; $('cf_portalEmail').value = c.portalEmail || ''; $('cf_fee').value = c.fee || '';
-  $('cf_billingModel').value = c.billingModel || 'appointment'; $('cf_apptFee').value = c.apptFee || ''; $('cf_sharePct').value = c.sharePct ?? 50;
+  $('cf_billingModel').value = c.billingModel || 'appointment'; $('cf_apptFee').value = c.apptFee || ''; $('cf_sharePct').value = c.sharePct ?? 50; $('cf_feeFixed').checked = !!c.feeFixed;
   $('cf_dailyBudget').value = c.dailyBudget || ''; $('cf_monthlyBudget').value = c.monthlyBudget || '';
   $('cf_goalLeads').value = c.goalLeads || ''; $('cf_goalSales').value = c.goalSales || '';
   $('cf_contractStart').value = c.contractStart || ''; $('cf_contractEnd').value = c.contractEnd || '';
@@ -2964,7 +2964,7 @@ function leadFeeOpt(l, c = clinicById(l.clinicId)) {
 /* Αμοιβή Astra = 50 % της καθαρής αξίας (ποσό ÷ 1,24 ΦΠΑ) αυτού που πλήρωσε ο πελάτης (leads.amount)·
    αν δεν έχει καταχωρηθεί ποσό ακόμη, πέφτει στο πακέτο (fee_options) ή στη σταθερή αμοιβή της κλινικής. */
 const feeFromAmount = (amt) => +((+amt || 0) / 1.24 / 2).toFixed(2);
-const leadFee = (l, c = clinicById(l.clinicId)) => { if ((+l.amount || 0) > 0) return feeFromAmount(l.amount); const o = leadFeeOpt(l, c); return o ? +o.fee : clinicFee(c); };
+const leadFee = (l, c = clinicById(l.clinicId)) => { if ((+l.amount || 0) > 0 && !(c && c.feeFixed)) return feeFromAmount(l.amount); const o = leadFeeOpt(l, c); return o ? +o.fee : clinicFee(c); }; // feeFixed (Karma, FACEMED): σταθερή αμοιβή, το ποσό αγοράς δεν την αλλάζει
 const sumFees = (c, ls) => +ls.reduce((s, l) => s + leadFee(l, c), 0).toFixed(2);
 /* «3 × 56,45€ + 1 × 44,35€» για περιγραφές χρέωσης */
 function feeBreakdown(c, ls) {
@@ -2987,7 +2987,7 @@ function apptEarnings(mk) {
     const inM = all.filter((l) => when(l) === mk);
     const net = (ls) => (share ? shareNet(c, ls) : sumFees(c, ls));
     const paid = S.billing.filter((b) => b.clinicId === c.id && b.payStatus === 'paid').reduce((s, b) => s + (+b.total || 0), 0);
-    const model = share ? `${+c.sharePct || 50}% επί καθαρού πωλήσεων` : (feeOpts(c).length ? feeOpts(c).map((o) => `${o.label}: ${+o.fee}€`).join(' · ') : `${eur(clinicFee(c))} / ραντεβού`);
+    const model = share ? `${+c.sharePct || 50}% επί καθαρού πωλήσεων` : (feeOpts(c).length ? feeOpts(c).map((o) => `${o.label}: ${+o.fee}€`).join(' · ') : `${eur(clinicFee(c))} / ραντεβού${c.feeFixed ? ' σταθερά' : ' (ή 50 % καθαρής αξίας αν υπάρχει ποσό)'}`);
     return { c, model, n: all.length, nM: inM.length, total: net(all), totalM: net(inM), paid: +paid.toFixed(2) };
   }).filter((r) => r.n).sort((a, b) => b.total - a.total);
   const sum = (k) => +rows.reduce((s, r) => s + r[k], 0).toFixed(2);
