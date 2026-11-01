@@ -810,3 +810,28 @@ html.night-ink body, html.night-ink .frame-top, html.night-ink .frame-bottom { t
   margin-top: 14px; display: flex; justify-content: space-between; gap: 12px;
   font-size: 0.6875rem; letter-spacing: 0.14em; text-transform: uppercase; color: var(--soft);
 }
+
+/* ---------- Collapsed detail (SEO/GEO text, closed by default) ---------- */
+.seo-more { padding: 18px var(--gutter) 26px; text-align: center; }
+.seo-more > summary {
+  list-style: none;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  margin: 0 auto;
+  padding: 10px 0;
+  font-family: var(--mono);
+  font-size: 0.6875rem;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--soft);
+}
+.seo-more > summary::-webkit-details-marker { display: none; }
+.seo-more > summary::after { content: '+'; font-size: 0.9rem; line-height: 1; }
+.seo-more[open] > summary::after { content: '\2212'; }
+.seo-more > summary:hover { color: var(--ink); }
+.seo-more .band .wrap { text-align: left; }
+.seo-more .band:first-of-type .wrap { padding-top: clamp(48px, 8vh, 100px); }
+.seo-more .band:last-of-type .wrap { padding-bottom: clamp(48px, 8vh, 100px); }

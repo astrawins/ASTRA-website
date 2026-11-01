@@ -31,6 +31,32 @@
   <link rel="preload" href="/assets/fonts/archivo.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="preload" href="/assets/fonts/spline-sans-mono.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="/assets/css/main.css">
+  <style>
+/* ---------- Collapsed detail (SEO/GEO text, closed by default) ---------- */
+.seo-more { padding: 18px var(--gutter) 26px; text-align: center; }
+.seo-more > summary {
+  list-style: none;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  margin: 0 auto;
+  padding: 10px 0;
+  font-family: var(--mono);
+  font-size: 0.6875rem;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--soft);
+}
+.seo-more > summary::-webkit-details-marker { display: none; }
+.seo-more > summary::after { content: '+'; font-size: 0.9rem; line-height: 1; }
+.seo-more[open] > summary::after { content: '\2212'; }
+.seo-more > summary:hover { color: var(--ink); }
+.seo-more .band .wrap { text-align: left; }
+.seo-more .band:first-of-type .wrap { padding-top: clamp(48px, 8vh, 100px); }
+.seo-more .band:last-of-type .wrap { padding-bottom: clamp(48px, 8vh, 100px); }
+  </style>
   <script src="/assets/js/lenis.min.js" defer></script>
   <script src="/assets/js/main.js" defer></script>
   <script type="application/ld+json">
@@ -183,6 +209,17 @@
         <p class="lede">Meta and Google campaigns for aesthetic clinics and medical practices, run inside the health advertising rules and measured in one number: appointments that showed up.</p>
       </div>
     </section>
+    <section class="close-flood shell">
+      <div class="wrap">
+        <div>
+          <h2>Begin the protocol.</h2>
+          <p class="lede">One call. We look at your ad account and tell you honestly what we would run, and why.</p>
+          <p><a class="btn" href="/booking/">Book a call</a></p>
+        </div>
+      </div>
+    </section>
+    <details class="seo-more">
+      <summary>Read more</summary>
     <section class="band shell">
       <div class="wrap band-grid">
         <h2>What this fixes</h2>
@@ -250,15 +287,7 @@
         </div>
       </div>
     </section>
-    <section class="close-flood shell">
-      <div class="wrap">
-        <div>
-          <h2>Begin the protocol.</h2>
-          <p class="lede">One call. We look at your ad account and tell you honestly what we would run, and why.</p>
-          <p><a class="btn" href="/booking/">Book a call</a></p>
-        </div>
-      </div>
-    </section>
+    </details>
   </main>
   <footer class="frame-bottom">
     <div class="cells">
