@@ -122,28 +122,8 @@
       "permanent": true
     },
     {
-      "source": "/services/paid-ads/",
-      "destination": "/",
-      "permanent": true
-    },
-    {
-      "source": "/services/social-media/",
-      "destination": "/",
-      "permanent": true
-    },
-    {
       "source": "/services/",
       "destination": "/",
-      "permanent": true
-    },
-    {
-      "source": "/el/ypiresies/diafimisi-google-meta/",
-      "destination": "/el/",
-      "permanent": true
-    },
-    {
-      "source": "/el/ypiresies/social-media/",
-      "destination": "/el/",
       "permanent": true
     },
     {
