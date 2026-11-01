@@ -150,6 +150,16 @@
       "source": "/el/ypiresies/",
       "destination": "/el/",
       "permanent": true
+    },
+    {
+      "source": "/about/",
+      "destination": "/",
+      "permanent": true
+    },
+    {
+      "source": "/el/sxetika/",
+      "destination": "/el/",
+      "permanent": true
     }
   ]
 }

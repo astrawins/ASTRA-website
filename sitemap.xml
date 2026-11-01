@@ -1,14 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">
   <url>
-    <loc>https://astramarketing.gr/about/</loc>
-    <lastmod>2026-10-13</lastmod>
-    <priority>0.8</priority>
-    <xhtml:link rel="alternate" hreflang="en" href="https://astramarketing.gr/about/"/>
-    <xhtml:link rel="alternate" hreflang="el" href="https://astramarketing.gr/el/sxetika/"/>
-    <xhtml:link rel="alternate" hreflang="x-default" href="https://astramarketing.gr/about/"/>
-  </url>
-  <url>
     <loc>https://astramarketing.gr/booking/</loc>
     <lastmod>2026-10-10</lastmod>
     <priority>0.8</priority>
@@ -87,14 +79,6 @@
     <xhtml:link rel="alternate" hreflang="en" href="https://astramarketing.gr/clients/"/>
     <xhtml:link rel="alternate" hreflang="el" href="https://astramarketing.gr/el/pelates/"/>
     <xhtml:link rel="alternate" hreflang="x-default" href="https://astramarketing.gr/clients/"/>
-  </url>
-  <url>
-    <loc>https://astramarketing.gr/el/sxetika/</loc>
-    <lastmod>2026-10-13</lastmod>
-    <priority>0.7</priority>
-    <xhtml:link rel="alternate" hreflang="en" href="https://astramarketing.gr/about/"/>
-    <xhtml:link rel="alternate" hreflang="el" href="https://astramarketing.gr/el/sxetika/"/>
-    <xhtml:link rel="alternate" hreflang="x-default" href="https://astramarketing.gr/about/"/>
   </url>
   <url>
     <loc>https://astramarketing.gr/</loc>
