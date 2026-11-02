@@ -835,7 +835,7 @@ function todayRow(l, kind) {
   const noteTxt = note ? `<div class="todaynote" title="${esc(note.text)}">📝 ${esc(note.text.slice(0, 140))}${note.text.length > 140 ? '…' : ''}${note.at ? ` <span class="tmeta">${new Date(note.at).toLocaleDateString('el-GR', { day: 'numeric', month: 'short' })}</span>` : ''}</div>` : '';
   const when = kind === 'open' ? (l.nextAction ? dueTxt : 'χωρίς επόμενη ενέργεια') : dueTxt;
   return `<div class="todayrow" data-id="${l.id}">
-    <div class="who"><b data-act="open">${esc(l.name)}</b><div class="sub">${esc(c ? c.name : '—')}${l.campaign ? ' · ' + esc(l.campaign) : ''}</div>${noteTxt}${followStrip(l)}${l.status === 'rv' ? apptStrip(l, true) : ''}</div>
+    <div class="who"><b data-act="open">${esc(l.name)}</b><div class="sub">${esc(c ? c.name : '—')}${l.campaign ? ' · ' + esc(l.campaign) : ''}</div>${areaChips(l) ? '<div style="margin-top:3px">' + areaChips(l) + '</div>' : ''}${noteTxt}${followStrip(l)}${l.status === 'rv' ? apptStrip(l, true) : ''}</div>
     <span class="chip ${l.status}">${STATUS[l.status]}</span>${margaChip(l)}
     <span class="due ${over ? 'over' : ''}">${when}</span>
     <span class="mono" style="font-size:12.5px">${telLink(l.phone)}${l.phone ? `<button class="copybtn" data-copy="${esc(l.phone)}" title="Αντιγραφή">${COPY_ICON}</button>` : ''}</span>
@@ -2220,6 +2220,7 @@ function filteredLeads() {
   if (fc) ls = ls.filter((l) => l.clinicId === fc);
   if (fs === 'petros' || fs === 'marga') ls = ls.filter(forMarga); else if (fs) ls = ls.filter((l) => l.status === fs);
   if (q) ls = ls.filter((l) => (l.name + ' ' + l.phone + ' ' + l.email).toLowerCase().includes(q));
+  if (fc && flSub && flSubClinic === fc) ls = ls.filter(subMatch);
   ls.sort((a, b) => String(b.createdTime || '').localeCompare(String(a.createdTime || '')));
   return ls;
 }
@@ -2315,6 +2316,7 @@ kb.addEventListener('click', (e) => { const c = e.target.closest('.kcard'); if (
 function renderLeads() {
   fillClinicSelect($('flClinic'), 'Όλες οι κλινικές');
   renderLeadClinicBar();
+  renderLeadSubBar();
   const ls = filteredLeads();
   const fsNow = $('flStatus').value;
   const fc = $('flClinic').value, q = $('flSearch').value.trim().toLowerCase();
@@ -2357,8 +2359,44 @@ function renderLeadClinicBar() {
   $('leadClinicBar').innerHTML = chip('', 'Όλες', base.length, base.filter((l) => l.status === 'neo').length)
     + S.clinics.map((c) => { const x = base.filter((l) => l.clinicId === c.id); return chip(c.id, c.name, x.length, x.filter((l) => l.status === 'neo').length); }).join('');
 }
-$('leadClinicBar').addEventListener('click', (e) => { const b = e.target.closest('[data-clinic]'); if (!b) return; $('flClinic').value = b.dataset.clinic; renderLeads(); });
+$('leadClinicBar').addEventListener('click', (e) => { const b = e.target.closest('[data-clinic]'); if (!b) return; $('flClinic').value = b.dataset.clinic; flSub = ''; renderLeads(); });
+$('leadSubBar').addEventListener('click', (e) => { const b = e.target.closest('[data-sub]'); if (!b) return; flSub = b.dataset.sub; flSubClinic = $('flClinic').value; renderLeads(); });
 const LEAD_THEAD = '<table><thead><tr><th>Ημ/νία</th><th>Όνομα</th><th>Επικοινωνία</th><th>Κλινική</th><th>Καμπάνια</th><th>Στάδιο</th><th>Επόμενη ενέργεια</th><th class="num">Ποσό αγοράς</th></tr></thead><tbody>';
+/* Σημείο & κοινό: για κλινικές με 2 σημεία (π.χ. The Antiagers). Σημείο = απάντηση φόρμας «Πού σε βολεύει;» (→ «Μπορεί να έρθει»),
+   κοινό = ad set της διαφήμισης (το sheet το γράφει «Κοινό: AA | Cold | Περιστέρι 5km | W 18+»). */
+const noteField = (l, label) => ((String(l.sheetNotes || '').match(new RegExp(label + ':\\s*([^·]*)')) || [])[1] || '').trim();
+const NO_AREA = 'Κανένα σημείο';
+function leadArea(l) {
+  const v = noteField(l, 'Μπορεί να έρθει').replace(/_/g, ' ').trim();
+  if (!v || /^(ναι|όχι|οχι|yes|no)(?![\p{L}])/iu.test(v)) return '';
+  return /^δεν(?![\p{L}])|κανένα/iu.test(v) ? NO_AREA : v.charAt(0).toUpperCase() + v.slice(1);
+}
+function leadAudience(l) {
+  const parts = noteField(l, 'Κοινό').split('|').map((x) => x.trim()).filter(Boolean);
+  if (!parts.length) return '';
+  const p = parts.slice(1).filter((x) => !/^[WM]\s?\d|^(IG|FB)$/i.test(x)); // χωρίς πρόθεμα καμπάνιας, ηλικίες, πλατφόρμα
+  return (p.length ? p : parts).join(' · ');
+}
+function areaChips(l) {
+  const a = leadArea(l), k = leadAudience(l);
+  return (a ? `<span class="chip ${a === NO_AREA ? 'lost' : 'plain'}" title="Σημείο που διάλεξε στη φόρμα">📍 ${esc(a)}</span> ` : '')
+    + (k ? `<span class="chip plain" title="Κοινό (ad set) από το οποίο ήρθε">🎯 ${esc(k)}</span>` : '');
+}
+let flSub = '', flSubClinic = ''; // ισχύει μόνο για την κλινική όπου πατήθηκε · φίλτρο σημείου/κοινού μέσα σε μία κλινική: 'a:<σημείο>' ή 'k:<κοινό>'
+const subMatch = (l) => !flSub || (flSub.startsWith('a:') ? leadArea(l) === flSub.slice(2) : leadAudience(l) === flSub.slice(2));
+function renderLeadSubBar() {
+  const fc = $('flClinic').value, el = $('leadSubBar'); if (!el) return;
+  const ls = fc ? S.leads.filter((l) => l.clinicId === fc) : [];
+  if (flSubClinic !== fc) flSub = '';
+  const count = (fn) => { const m = {}; ls.forEach((l) => { const v = fn(l); if (v) m[v] = (m[v] || 0) + 1; }); return Object.entries(m).sort((a, b) => b[1] - a[1]); };
+  const areas = count(leadArea), auds = count(leadAudience);
+  if (!areas.length && !auds.length) { el.innerHTML = ''; el.hidden = true; if (flSub) flSub = ''; return; }
+  const b = (key, label, n) => `<button type="button" class="btn small${flSub === key ? ' primary' : ''}" data-sub="${esc(key)}">${esc(label)} · ${n}</button>`;
+  el.hidden = false;
+  el.innerHTML = b('', 'Όλα', ls.length)
+    + (areas.length ? '<span class="tmeta" style="margin-left:8px">📍 Σημείο</span>' + areas.map(([v, n]) => b('a:' + v, v, n)).join('') : '')
+    + (auds.length ? '<span class="tmeta" style="margin-left:8px">🎯 Κοινό</span>' + auds.map(([v, n]) => b('k:' + v, v, n)).join('') : '');
+}
 function leadRowHTML(l) {
   const c = clinicById(l.clinicId);
   const d = l.createdTime ? new Date(l.createdTime) : null;
@@ -2367,7 +2405,7 @@ function leadRowHTML(l) {
   const over = l.nextAction && l.nextAction < todayISO() && !['won', 'lost'].includes(l.status);
   return `<tr data-id="${l.id}">
     <td class="mono" title="${esc(l.createdTime)}">${dstr}</td>
-    <td><b data-act="open" style="cursor:pointer">${esc(l.name)}</b>${petrosChip(l) ? ' ' + petrosChip(l) : ''} ${margaBtn(l)}${apptBadge(l) ? '<div>' + apptBadge(l) + '</div>' : ''}${l.notes ? `<div style="font-size:11.5px;color:var(--soft)">${esc(l.notes)}</div>` : ''}${l.sheetNotes && !l.notes ? `<div style="font-size:11.5px;color:var(--soft)" title="Σημείωση από το sheet"><span class="srctag">sheet</span> ${esc(l.sheetNotes)}</div>` : ''}</td>
+    <td><b data-act="open" style="cursor:pointer">${esc(l.name)}</b>${petrosChip(l) ? ' ' + petrosChip(l) : ''} ${margaBtn(l)}${areaChips(l) ? '<div style="margin-top:3px">' + areaChips(l) + '</div>' : ''}${apptBadge(l) ? '<div>' + apptBadge(l) + '</div>' : ''}${l.notes ? `<div style="font-size:11.5px;color:var(--soft)">${esc(l.notes)}</div>` : ''}${l.sheetNotes && !l.notes ? `<div style="font-size:11.5px;color:var(--soft)" title="Σημείωση από το sheet"><span class="srctag">sheet</span> ${esc(l.sheetNotes)}</div>` : ''}</td>
     <td class="mono" style="font-size:12.5px">${l.phone ? telLink(l.phone) + `<button class="copybtn" data-copy="${esc(l.phone)}" title="Αντιγραφή">${COPY_ICON}</button>` : ''}${l.phone && l.email ? '<br>' : ''}${esc(l.email || '')}</td>
     <td>${esc(c ? c.name : '—')}</td>
     <td style="font-size:12.5px">${esc(l.campaign || '—')}${plat ? ` <span class="chip plain">${plat}</span>` : ''}</td>
@@ -4197,6 +4235,8 @@ function renderCallStats() {
     + card('Ραντεβού', '', csTable(['', 'Τιμή', ''], rvRows))
     + card('Ανά καμπάνια', '', csTable(['Καμπάνια', 'Leads', 'Μιλήσαμε', 'Ραντεβού', 'Ήρθαν', 'Πελάτες'], groupRows((l) => l.campaign)))
     + card('Ανά διαφήμιση', 'top 15', csTable(['Διαφήμιση', 'Leads', 'Μιλήσαμε', 'Ραντεβού', 'Ήρθαν', 'Πελάτες'], groupRows((l) => l.adName)))
+    + (info.some((x) => leadArea(x.l)) ? card('Ανά σημείο', '«Πού σε βολεύει;» στη φόρμα', csTable(['Σημείο', 'Leads', 'Μιλήσαμε', 'Ραντεβού', 'Ήρθαν', 'Πελάτες'], groupRows(leadArea))) : '')
+    + (info.some((x) => leadAudience(x.l)) ? card('Ανά κοινό', 'ad set της διαφήμισης', csTable(['Κοινό', 'Leads', 'Μιλήσαμε', 'Ραντεβού', 'Ήρθαν', 'Πελάτες'], groupRows(leadAudience))) : '')
     + card('Ανά πακέτο / προσφορά', '', csTable(['Πακέτο', 'Leads', 'Μιλήσαμε', 'Ραντεβού', 'Ήρθαν', 'Πελάτες'], groupRows(pkg)))
     + card('«Θα το σκεφτώ»', 'τι απογίνονται όσοι το λένε', csTable(['', 'Leads', '%'], thRows, 'Κανείς δεν είπε «θα το σκεφτώ» στην περίοδο.'))
     + card('Γιατί χάνονται', `${lost.length} χαμένα`, csTable(['Λόγος', 'Leads', '%'], lostRows, 'Κανένα χαμένο lead στην περίοδο.'))
