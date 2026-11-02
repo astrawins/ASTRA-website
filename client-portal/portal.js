@@ -91,7 +91,7 @@ document.getElementById('pTabs').addEventListener('click', (e) => {
 
 async function load() {
   const body = document.getElementById('pBody');
-  let stats, camps, leads, bills = [], clinic = null;
+  let stats, camps, leads, bills = [], clinic = null, archive = [];
   try {
     [stats, camps, leads] = await Promise.all([
       rest('monthly_stats?select=*&order=month.desc&limit=24'),
@@ -103,13 +103,16 @@ async function load() {
       [bills, clinic] = await Promise.all([rest('billing?select=*&period=eq.week&order=period_start.desc&limit=60'), rest('client_clinic?select=*')]);
       clinic = clinic && clinic[0] ? toCamel(clinic[0]) : null;
     } catch { bills = []; clinic = null; }
+    /* Αρχείο παλιών leads που κάλεσε η astra: προαιρετικό — χωρίς view ή χωρίς εγγραφές, το tab δεν εμφανίζεται. */
+    try { archive = await rest('client_archive?select=*&order=created_time.desc.nullslast&limit=2000'); } catch { archive = []; }
   } catch (e) {
     if (String(e.message).includes('session')) { location.href = '/login/'; return; }
     body.innerHTML = '<div class="card empty">Πρόβλημα φόρτωσης: ' + esc(e.message) + '</div>';
     return;
   }
   stats = stats.map(toCamel); camps = camps.map(toCamel);
-  D = { stats, camps, leads: leads.map(toCamel), bills: (bills || []).map(toCamel), clinic };
+  D = { stats, camps, leads: leads.map(toCamel), bills: (bills || []).map(toCamel), clinic, archive: (archive || []).map(toCamel) };
+  document.getElementById('archiveTab').hidden = !D.archive.length;
   const open = D.bills.filter((b) => (b.payStatus || 'pending') !== 'paid').length;
   document.getElementById('billsTab').hidden = !clinic;
   const bb = document.getElementById('billBadge'); bb.textContent = open; bb.style.display = open ? '' : 'none';
@@ -484,6 +487,44 @@ async function renderAccount() {
     b.disabled = false; b.textContent = 'Αποσύνδεση Google';
   };
 }
+/* ---- Tab «Αρχείο leads»: παλιά leads της κλινικής που κάλεσε η ομάδα της astra και το αποτέλεσμα ---- */
+const AR_MISTAKE = /κατά λάθος/i;
+function arOutcome(r) {
+  if (r.astraStage === 'noans') return ['Δεν απάντησε', 'epik'];
+  if (r.astraStage === 'lost') return AR_MISTAKE.test(r.ourNotes || '') ? ['Συμπλήρωσε τη φόρμα κατά λάθος', 'plain'] : ['Δεν ενδιαφέρεται', 'lost'];
+  if (r.astraStage === 'think' || r.astraStage === 'epik') return ['Απάντησε · θα το σκεφτεί', 'rv'];
+  if (r.astraStage === 'rv') return ['Ραντεβού κλεισμένο', 'rv'];
+  if (r.astraStage === 'won' || r.astraStage === 'show') return ['Ήρθε στο ιατρείο', 'won'];
+  return ['Σε επικοινωνία', 'plain'];
+}
+let archiveF = '';
+function renderArchive() {
+  const body = document.getElementById('pBody');
+  const all = D.archive || [];
+  const groups = {}; all.forEach((r) => { const k = arOutcome(r)[0]; groups[k] = (groups[k] || 0) + 1; });
+  const order = Object.entries(groups).sort((a, b) => b[1] - a[1]);
+  const ls = archiveF ? all.filter((r) => arOutcome(r)[0] === archiveF) : all;
+  const pct = (n) => Math.round((n / (all.length || 1)) * 100) + '%';
+  body.innerHTML = `
+    <div class="tiles section">
+      ${tile('Leads που καλέσαμε', String(all.length), 'από το αρχείο σας, τα πιο πρόσφατα')}
+      ${order.slice(0, 3).map(([k, n]) => tile(esc(k), String(n), pct(n) + ' των κλήσεων')).join('')}
+    </div>
+    <p style="color:var(--soft);font-size:13px;margin:-4px 0 14px">Η ομάδα της astra κάλεσε τα πιο πρόσφατα leads του αρχείου σας (με βάση την ημερομηνία που ήρθαν). Όσοι απάντησαν και θέλουν να το σκεφτούν μένουν σε επικοινωνία μαζί μας.</p>
+    <div class="pill-row"><button type="button" class="chip ${archiveF ? 'plain' : 'rv'}" data-arf="" style="cursor:pointer;border:0">Όλα · ${all.length}</button>${order.map(([k, n]) => `<button type="button" class="chip ${archiveF === k ? 'rv' : 'plain'}" data-arf="${esc(k)}" style="cursor:pointer;border:0">${esc(k)} · ${n}</button>`).join('')}</div>
+    <div class="card tablewrap"><table><thead><tr><th>Ενδιαφερόμενος</th><th>Υπηρεσία</th><th>Ήρθε το lead</th><th>Κλήση</th><th>Αποτέλεσμα</th></tr></thead><tbody>
+      ${ls.map((r) => {
+        const o = arOutcome(r);
+        const d = r.createdTime ? new Date(r.createdTime) : null, c = r.calledAt ? new Date(r.calledAt) : null;
+        return `<tr><td><b>${esc(r.name)}</b></td><td style="font-size:12.5px">${esc(r.category || '—')}</td>
+          <td class="mono">${d && !isNaN(d) ? d.toLocaleDateString('el-GR', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'}</td>
+          <td class="mono" style="font-size:12.5px">${c && !isNaN(c) ? c.toLocaleDateString('el-GR', { day: 'numeric', month: 'short' }) : '—'}${(+r.calls || 0) > 1 ? ` <span style="color:var(--soft)">· ${r.calls} κλήσεις</span>` : ''}</td>
+          <td><span class="chip ${o[1]}">${esc(o[0])}</span></td></tr>`;
+      }).join('') || '<tr><td colspan="5" class="empty">Τίποτα ακόμα.</td></tr>'}
+    </tbody></table></div>`;
+  body.querySelectorAll('[data-arf]').forEach((b) => b.addEventListener('click', () => { archiveF = b.dataset.arf; renderArchive(); }));
+}
+
 function renderRoot() {
   document.getElementById('pAccount').hidden = pTab !== 'account';
   document.getElementById('pBody').hidden = pTab === 'account';
@@ -492,6 +533,7 @@ function renderRoot() {
   if (pTab === 'journey') return renderJourney();
   if (pTab === 'bills') return renderBills();
   if (pTab === 'calendar') return renderCal();
+  if (pTab === 'archive') return renderArchive();
   return render();
 }
 document.getElementById('pTabs').addEventListener('click', () => {}); // (κρατά τη σειρά των listeners)
