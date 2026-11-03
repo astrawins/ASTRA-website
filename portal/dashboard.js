@@ -2202,6 +2202,7 @@ function funnelHTML(leads, active = '') {
   const chip = (k, cls, label, n, title) => `<button type="button" class="chip ${cls}${active === k ? ' on' : ''}" data-fs="${k}" title="${title || (active === k ? 'Κλικ για όλα τα στάδια' : 'Κλικ: μόνο αυτά')}">${label} · ${n}</button>`;
   return order.map((k) => chip(k, k, STATUS[k], leads.filter((l) => l.status === k).length)).join('')
     + chip('marga', 'noans', 'Μάργα', leads.filter(forMarga).length, 'Της Μάργας: 3+ κλήσεις χωρίς απάντηση (2ο τηλέφωνο) + ό,τι της έστειλες με «→ Μάργα»')
+    + chip('confirm', 'rv', '📞 Επιβεβαίωση αύριο', `${leads.filter(isTomorrowAppt).filter((l) => !l.confirmedAt).length}/${leads.filter(isTomorrowAppt).length}`, 'Όλα τα ραντεβού της επόμενης μέρας — ανεπιβεβαίωτα / σύνολο. Κάλεσε και πάτα «✓ Επιβεβαιώθηκε»')
     + `<button type="button" class="chip plain${active ? '' : ' on'}" data-fs="" title="Όλα τα στάδια">Σύνολο ${leads.length}</button>`;
 }
 /* Κλικ σε chip του funnel (Leads ή Επισκόπηση) → φίλτρο σταδίου στα Leads */
@@ -2214,14 +2215,34 @@ function funnelClick(e) {
 }
 $('leadFunnel').addEventListener('click', funnelClick);
 $('ovFunnel').addEventListener('click', funnelClick);
+/* «Επιβεβαίωση αύριο»: όλα τα κλεισμένα ραντεβού της επόμενης μέρας, ανά ώρα, με κουμπί τηλεφωνικής επιβεβαίωσης. */
+const isTomorrowAppt = (l) => l.status === 'rv' && l.nextAction === addDays(1);
+function confirmTableHTML(ls) {
+  const d = new Date(addDays(1) + 'T12:00:00').toLocaleDateString('el-GR', { weekday: 'long', day: 'numeric', month: 'long' });
+  const conf = ls.filter((l) => l.confirmedAt).length;
+  const head = `<div style="padding:12px 16px;border-bottom:1px solid var(--line)"><b>Ραντεβού ${esc(d)}</b> · ${ls.length} σύνολο · <span style="color:var(--good)">${conf} επιβεβαιωμένα</span>${ls.length - conf ? ` · <b style="color:var(--crit)">${ls.length - conf} προς επιβεβαίωση</b>` : ' ✓'}</div>`;
+  if (!ls.length) return head + '<div class="empty">Κανένα ραντεβού για αύριο.</div>';
+  return head + '<table><thead><tr><th>Ώρα</th><th>Όνομα</th><th>Τηλέφωνο</th><th>Κλινική</th><th>Τελευταία σημείωση</th><th>Επιβεβαίωση</th></tr></thead><tbody>' + ls.map((l) => {
+    const c = clinicById(l.clinicId), note = lastNote(l);
+    return `<tr data-id="${l.id}"${l.confirmedAt ? ' style="opacity:.7"' : ''}>
+      <td class="mono"><b>${hhmm(l.apptTime) || '—'}</b></td>
+      <td><b data-act="open" style="cursor:pointer">${esc(l.name)}</b> ${margaBtn(l)}${areaChips(l) ? '<div style="margin-top:3px">' + areaChips(l) + '</div>' : ''}</td>
+      <td class="mono" style="font-size:12.5px">${l.phone ? telLink(l.phone) + `<button class="copybtn" data-copy="${esc(l.phone)}" title="Αντιγραφή">${COPY_ICON}</button>` : '—'}</td>
+      <td>${esc(c ? c.name : '—')}</td>
+      <td style="font-size:12px;color:var(--soft);max-width:260px">${note ? esc(note.text.slice(0, 120)) : ''}</td>
+      <td style="white-space:nowrap">${l.confirmedAt ? `<span class="chip show">Επιβεβαιωμένο ✓</span> <button class="btn small" data-act="unconfirm" title="Αναίρεση επιβεβαίωσης">↺</button>` : '<button class="btn small primary" data-act="confirm">✓ Επιβεβαιώθηκε</button>'}</td>
+    </tr>`;
+  }).join('') + '</tbody></table>';
+}
 function filteredLeads() {
   const fc = $('flClinic').value, fs = $('flStatus').value, q = $('flSearch').value.trim().toLowerCase();
   let ls = [...S.leads];
   if (fc) ls = ls.filter((l) => l.clinicId === fc);
-  if (fs === 'petros' || fs === 'marga') ls = ls.filter(forMarga); else if (fs) ls = ls.filter((l) => l.status === fs);
+  if (fs === 'petros' || fs === 'marga') ls = ls.filter(forMarga); else if (fs === 'confirm') ls = ls.filter(isTomorrowAppt); else if (fs) ls = ls.filter((l) => l.status === fs);
   if (q) ls = ls.filter((l) => (l.name + ' ' + l.phone + ' ' + l.email).toLowerCase().includes(q));
   if (fc && flSub && flSubClinic === fc) ls = ls.filter(subMatch);
-  ls.sort((a, b) => String(b.createdTime || '').localeCompare(String(a.createdTime || '')));
+  if (fs === 'confirm') ls.sort((a, b) => (hhmm(a.apptTime) || '99').localeCompare(hhmm(b.apptTime) || '99'));
+  else ls.sort((a, b) => String(b.createdTime || '').localeCompare(String(a.createdTime || '')));
   return ls;
 }
 let leadView = 'list';
@@ -2326,12 +2347,13 @@ function renderLeads() {
   document.querySelectorAll('.viewtoggle button').forEach((b) => b.classList.toggle('on', b.dataset.view === leadView));
   $('leadTable').hidden = leadView !== 'list';
   $('leadKanban').hidden = leadView !== 'kanban';
-  if (leadView === 'kanban') { renderKanban(ls); return; }
+  if (leadView === 'kanban' && fsNow !== 'confirm') { renderKanban(ls); return; }
   const el = $('leadTable');
   if (!S.leads.length) {
     el.innerHTML = '<div class="empty"><div class="big">Κανένα lead ακόμα</div>Μόλις συνδέσεις τα Google Sheets στις κλινικές, τα leads θα εμφανίζονται εδώ με ένα κλικ στο «Συγχρονισμός». Μπορείς και χειροκίνητα με «+ Νέο lead».</div>';
     return;
   }
+  if (fsNow === 'confirm') { el.hidden = false; $('leadKanban').hidden = true; el.innerHTML = confirmTableHTML(ls); return; }
   if (!ls.length) { el.innerHTML = '<div class="empty">Κανένα αποτέλεσμα με αυτά τα φίλτρα.</div>'; return; }
   if ($('flClinic').value) { el.innerHTML = leadTableHTML(ls); return; }
   /* Όλες οι κλινικές → ομαδοποίηση ανά κλινική, κάθε ομάδα ανοιγοκλείνει (η κατάσταση μένει αποθηκευμένη) */
@@ -2354,7 +2376,7 @@ $('leadTable').addEventListener('toggle', (e) => {
 }, true);
 function renderLeadClinicBar() {
   const fs = $('flStatus').value, q = $('flSearch').value.trim().toLowerCase(), cur = $('flClinic').value;
-  const base = S.leads.filter((l) => (!fs || (fs === 'petros' || fs === 'marga' ? forMarga(l) : l.status === fs)) && (!q || (l.name + ' ' + l.phone + ' ' + l.email).toLowerCase().includes(q)));
+  const base = S.leads.filter((l) => (!fs || (fs === 'petros' || fs === 'marga' ? forMarga(l) : fs === 'confirm' ? isTomorrowAppt(l) : l.status === fs)) && (!q || (l.name + ' ' + l.phone + ' ' + l.email).toLowerCase().includes(q)));
   const chip = (id, name, n, nNew) => `<button type="button" class="btn small${cur === id ? ' primary' : ''}" data-clinic="${id}">${esc(name)} · ${n}${nNew ? ` <b style="color:${cur === id ? 'inherit' : 'var(--crit)'}">(${nNew} νέα)</b>` : ''}</button>`;
   $('leadClinicBar').innerHTML = chip('', 'Όλες', base.length, base.filter((l) => l.status === 'neo').length)
     + S.clinics.map((c) => { const x = base.filter((l) => l.clinicId === c.id); return chip(c.id, c.name, x.length, x.filter((l) => l.status === 'neo').length); }).join('');
@@ -2436,6 +2458,13 @@ $('leadTable').addEventListener('change', onLeadRowChange);
 $('leadTable').addEventListener('click', (e) => {
   const m = e.target.closest('[data-act=marga]');
   if (m) { toggleMarga(m.closest('tr').dataset.id); return; }
+  const cf = e.target.closest('[data-act=confirm],[data-act=unconfirm]');
+  if (cf) {
+    const id = cf.closest('tr').dataset.id, on = cf.dataset.act === 'confirm';
+    updateLead(id, { confirmedAt: on ? new Date().toISOString() : null }, 'status', on ? 'Το ραντεβού επιβεβαιώθηκε τηλεφωνικά ✓' : 'Αφαιρέθηκε η επιβεβαίωση ραντεβού')
+      .then(() => { toast(on ? 'Επιβεβαιώθηκε ✓' : 'Αναιρέθηκε'); renderLeads(); }).catch((err) => toast('Αποτυχία: ' + err.message));
+    return;
+  }
   const b = e.target.closest('[data-act=open]');
   if (b) openLeadModal(b.closest('tr').dataset.id);
 });
