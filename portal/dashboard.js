@@ -297,6 +297,7 @@ function statusPatch(st, l) {
   const p = { status: st };
   if (st === 'won') p.saleDate = todayISO();
   if (st === 'think' && !(l && l.nextAction && l.nextAction > todayISO())) p.nextAction = addDays(2); // επανάκληση σε 2 μέρες
+  if (['noshow', 'cancel'].includes(st)) { p.confirmedAt = null; if (!(l && l.nextAction && l.nextAction <= todayISO())) p.nextAction = todayISO(); } // no show / ακύρωση → κλήση σήμερα για νέο ραντεβού· δεν χρεώνεται (attendedAt = null παρακάτω)
   if (['show', 'won'].includes(st)) { if (!(l && l.attendedAt)) p.attendedAt = todayISO(); }
   else if (!(st === 'lost' && l && l.lostReason === NO_SALE)) p.attendedAt = null; // πίσω σε κλεισμένο/επικοινωνία/χαμένο → δεν χρεώνεται, και αν ξαναέρθει παίρνει νέα ημερομηνία. Εξαίρεση: «Ήρθε χωρίς αγορά» κρατά την προσέλευση (μετρά στους «ήρθαν», αμοιβή 0).
   return p;
@@ -577,7 +578,7 @@ function todayItems() {
     const acts = S.act.filter((a) => a.leadId === l.id).map((a) => new Date(a.at).getTime());
     return Math.max(new Date(l.importedAt || l.createdTime || 0).getTime(), ...(acts.length ? acts : [0]));
   };
-  const stale = open.filter((l) => ['noans', 'epik', 'think', 'rv', 'show'].includes(l.status) && (!l.nextAction || l.nextAction < today) && lastTouch(l) < cutoff21)
+  const stale = open.filter((l) => ['noans', 'epik', 'think', 'rv', 'noshow', 'cancel', 'show'].includes(l.status) && (!l.nextAction || l.nextAction < today) && lastTouch(l) < cutoff21)
     .sort((a, b) => lastTouch(a) - lastTouch(b));
   /* Προς επιβεβαίωση: κλεισμένα ραντεβού για σήμερα ή αύριο που δεν έχουν επιβεβαιωθεί τηλεφωνικά (push την προηγούμενη μέρα) */
   const tomorrow = addDays(1);
@@ -1631,7 +1632,7 @@ function clinicHealth(c) {
   if (st.spend > 100 && st.roas < 1 && st.leads > 0) bump('r', 'ROAS ' + st.roas.toFixed(2) + '× αυτόν τον μήνα');
   if (+c.monthlyBudget > 0 && st.spend > +c.monthlyBudget) bump('y', 'Υπέρβαση budget');
   if (c.sheetId && c.lastSync && Date.now() - new Date(c.lastSync).getTime() > 7 * 86400000) bump('y', 'Sync leads πάνω από 7 μέρες');
-  const stale = S.leads.filter((l) => l.clinicId === c.id && ['noans', 'epik', 'think', 'rv', 'show'].includes(l.status) && (!l.nextAction || l.nextAction < todayISO()));
+  const stale = S.leads.filter((l) => l.clinicId === c.id && ['noans', 'epik', 'think', 'rv', 'noshow', 'cancel', 'show'].includes(l.status) && (!l.nextAction || l.nextAction < todayISO()));
   if (stale.length > 5) bump('y', stale.length + ' leads χωρίς προγραμματισμένη ενέργεια');
   if (c.status === 'paused') bump('y', 'Σε παύση');
   if (!reasons.length) reasons.push('Όλα καλά');
@@ -1707,7 +1708,7 @@ function renderClinics() {
       <div class="spec">${(() => { const st = CLINIC_STATUS[c.status || 'active']; return `<span class="chip ${st[1]}" style="font-size:10.5px;padding:1px 8px">${st[0]}</span> `; })()}${esc([c.specialty, c.doctor].filter(Boolean).join(' · '))}${(Array.isArray(c.tags) && c.tags.length) ? '<br>' + c.tags.map((t) => `<span class="tagchip">${esc(t)}</span>`).join('') : ''}</div></div>
       <div class="stats">
         <div><b>${ls.length}</b><i>Leads</i></div>
-        <div><b>${ls.filter((l) => ['rv', 'show'].includes(l.status)).length}</b><i>Ραντεβού</i></div>
+        <div><b>${ls.filter((l) => ['rv', 'noshow', 'cancel', 'show'].includes(l.status)).length}</b><i>Ραντεβού</i></div>
         <div><b>${won.length}</b><i>Πελάτες</i></div>
         <div><b>${eur(rev)}</b><i>Έσοδα</i></div>
         <div><b>${eur(astra)}</b><i>Έσοδα Astra</i></div>
@@ -2198,7 +2199,7 @@ async function toggleMarga(id) {
 }
 /* Funnel: κάθε chip είναι φίλτρο — κλικ δείχνει μόνο αυτό το στάδιο (ή τους «Μάργα»), ξανά κλικ το καθαρίζει. Από την Επισκόπηση πάει στα Leads. */
 function funnelHTML(leads, active = '') {
-  const order = ['neo', 'noans', 'epik', 'think', 'rv', 'won', 'lost'];
+  const order = ['neo', 'noans', 'epik', 'think', 'rv', 'noshow', 'cancel', 'won', 'lost'];
   const chip = (k, cls, label, n, title) => `<button type="button" class="chip ${cls}${active === k ? ' on' : ''}" data-fs="${k}" title="${title || (active === k ? 'Κλικ για όλα τα στάδια' : 'Κλικ: μόνο αυτά')}">${label} · ${n}</button>`;
   return order.map((k) => chip(k, k, STATUS[k], leads.filter((l) => l.status === k).length)).join('')
     + chip('marga', 'noans', 'Μάργα', leads.filter(forMarga).length, 'Της Μάργας: 3+ κλήσεις χωρίς απάντηση (2ο τηλέφωνο) + ό,τι της έστειλες με «→ Μάργα»')
@@ -2219,7 +2220,7 @@ $('ovFunnel').addEventListener('click', funnelClick);
 /* «Επιβεβαίωση αύριο»: όλα τα κλεισμένα ραντεβού της επόμενης μέρας, ανά ώρα, με κουμπί τηλεφωνικής επιβεβαίωσης. */
 const isTomorrowAppt = (l) => l.status === 'rv' && l.nextAction === addDays(1);
 /* «Ραντεβού σήμερα»: τα ραντεβού της ημέρας ανά ώρα (+ όσοι ήρθαν σήμερα, για να μένουν ορατοί). Το στάδιο αλλάζει με το ίδιο select της λίστας → statusPatch (attendedAt/χρέωση). */
-const isTodayAppt = (l) => (l.status === 'rv' && l.nextAction === todayISO()) || l.attendedAt === todayISO();
+const isTodayAppt = (l) => (['rv', 'noshow', 'cancel'].includes(l.status) && l.nextAction === todayISO()) || l.attendedAt === todayISO();
 function todayApptTableHTML(ls) {
   const d = new Date().toLocaleDateString('el-GR', { weekday: 'long', day: 'numeric', month: 'long' });
   const pend = ls.filter((l) => l.status === 'rv').length;
@@ -2280,7 +2281,7 @@ function dupGroups() {
   S.leads.forEach((l) => { const ph = normPhone(l.phone); if (ph.length >= 8) (map[ph] = map[ph] || []).push(l); });
   return Object.values(map).filter((g) => g.length > 1);
 }
-const STATUS_RANK = { neo: 0, lost: 1, epik: 2, think: 2, rv: 3, show: 4, won: 9 };
+const STATUS_RANK = { neo: 0, lost: 1, epik: 2, think: 2, noshow: 2, cancel: 2, rv: 3, show: 4, won: 9 };
 async function mergeGroup(g) {
   const sorted = [...g].sort((a, b) => (STATUS_RANK[b.status] - STATUS_RANK[a.status]) || String(b.createdTime || '').localeCompare(String(a.createdTime || '')));
   const primary = sorted[0], dups = sorted.slice(1);
@@ -3663,7 +3664,7 @@ function renderReport() {
   const ls = S.leads.filter((l) => l.clinicId === c.id && monthKey(l.createdTime) === mk);
   const won = S.leads.filter((l) => l.clinicId === c.id && l.status === 'won' && monthKey(l.saleDate || l.createdTime) === mk);
   const paying = S.leads.filter((l) => l.clinicId === c.id && isPaying(l) && monthKey(revDate(l)) === mk);
-  const rv = ls.filter((l) => ['rv', 'show', 'won'].includes(l.status));
+  const rv = ls.filter((l) => ['rv', 'noshow', 'cancel', 'show', 'won'].includes(l.status));
   const show = ls.filter((l) => ['show', 'won'].includes(l.status));
   const rev = paying.reduce((s, l) => s + (+l.amount || 0), 0);
   const cps = S.camps.filter((x) => x.clinicId === c.id && x.month === mk);
@@ -3726,7 +3727,7 @@ function computeStats(m, clinic) {
   return {
     month: m, clinicId: clinic ? clinic.id : null, clinicName: clinic ? clinic.name : '',
     leads: ls.length,
-    rv: ls.filter((l) => ['rv', 'show', 'won'].includes(l.status) || !!l.attendedAt).length, // + «Ήρθε χωρίς αγορά» (Χαμένο με προσέλευση)
+    rv: ls.filter((l) => ['rv', 'noshow', 'cancel', 'show', 'won'].includes(l.status) || !!l.attendedAt).length, // + «Ήρθε χωρίς αγορά» (Χαμένο με προσέλευση)
     shows: ls.filter((l) => ['show', 'won'].includes(l.status) || !!l.attendedAt).length,
     sales: salesLs.length, revenue: +revenue.toFixed(2), spend: +spend.toFixed(2),
     impressions: cps.reduce((s, c) => s + (+c.impressions || 0), 0),
@@ -4189,10 +4190,10 @@ function renderCallStats() {
     const first = calls[0]; const dialed = lg.find((x) => x.kind === 'call' || x.kind === 'dial'); const msg1 = lg.find((x) => x.kind === 'msg' && +x.attempt === 1); const msg2 = lg.find((x) => x.kind === 'msg' && +x.attempt === 2);
     const touch = lg.find((x) => ['call', 'dial', 'msg'].includes(x.kind));
     const ans = calls.find((x) => x.outcome === 'answered'); const reply = lg.find((x) => x.kind === 'reply');
-    const contacted = !!(ans || reply) || ['epik', 'think', 'rv', 'show', 'won'].includes(l.status);
+    const contacted = !!(ans || reply) || ['epik', 'think', 'rv', 'noshow', 'cancel', 'show', 'won'].includes(l.status);
     const thought = l.status === 'think' || actsOf(l.id).some((a) => /Στάδιο → Θα το σκεφτεί/.test(a.body || ''));
     const rvAct = actsOf(l.id).filter((a) => /Στάδιο → Ραντεβού/.test(a.body || '')).sort((a, b) => String(a.at).localeCompare(String(b.at)))[0];
-    const booked = ['rv', 'show', 'won'].includes(l.status) || !!l.attendedAt || !!rvAct;
+    const booked = ['rv', 'noshow', 'cancel', 'show', 'won'].includes(l.status) || !!l.attendedAt || !!rvAct;
     const showed = ['show', 'won'].includes(l.status) || !!l.attendedAt;
     const noshow = actsOf(l.id).some((a) => /δεν έγινε|Δεν ήρθε/i.test(a.body || ''));
     return { l, lg, calls, first, msg1, msg2, touch, ans, reply, contacted, booked, showed, noshow, rvAct, thought,
