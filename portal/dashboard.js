@@ -647,7 +647,7 @@ function apptText(l, w = 4) {
   const map = (c && c.mapUrl || '').trim();
   const r = REMINDERS.find((x) => x.w === w);
   const tpl = r ? (st.followMsg6 || DEF_MSG6) : (st.followMsg4 || DEF_MSG4);
-  return fillSender(tpl, c).replaceAll('{όνομα}', first).replaceAll('{κλινική}', c ? c.name : 'την κλινική')
+  return fillClinic(fillSender(tpl, c), c).replaceAll('{όνομα}', first)
     .replaceAll('{πότε}', r ? r.pote(l) : '').replaceAll('{ημέρα}', apptDayText(l)).replaceAll('{ώρα}', hhmm(l.apptTime) || '—')
     .replaceAll('{διεύθυνση}', addr || (c && c.name) || '').replaceAll('{χάρτης}', map)
     .replace(/\n{2,}/g, '\n').trim();
@@ -685,11 +685,21 @@ async function apptClick(e, l) {
 /* Υπογραφή {εγώ} ανά κλινική: κενό = γενική ρύθμιση, «-» = χωρίς όνομα (τότε «{εγώ} από {κλινική}» → «σας γράφουμε από την {κλινική}») */
 function senderFor(c) { const s = (c && c.followSender || '').trim() || (SET().followSender || '').trim(); return s === '-' ? '' : s; }
 function fillSender(tpl, c) { const me = senderFor(c); return me ? tpl.replaceAll('{εγώ}', me) : tpl.replaceAll('{εγώ} από {κλινική}', 'σας γράφουμε από την {κλινική}').replaceAll('{εγώ} από την {κλινική}', 'σας γράφουμε από την {κλινική}').replaceAll('{εγώ}', '').replace(/  +/g, ' '); }
+/* Κλινικές που στα μηνύματα θέλουν δική τους διατύπωση αντί για «της/την/στην {κλινική}» (π.χ. πληθυντικός «ιατρεία»). */
+const CLINIC_MSG_FORMS = {
+  '946888ed-c208-4da6-876c-71c2797e7b2c': { gen: 'των ιατρείων The Antiagers', acc: 'τα ιατρεία The Antiagers' }, // The Antiagers
+};
+function fillClinic(tpl, c) {
+  const f = c && CLINIC_MSG_FORMS[c.id];
+  if (f) tpl = tpl.replaceAll('στην {κλινική}', 'σ' + f.acc).replaceAll('από την {κλινική}', 'από ' + f.acc).replaceAll('από {κλινική}', 'από ' + f.acc)
+    .replaceAll('της {κλινική}', f.gen).replaceAll('την {κλινική}', f.acc);
+  return tpl.replaceAll('{κλινική}', c ? c.name : 'την κλινική');
+}
 function followText(l, which) {
   const c = clinicById(l.clinicId); const st = SET();
   const tpl = (which === 5 ? st.followMsg5 : which === 3 ? st.followMsg3 : which === 2 ? st.followMsg2 : st.followMsg1) || (which === 5 ? DEF_MSG5 : which === 3 ? DEF_MSG3 : which === 2 ? DEF_MSG2 : DEF_MSG1);
   const first = (l.name || '').trim().split(/\s+/)[0] || '';
-  return fillSender(tpl, c).replaceAll('{όνομα}', first).replaceAll('{κλινική}', c ? c.name : 'την κλινική');
+  return fillClinic(fillSender(tpl, c), c).replaceAll('{όνομα}', first);
 }
 /* Gmail: στο iPhone/iPad ανοίγει την εφαρμογή Gmail (googlegmail://), αλλού το Gmail στο web — όχι το Mail της Apple. */
 function gmailLink(l, w) {
