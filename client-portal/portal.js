@@ -81,6 +81,7 @@ const P_STAGE = {
   won: ['Ήρθε στο ιατρείο', 'won'], lost: ['Δεν προχώρησε', 'lost'],
 };
 let pTab = 'stats';
+let LEADS_ONLY = false;
 let D = { stats: [], camps: [], leads: [] };
 document.getElementById('pTabs').addEventListener('click', (e) => {
   const b = e.target.closest('[data-ptab]'); if (!b) return;
@@ -115,6 +116,17 @@ async function load() {
   document.getElementById('archiveTab').hidden = !D.archive.length;
   const open = D.bills.filter((b) => (b.payStatus || 'pending') !== 'paid').length;
   document.getElementById('billsTab').hidden = !clinic;
+  /* Κλινική «μόνο leads» (billing_model = 'leads'): η γραμματεία διαχειρίζεται η ίδια τα leads — χωρίς στατιστικά/αμοιβή/οφειλές. */
+  LEADS_ONLY = !!(clinic && clinic.billingModel === 'leads');
+  if (LEADS_ONLY) {
+    ['stats', 'appts', 'journey', 'bills'].forEach((t) => { const b = document.querySelector(`#pTabs [data-ptab="${t}"]`); if (b) b.hidden = true; });
+    document.getElementById('leadsTab').hidden = false;
+    if (['stats', 'appts', 'journey', 'bills'].includes(pTab)) pTab = 'leads';
+    document.querySelectorAll('#pTabs button').forEach((x) => x.classList.toggle('on', x.dataset.ptab === pTab));
+    const nb = document.getElementById('newBadge'); const nn = D.leads.filter((l) => l.status === 'neo').length;
+    nb.textContent = nn; nb.style.display = nn ? '' : 'none';
+    document.title = 'Leads — ' + (role.clinicName || 'Astra');
+  }
   const bb = document.getElementById('billBadge'); bb.textContent = open; bb.style.display = open ? '' : 'none';
   const pend = D.leads.filter((l) => l.status === 'rv').length;
   const bd = document.getElementById('apptBadge');
@@ -301,6 +313,68 @@ function renderJourney() {
   const si = document.getElementById('jSearch');
   si.addEventListener('input', () => { journeyQ = si.value; renderJourney(); const s2 = document.getElementById('jSearch'); s2.focus(); s2.setSelectionRange(s2.value.length, s2.value.length); });
 }
+
+/* ---- Tab «Leads» (κλινικές «μόνο leads»): η γραμματεία καλεί, αλλάζει στάδιο, κλείνει ραντεβού, γράφει σημειώσεις ---- */
+const M_STAGES = [['neo', 'Νέο — δεν έχουμε καλέσει'], ['noans', 'Δεν απάντησε'], ['epik', 'Μιλήσαμε'], ['think', 'Το σκέφτεται'], ['rv', 'Ραντεβού κλεισμένο'],
+  ['won', 'Ήρθε ✓'], ['noshow', 'Δεν ήρθε'], ['cancel', 'Ακύρωσε'], ['lost', 'Δεν ενδιαφέρεται']];
+const M_FILTERS = [['open', 'Προς κλήση', (l) => ['neo', 'noans', 'epik', 'think'].includes(l.status)], ['rv', 'Ραντεβού', (l) => l.status === 'rv'],
+  ['done', 'Ολοκληρωμένα', (l) => ['won', 'noshow', 'cancel', 'lost'].includes(l.status)], ['all', 'Όλα', () => true]];
+let mFilter = 'open', mQ = '';
+const telHref = (p) => { const d = String(p || '').replace(/[^\d+]/g, '').replace(/^00/, '+'); return d.startsWith('+') ? d : (d.length === 10 ? '+30' + d : d); };
+function renderLeadsMgr() {
+  const body = document.getElementById('pBody');
+  const today = todayISO();
+  const f = M_FILTERS.find((x) => x[0] === mFilter) || M_FILTERS[0];
+  let ls = D.leads.filter(f[2]);
+  if (mQ) ls = ls.filter((l) => (l.name + ' ' + (l.phone || '') + ' ' + (l.email || '')).toLowerCase().includes(mQ.toLowerCase()));
+  ls = mFilter === 'rv' ? ls.sort((a, b) => (String(a.nextAction || '9999') + hhmm(a.apptTime)).localeCompare(String(b.nextAction || '9999') + hhmm(b.apptTime)))
+    : ls.sort((a, b) => (a.status === 'neo' ? 0 : 1) - (b.status === 'neo' ? 0 : 1) || String(b.createdTime).localeCompare(String(a.createdTime)));
+  const nNew = D.leads.filter((l) => l.status === 'neo').length;
+  const nToday = D.leads.filter((l) => l.status === 'rv' && l.nextAction === today).length;
+  const card = (l) => {
+    const d = l.createdTime ? new Date(l.createdTime) : null;
+    const opts = M_STAGES.map(([k, t]) => `<option value="${k}"${k === l.status ? ' selected' : ''}>${t}</option>`).join('');
+    const times = '<option value="">—</option>' + TIMES.map((t) => `<option${t === hhmm(l.apptTime) ? ' selected' : ''}>${t}</option>`).join('');
+    return `<div class="card section" data-lid="${esc(l.id)}" style="margin-bottom:10px;padding:14px 16px${l.status === 'neo' ? ';border-left:4px solid var(--crit)' : ''}">
+      <div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:baseline">
+        <div><b style="font-size:15px">${esc(l.name || '—')}</b>
+          ${l.phone ? ` · <a href="tel:${esc(telHref(l.phone))}" class="mono" style="font-weight:600">📞 ${esc(l.phone)}</a>` : ''}
+          ${l.email ? `<div style="font-size:12px;color:var(--soft)">${esc(l.email)}</div>` : ''}</div>
+        <span class="mono" style="font-size:12px;color:var(--soft)">${d && !isNaN(d) ? d.toLocaleString('el-GR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : ''}</span>
+      </div>
+      <div style="font-size:12.5px;margin:8px 0">${leadDetails({ ...l, notes: '' })}</div>
+      <div class="fgrid" style="align-items:end">
+        <div class="f"><label>Στάδιο</label><select data-k="status">${opts}</select></div>
+        <div class="f"><label>Ημ/νία ραντεβού</label><input type="date" data-k="date" value="${esc(l.nextAction || '')}"></div>
+        <div class="f"><label>Ώρα</label><select data-k="time">${times}</select></div>
+      </div>
+      <div class="f" style="margin-top:8px"><label>Σημειώσεις</label><textarea data-k="notes" rows="2" placeholder="π.χ. καλέστε μετά τις 5 / θέλει πακέτο…">${esc(l.notes || '')}</textarea></div>
+      <div style="margin-top:8px;display:flex;gap:8px;align-items:center"><button class="btn small primary" data-save="1">Αποθήκευση</button><span class="fhint" data-msg></span></div>
+    </div>`;
+  };
+  body.innerHTML = `
+    <div class="tiles" style="margin-bottom:12px">${tile('Νέα — προς κλήση', num(nNew), nNew ? 'καλέστε τα το συντομότερο' : 'όλα έχουν κληθεί ✓')}${tile('Ραντεβού σήμερα', num(nToday), '')}</div>
+    <div class="pill-row">${M_FILTERS.map(([k, t, fn]) => `<button class="btn small${k === mFilter ? ' primary' : ''}" data-mf="${k}">${t} · ${D.leads.filter(fn).length}</button>`).join('')}</div>
+    <div class="filters"><input id="mSearch" placeholder="Αναζήτηση ονόματος, τηλεφώνου ή email…" value="${esc(mQ)}" style="min-width:240px"></div>
+    ${ls.length ? ls.map(card).join('') : '<div class="card empty">Δεν υπάρχουν leads εδώ.</div>'}`;
+  const si = document.getElementById('mSearch');
+  si.addEventListener('input', () => { mQ = si.value; renderLeadsMgr(); const s2 = document.getElementById('mSearch'); s2.focus(); s2.setSelectionRange(s2.value.length, s2.value.length); });
+}
+document.getElementById('pBody').addEventListener('click', async (e) => {
+  if (pTab !== 'leads') return;
+  const fb = e.target.closest('[data-mf]'); if (fb) { mFilter = fb.dataset.mf; renderLeadsMgr(); return; }
+  const sb = e.target.closest('[data-save]'); if (!sb) return;
+  const box = sb.closest('[data-lid]'); const v = (k) => box.querySelector(`[data-k="${k}"]`).value;
+  const st = v('status'), date = v('date'), time = v('time');
+  const msg = box.querySelector('[data-msg]');
+  if (st === 'rv' && !date) { msg.textContent = 'Βάλτε ημερομηνία ραντεβού.'; return; }
+  sb.disabled = true; sb.textContent = '…';
+  try {
+    await rest('rpc/client_update_lead', { method: 'POST', body: { p_lead_id: box.dataset.lid, p_status: st, p_next_action: date || null, p_appt_time: time || null, p_notes: v('notes') } });
+    alertBox('Αποθηκεύτηκε ✓');
+    await load();
+  } catch (err) { msg.textContent = err.message; sb.disabled = false; sb.textContent = 'Αποθήκευση'; }
+});
 
 /* ---- Tab «Οφειλές»: τι χρωστά η κλινική στην astra — κλείνει κάθε Δευτέρα για την προηγούμενη εβδομάδα ---- */
 const isoDay = (d) => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
@@ -534,6 +608,7 @@ function renderRoot() {
   if (pTab === 'bills') return renderBills();
   if (pTab === 'calendar') return renderCal();
   if (pTab === 'archive') return renderArchive();
+  if (pTab === 'leads') return renderLeadsMgr();
   return render();
 }
 document.getElementById('pTabs').addEventListener('click', () => {}); // (κρατά τη σειρά των listeners)

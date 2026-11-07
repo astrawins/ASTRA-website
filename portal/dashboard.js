@@ -3064,7 +3064,7 @@ function leadFeeOpt(l, c = clinicById(l.clinicId)) {
 /* Αμοιβή Astra = 50 % της καθαρής αξίας (ποσό ÷ 1,24 ΦΠΑ) αυτού που πλήρωσε ο πελάτης (leads.amount)·
    αν δεν έχει καταχωρηθεί ποσό ακόμη, πέφτει στο πακέτο (fee_options) ή στη σταθερή αμοιβή της κλινικής. */
 const feeFromAmount = (amt) => +((+amt || 0) / 1.24 / 2).toFixed(2);
-const leadFee = (l, c = clinicById(l.clinicId)) => { if ((+l.amount || 0) > 0 && !(c && c.feeFixed)) return feeFromAmount(l.amount); const o = leadFeeOpt(l, c); return o ? +o.fee : clinicFee(c); }; // feeFixed (Karma, FACEMED): σταθερή αμοιβή, το ποσό αγοράς δεν την αλλάζει
+const leadFee = (l, c = clinicById(l.clinicId)) => { if (c && c.billingModel === 'leads') return 0; if ((+l.amount || 0) > 0 && !(c && c.feeFixed)) return feeFromAmount(l.amount); const o = leadFeeOpt(l, c); return o ? +o.fee : clinicFee(c); }; // feeFixed (Karma, FACEMED): σταθερή αμοιβή, το ποσό αγοράς δεν την αλλάζει
 const sumFees = (c, ls) => +ls.reduce((s, l) => s + leadFee(l, c), 0).toFixed(2);
 /* «3 × 56,45€ + 1 × 44,35€» για περιγραφές χρέωσης */
 function feeBreakdown(c, ls) {
@@ -3158,7 +3158,7 @@ function weekSales(clinicId, startIso) {
   return S.leads.filter((l) => l.clinicId === clinicId && l.status === 'won' && (+l.amount || 0) > 0 && String(l.saleDate || l.createdTime).slice(0, 10) >= r.start && String(l.saleDate || l.createdTime).slice(0, 10) <= r.end)
     .sort((a, b) => String(a.saleDate || a.createdTime).localeCompare(String(b.saleDate || b.createdTime)));
 }
-const weekItems = (c, w) => (isShare(c) ? weekSales(c.id, w) : weekLeads(c.id, w));
+const weekItems = (c, w) => (c.billingModel === 'leads' ? [] : isShare(c) ? weekSales(c.id, w) : weekLeads(c.id, w)); // «μόνο leads» = χωρίς χρέωση astra
 const shareNet = (c, ls) => +(ls.reduce((s, l) => s + (+l.amount || 0) / 1.24, 0) * ((+c.sharePct || 50) / 100)).toFixed(2);
 const weekNet = (c, ls) => (isShare(c) ? shareNet(c, ls) : sumFees(c, ls));
 const SEPA_CHIP = { active: ['Εντολή ενεργή', 'won'], pending: ['Αναμονή υπογραφής', 'epik'], '': ['Χωρίς εντολή', 'plain'] };
