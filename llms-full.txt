@@ -207,7 +207,6 @@ Source: https://astramarketing.gr/clients/
 
 # Clients.
 Clinics and practices we bring patients to.
-Fresh MedNeo Psychiko, Athens
 Artista MedicoAthens
 FaceMed ClinicAthens
 Healthy Derma ClinicsKifisia
