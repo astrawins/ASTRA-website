@@ -81,7 +81,7 @@ const P_STAGE = {
   won: ['Ήρθε στο ιατρείο', 'won'], lost: ['Δεν προχώρησε', 'lost'],
 };
 let pTab = 'stats';
-let LEADS_ONLY = false;
+let LEADS_ONLY = false, leadsOnlyInit = false;
 let D = { stats: [], camps: [], leads: [] };
 document.getElementById('pTabs').addEventListener('click', (e) => {
   const b = e.target.closest('[data-ptab]'); if (!b) return;
@@ -116,12 +116,14 @@ async function load() {
   document.getElementById('archiveTab').hidden = !D.archive.length;
   const open = D.bills.filter((b) => (b.payStatus || 'pending') !== 'paid').length;
   document.getElementById('billsTab').hidden = !clinic;
-  /* Κλινική «μόνο leads» (billing_model = 'leads'): η γραμματεία διαχειρίζεται η ίδια τα leads — χωρίς στατιστικά/αμοιβή/οφειλές. */
+  /* Κλινική «μόνο leads» (billing_model = 'leads'): η γραμματεία διαχειρίζεται η ίδια τα leads — Στατιστικά Meta χωρίς αμοιβή/οφειλές astra. */
   LEADS_ONLY = !!(clinic && clinic.billingModel === 'leads');
   if (LEADS_ONLY) {
-    ['stats', 'appts', 'journey', 'bills'].forEach((t) => { const b = document.querySelector(`#pTabs [data-ptab="${t}"]`); if (b) b.hidden = true; });
-    document.getElementById('leadsTab').hidden = false;
-    if (['stats', 'appts', 'journey', 'bills'].includes(pTab)) pTab = 'leads';
+    ['appts', 'journey', 'bills'].forEach((t) => { const b = document.querySelector(`#pTabs [data-ptab="${t}"]`); if (b) b.hidden = true; });
+    const lt = document.getElementById('leadsTab'); lt.hidden = false;
+    lt.parentNode.insertBefore(lt, document.querySelector('#pTabs [data-ptab="stats"]')); // Leads πρώτο tab
+    if (!leadsOnlyInit) { leadsOnlyInit = true; if (pTab === 'stats') pTab = 'leads'; } // πρώτη φόρτωση → Leads· μετά μένει όπου είναι
+    if (['appts', 'journey', 'bills'].includes(pTab)) pTab = 'leads';
     document.querySelectorAll('#pTabs button').forEach((x) => x.classList.toggle('on', x.dataset.ptab === pTab));
     const nb = document.getElementById('newBadge'); const nn = D.leads.filter((l) => l.status === 'neo').length;
     nb.textContent = nn; nb.style.display = nn ? '' : 'none';
@@ -148,6 +150,8 @@ function liveMonth(mk, base) {
   const rv = ls.filter((l) => ['rv', 'show', 'won'].includes(l.status) || !!l.attendedAt).length; // + όσοι ήρθαν χωρίς αγορά
   return { ...(base || {}), month: mk, leads: ls.length, rv, shows: ls.filter((l) => ['show', 'won'].includes(l.status) || !!l.attendedAt).length, // ήρθαν = και όσοι ήρθαν χωρίς αγορά (Χαμένο με ημερομηνία προσέλευσης)
     sales: D.leads.filter((l) => l.status === 'won' && inM(l.saleDate || l.createdTime)).length,
+    impressions: cps.length ? cps.reduce((s, x) => s + (+x.impressions || 0), 0) : (base ? +base.impressions || 0 : 0),
+    clicks: cps.length ? cps.reduce((s, x) => s + (+x.clicks || 0), 0) : (base ? +base.clicks || 0 : 0),
     revenue: +revenue.toFixed(2), spend: +spend.toFixed(2), cpl: ls.length && spend ? spend / ls.length : 0, roas: spend > 0 ? revenue / spend : 0,
     agencyIncome: +agencyIncome.toFixed(2) };
 }
@@ -165,9 +169,9 @@ function profitBlock(list, title) {
     <div class="card section">
       ${row('Έσοδα από νέους ασθενείς (χωρίς ΦΠΑ)', eur(rev))}
       ${row('− Διαφημιστική δαπάνη', '− ' + eur(spend))}
-      ${row('− Αμοιβή astra', '− ' + eur(fee))}
+      ${LEADS_ONLY ? '' : row('− Αμοιβή astra', '− ' + eur(fee))}
       ${row('= Καθαρό κέρδος σας', eur(profit), 'color:' + profitColor(profit) + ';font-size:16px')}
-      ${cost > 0 ? row('Για κάθε 1 € που επενδύσατε (δαπάνη + αμοιβή)', 'πήρατε πίσω ' + (1 + profit / cost).toFixed(2) + ' €') : ''}
+      ${cost > 0 ? row(LEADS_ONLY ? 'Για κάθε 1 € διαφήμισης' : 'Για κάθε 1 € που επενδύσατε (δαπάνη + αμοιβή)', 'πήρατε πίσω ' + (1 + profit / cost).toFixed(2) + ' €') : ''}
     </div>`;
 }
 function render() {
@@ -204,8 +208,11 @@ function render() {
       ${tile('Κόστος ανά ενδιαφερόμενο', c.cpl ? eur(c.cpl) : '—', 'Cost per Lead')}
       ${tile('Κόστος ανά ραντεβού', c.rv && c.spend ? eur(c.spend / c.rv) : '—', 'Cost per Booking')}
       ${tile('Απόδοση (ROAS)', c.spend > 0 ? (+c.roas).toFixed(2) + '×' : '—', 'έσοδα ÷ δαπάνη')}
-      ${tile('Καθαρό κέρδος σας · ' + mLabel(mk), `<span style="color:${profitColor(profitOf(c))}">${eur(profitOf(c))}</span>`, c.revenue ? 'μετά τη δαπάνη και την αμοιβή astra' : 'δεν έχουν καταγραφεί έσοδα ακόμη · έσοδα − δαπάνη − αμοιβή astra')}
-      ${(() => { const e = currentWeekEstimate(); const open = D.bills.filter((b) => (b.payStatus || 'pending') !== 'paid').reduce((s, b) => s + (+b.gross || 0), 0); return D.clinic ? tile('Οφειλή προς astra', eur(open + (e ? e.gross : 0)), (open ? eur(open) + ' ανοιχτό' : 'τίποτα ανοιχτό') + (e ? ' · ' + eur(e.gross) + ' τρέχουσα εβδ.' : '')) : ''; })()}
+      ${tile('Καθαρό κέρδος σας · ' + mLabel(mk), `<span style="color:${profitColor(profitOf(c))}">${eur(profitOf(c))}</span>`, LEADS_ONLY
+        ? (c.revenue ? 'έσοδα (χωρίς ΦΠΑ) − διαφημιστική δαπάνη' : 'γράψτε το ποσό στο «Ήρθε ✓» για να υπολογιστεί')
+        : (c.revenue ? 'μετά τη δαπάνη και την αμοιβή astra' : 'δεν έχουν καταγραφεί έσοδα ακόμη · έσοδα − δαπάνη − αμοιβή astra'))}
+      ${LEADS_ONLY ? tile('Προβολές · Clicks', num(c.impressions || 0) + ' · ' + num(c.clicks || 0), c.impressions ? 'CTR ' + (100 * (c.clicks || 0) / c.impressions).toFixed(2) + '%' + (c.clicks && c.spend ? ' · ' + eur(c.spend / c.clicks) + '/click' : '') : '') : ''}
+      ${(() => { const e = currentWeekEstimate(); const open = D.bills.filter((b) => (b.payStatus || 'pending') !== 'paid').reduce((s, b) => s + (+b.gross || 0), 0); return D.clinic && !LEADS_ONLY ? tile('Οφειλή προς astra', eur(open + (e ? e.gross : 0)), (open ? eur(open) + ' ανοιχτό' : 'τίποτα ανοιχτό') + (e ? ' · ' + eur(e.gross) + ' τρέχουσα εβδ.' : '')) : ''; })()}
     </div>`;
 
   const funnelHtml = `<h3 class="sectionhead">Η πορεία του μήνα</h3><div class="card section">${funnel(c)}</div>`
@@ -347,6 +354,7 @@ function renderLeadsMgr() {
         <div class="f"><label>Στάδιο</label><select data-k="status">${opts}</select></div>
         <div class="f"><label>Ημ/νία ραντεβού</label><input type="date" data-k="date" value="${esc(l.nextAction || '')}"></div>
         <div class="f"><label>Ώρα</label><select data-k="time">${times}</select></div>
+        <div class="f"><label title="Μόνο με «Ήρθε ✓» — για τα έσοδα και το κέρδος στα Στατιστικά">Πλήρωσε € (στο «Ήρθε»)</label><input data-k="amount" inputmode="decimal" placeholder="π.χ. 60" value="${(+l.amount || 0) > 0 ? esc(String(l.amount)) : ''}"></div>
       </div>
       <div class="f" style="margin-top:8px"><label>Σημειώσεις</label><textarea data-k="notes" rows="2" placeholder="π.χ. καλέστε μετά τις 5 / θέλει πακέτο…">${esc(l.notes || '')}</textarea></div>
       <div style="margin-top:8px;display:flex;gap:8px;align-items:center"><button class="btn small primary" data-save="1">Αποθήκευση</button><span class="fhint" data-msg></span></div>
@@ -368,9 +376,12 @@ document.getElementById('pBody').addEventListener('click', async (e) => {
   const st = v('status'), date = v('date'), time = v('time');
   const msg = box.querySelector('[data-msg]');
   if (st === 'rv' && !date) { msg.textContent = 'Βάλτε ημερομηνία ραντεβού.'; return; }
+  const amount = parseFloat(String(v('amount')).replace(',', '.')) || 0;
   sb.disabled = true; sb.textContent = '…';
   try {
-    await rest('rpc/client_update_lead', { method: 'POST', body: { p_lead_id: box.dataset.lid, p_status: st, p_next_action: date || null, p_appt_time: time || null, p_notes: v('notes') } });
+    const rb = { p_lead_id: box.dataset.lid, p_status: st, p_next_action: date || null, p_appt_time: time || null, p_notes: v('notes') };
+    if (st === 'won' && amount > 0) rb.p_amount = amount; // ποσό μόνο στο «Ήρθε ✓» → έσοδα/κέρδος στα Στατιστικά
+    await rest('rpc/client_update_lead', { method: 'POST', body: rb });
     alertBox('Αποθηκεύτηκε ✓');
     await load();
   } catch (err) { msg.textContent = err.message; sb.disabled = false; sb.textContent = 'Αποθήκευση'; }
@@ -396,7 +407,7 @@ function leadFee(c, l) {
   return +o.fee;
 }
 function currentWeekEstimate() {
-  const c = D.clinic; if (!c) return null;
+  const c = D.clinic; if (!c || c.billingModel === 'leads') return null; // «μόνο leads»: καμία αμοιβή astra
   const w = thisWeek(); const share = (c.billingModel || 'appointment') === 'share';
   const inWeek = (d) => d && String(d).slice(0, 10) >= w.start && String(d).slice(0, 10) <= w.end;
   const items = share
