@@ -315,8 +315,10 @@ function statusPatch(st, l) {
 const CANCEL_END = 'Ακύρωσε — δεν ενδιαφέρεται', NOSHOW_END = 'No show — δεν ενδιαφέρεται';
 const XSTAT = { cancelx: CANCEL_END, noshowx: NOSHOW_END };
 const uiStatus = (l) => (l.status === 'lost' && l.lostReason === CANCEL_END ? 'cancelx' : l.status === 'lost' && l.lostReason === NOSHOW_END ? 'noshowx' : l.status);
-const UI_STATUS = { neo: STATUS.neo, noans: STATUS.noans, epik: STATUS.epik, think: STATUS.think, rv: STATUS.rv,
+const UI_STATUS = { neo: STATUS.neo, noans: STATUS.noans, epik: STATUS.epik, rv: STATUS.rv, // «Θα το σκεφτεί» καταργήθηκε 9/11 — γράφεται ως σχόλιο στην καρτέλα
   noshow: 'No show · ξανακαλούμε', noshowx: 'No show · τέλος', cancel: 'Ακύρωση · ξανακαλούμε', cancelx: 'Ακύρωση · τέλος', won: STATUS.won, lost: STATUS.lost };
+const isGone = (l) => l.status === 'lost'; // Χαμένο + No show · τέλος + Ακύρωση · τέλος
+const GONE_COLS = ['noshowx', 'cancelx', 'lost'];
 const statusOptions = (l) => Object.entries(UI_STATUS).map(([k, v]) => `<option value="${k}"${uiStatus(l) === k ? ' selected' : ''}>${v}</option>`).join('');
 /* Αλλαγή σταδίου από select/kanban (δέχεται και cancelx/noshowx) */
 async function setUiStatus(id, v, how = '') {
@@ -875,7 +877,6 @@ function todayRow(l, kind) {
     <span class="mono" style="font-size:12.5px">${telLink(l.phone)}${l.phone ? `<button class="copybtn" data-copy="${esc(l.phone)}" title="Αντιγραφή">${COPY_ICON}</button>` : ''}</span>
     <div class="acts">
       ${kind === 'fresh' ? '<button class="btn small" data-act="called">Κλήθηκε</button>' : ''}
-      ${['neo', 'noans', 'epik'].includes(l.status) ? '<button class="btn small" data-act="think" title="Μιλήσαμε, θέλει να το σκεφτεί → επανάκληση σε 2 μέρες + μήνυμα">Θα το σκεφτεί</button>' : ''}
       ${['fresh', 'due', 'open'].includes(kind) && !inFollow(l) ? '<button class="btn small" data-act="noans" title="Δεν σήκωσε — ξαναπροσπάθεια αύριο">Δεν απάντησε</button>' : ''}
       <button class="btn small" data-act="p1" title="Μετάθεση της επόμενης ενέργειας για αύριο">Αύριο</button>
       <button class="btn small" data-act="p3" title="Μετάθεση της επόμενης ενέργειας σε 3 μέρες">+3 μέρες</button>
@@ -2240,7 +2241,7 @@ function funnelHTML(leads, active = '') {
     + chip('rvtoday', 'rv', '📅 Ραντεβού σήμερα', `${leads.filter((l) => isTodayAppt(l) && l.status === 'rv').length}/${leads.filter(isTodayAppt).length}`, 'Τα ραντεβού της ημέρας ανά ώρα — εκκρεμή / σύνολο. Όταν τελειώσει το ραντεβού άλλαξε το στάδιο (Πελάτης / Χαμένο)')
     + chip('confirm', 'rv', '📞 Επιβεβαίωση αύριο', `${leads.filter(isTomorrowAppt).filter((l) => !l.confirmedAt).length}/${leads.filter(isTomorrowAppt).length}`, 'Όλα τα ραντεβού της επόμενης μέρας — ανεπιβεβαίωτα / σύνολο. Κάλεσε και πάτα «✓ Επιβεβαιώθηκε»')
     + [['rv2', '📅 Μεθαύριο', 'Τα ραντεβού μεθαύριο'], ['rv3', '📅 Σε 3 μέρες', 'Τα ραντεβού σε 3 μέρες'], ['rvweek', '📅 Εβδομάδα', 'Όλα τα ραντεβού από σήμερα έως +7 μέρες, ανά μέρα και ώρα']].map(([k, label, t]) => { const x = leads.filter(apptMatch(k)); return chip(k, 'rv', label, `${x.filter((l) => !l.confirmedAt).length}/${x.length}`, t + ' — ανεπιβεβαίωτα / σύνολο'); }).join('')
-    + `<button type="button" class="chip plain${active ? '' : ' on'}" data-fs="" title="Όλα τα στάδια">Σύνολο ${leads.length}</button>`;
+    + `<button type="button" class="chip plain${active ? '' : ' on'}" data-fs="" title="Όλα εκτός από τα χαμένα — τα χαμένα φαίνονται με το δικό τους κουμπί">Ενεργά ${leads.filter((l) => !isGone(l)).length}</button>`;
 }
 /* Κλικ σε chip του funnel (Leads ή Επισκόπηση) → φίλτρο σταδίου στα Leads */
 function funnelClick(e) {
@@ -2303,7 +2304,7 @@ function filteredLeads() {
   const fc = $('flClinic').value, fs = $('flStatus').value, q = $('flSearch').value.trim().toLowerCase();
   let ls = workLeads();
   if (fc) ls = ls.filter((l) => l.clinicId === fc);
-  if (fs) ls = ls.filter(fsMatch(fs));
+  if (fs) ls = ls.filter(fsMatch(fs)); else ls = ls.filter((l) => !isGone(l)); // τα χαμένα μόνο αν πατηθεί το φίλτρο τους
   if (q) ls = ls.filter((l) => (l.name + ' ' + l.phone + ' ' + l.email).toLowerCase().includes(q));
   if (fc && flSub && flSubClinic === fc) ls = ls.filter(subMatch);
   if (isApptFs(fs) || fs === 'rvtoday') ls.sort((a, b) => String(a.nextAction || '').localeCompare(String(b.nextAction || '')) || (hhmm(a.apptTime) || '99').localeCompare(hhmm(b.apptTime) || '99'));
@@ -2377,7 +2378,8 @@ function apptBadge(l) {
   return `<span class="apptb" style="display:inline-block;margin-top:3px;padding:2px 8px;border-radius:999px;font-size:11.5px;font-weight:600;background:${over ? 'rgba(200,40,40,.12)' : 'rgba(40,120,80,.12)'};color:${over ? 'var(--crit)' : 'var(--ok, #1d6b4a)'}" title="Ραντεβού">📅 ${txt}</span>`;
 }
 function renderKanban(ls) {
-  $('leadKanban').innerHTML = Object.keys(UI_STATUS).map((k) => {
+  const fsK = $('flStatus').value;
+  $('leadKanban').innerHTML = Object.keys(UI_STATUS).filter((k) => fsK === k || !GONE_COLS.includes(k)).map((k) => {
     const col = ls.filter((l) => uiStatus(l) === k);
     return `<div class="kcol" data-status="${k}">
       <div class="khead"><span class="chip ${k}">${UI_STATUS[k]}</span><span class="mono" style="font-size:12px">${col.length}</span></div>
@@ -2440,7 +2442,7 @@ $('leadTable').addEventListener('toggle', (e) => {
 }, true);
 function renderLeadClinicBar() {
   const fs = $('flStatus').value, q = $('flSearch').value.trim().toLowerCase(), cur = $('flClinic').value;
-  const base = workLeads().filter((l) => (!fs || fsMatch(fs)(l)) && (!q || (l.name + ' ' + l.phone + ' ' + l.email).toLowerCase().includes(q)));
+  const base = workLeads().filter((l) => (fs ? fsMatch(fs)(l) : !isGone(l)) && (!q || (l.name + ' ' + l.phone + ' ' + l.email).toLowerCase().includes(q)));
   const chip = (id, name, n, nNew) => `<button type="button" class="btn small${cur === id ? ' primary' : ''}" data-clinic="${id}">${esc(name)} · ${n}${nNew ? ` <b style="color:${cur === id ? 'inherit' : 'var(--crit)'}">(${nNew} νέα)</b>` : ''}</button>`;
   $('leadClinicBar').innerHTML = chip('', 'Όλες', base.length, base.filter((l) => l.status === 'neo').length)
     + S.clinics.filter(teamClinic).map((c) => { const x = base.filter((l) => l.clinicId === c.id); return chip(c.id, c.name, x.length, x.filter((l) => l.status === 'neo').length); }).join('');
@@ -4358,7 +4360,6 @@ function renderCallStats() {
     + (info.some((x) => leadArea(x.l)) ? card('Ανά σημείο', '«Πού σε βολεύει;» στη φόρμα', csTable(['Σημείο', 'Leads', 'Μιλήσαμε', 'Ραντεβού', 'Ήρθαν', 'Πελάτες'], groupRows(leadArea))) : '')
     + (info.some((x) => leadAudience(x.l)) ? card('Ανά κοινό', 'ad set της διαφήμισης', csTable(['Κοινό', 'Leads', 'Μιλήσαμε', 'Ραντεβού', 'Ήρθαν', 'Πελάτες'], groupRows(leadAudience))) : '')
     + card('Ανά πακέτο / προσφορά', '', csTable(['Πακέτο', 'Leads', 'Μιλήσαμε', 'Ραντεβού', 'Ήρθαν', 'Πελάτες'], groupRows(pkg)))
-    + card('«Θα το σκεφτώ»', 'τι απογίνονται όσοι το λένε', csTable(['', 'Leads', '%'], thRows, 'Κανείς δεν είπε «θα το σκεφτώ» στην περίοδο.'))
     + card('Γιατί χάνονται', `${lost.length} χαμένα`, csTable(['Λόγος', 'Leads', '%'], lostRows, 'Κανένα χαμένο lead στην περίοδο.'))
     + card('Ξεχασμένα ανά ημέρα', 'leads 09:00–21:00 που δεν είχαν καμία επαφή σε 1 ώρα', csTable(['Ημέρα', 'Leads', '>1 ώρα χωρίς επαφή', 'Συνήθης χρόνος 1ης επαφής'], dayRows))
     + '</details>';
