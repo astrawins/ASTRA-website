@@ -1,0 +1,35 @@
+/* Skin B — «Swiss»: ουδέτερα γκρι, Geist, τα κουτιά γίνονται πλέγμα με λεπτές γραμμές. Μόνο ένα χρώμα έμφασης. */
+@import url('https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500&display=swap');
+html[data-skin="b"] {
+  --bg: #F5F5F3; --card: #FFFFFF; --card2: #F7F7F5; --ink: #111111; --soft: #6E6E6A;
+  --hair: rgba(0, 0, 0, .12); --hair2: rgba(0, 0, 0, .06);
+  --bronze: #9C6B3F; --bronze-deep: #111111; --on-bronze: #FFFFFF;
+  --sans: 'Geist', 'Helvetica Neue', Arial, sans-serif; --mono: 'Geist Mono', 'SF Mono', Menlo, monospace;
+  --radius: 4px; --elev: none; --elev-hover: none; --shadow: none; --card-line: rgba(0, 0, 0, .08);
+}
+html[data-skin="b"] body { background: var(--bg); letter-spacing: -.005em; }
+html[data-skin="b"] .card, html[data-skin="b"] .kcard {
+  background: var(--card); border: 1px solid var(--card-line); box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none;
+}
+/* tiles: ενωμένο πλέγμα σαν πίνακας */
+html[data-skin="b"] .tiles { gap: 1px; background: var(--hair); border: 1px solid var(--hair); border-radius: 4px; overflow: hidden; }
+html[data-skin="b"] .tile { background: var(--card); border: none; border-radius: 0; box-shadow: none; padding: 16px 18px; }
+html[data-skin="b"] .tile .lb { text-transform: none; letter-spacing: 0; font-size: 12.5px; font-weight: 500; color: var(--soft); }
+html[data-skin="b"] .tile .v { font-family: var(--sans); font-weight: 500; font-size: 30px; letter-spacing: -.035em; margin-top: 8px; }
+html[data-skin="b"] .tile .d { font-size: 12px; }
+html[data-skin="b"] .tile .v.pos { color: var(--ink); } html[data-skin="b"] .tile .v.pos::before { content: "↑ "; color: var(--good); font-size: .6em; vertical-align: .25em; }
+html[data-skin="b"] th { background: transparent; text-transform: none; letter-spacing: 0; font-size: 12px; font-weight: 500; }
+html[data-skin="b"] .rail { background: #0E0E0E; -webkit-backdrop-filter: none; backdrop-filter: none; border-right: none; }
+html[data-skin="b"] .rail nav button { border-radius: 4px; font-weight: 450; }
+html[data-skin="b"] .rail nav button.on { background: rgba(255, 255, 255, .08); box-shadow: none; }
+html[data-skin="b"] .btn { background: var(--card); border-radius: 4px; font-weight: 500; box-shadow: none; }
+html[data-skin="b"] .btn:hover { transform: none; box-shadow: none; border-color: var(--ink); }
+html[data-skin="b"] .btn.small { border-radius: 4px; }
+html[data-skin="b"] .chip { border-radius: 3px; font-weight: 500; }
+html[data-skin="b"] .chip.plain { background: transparent; border: 1px solid var(--hair); }
+html[data-skin="b"] button.chip.on { box-shadow: none; outline: 1.5px solid currentColor; outline-offset: -1.5px; }
+html[data-skin="b"] .filters select, html[data-skin="b"] .filters input, html[data-skin="b"] td select, html[data-skin="b"] td input { background: var(--card); border-radius: 4px; }
+html[data-skin="b"] .kcol { background: transparent; border: none; border-left: 1px solid var(--hair); border-radius: 0; }
+html[data-skin="b"] .viewtoggle { border-radius: 4px; }
+html[data-skin="b"] .pagehead h2 { font-weight: 600; font-size: 26px; letter-spacing: -.04em; }
+html[data-skin="b"] .cliniccard:hover { transform: none; box-shadow: none; border-color: var(--hair); }

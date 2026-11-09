@@ -1,0 +1,34 @@
+/* Skin A — «Χαρτί»: ζεστό, επίπεδο, hairlines αντί για σκιές. Ίδια brand χρώματα, πιο ήσυχα. */
+html[data-skin="a"] {
+  --bg: #F3EDE4; --card: #FFFDF9; --card2: #F7F1E8; --ink: #231C15; --soft: #7A6A58;
+  --hair: rgba(35, 28, 21, .14); --hair2: rgba(35, 28, 21, .07);
+  --bronze: #8A5A2E; --bronze-deep: #2A2118; --on-bronze: #FFFDF9;
+  --radius: 6px; --elev: none; --elev-hover: none; --shadow: none; --card-line: rgba(35, 28, 21, .10);
+}
+html[data-skin="a"] body { background: var(--bg); }
+html[data-skin="a"] .card, html[data-skin="a"] .tile, html[data-skin="a"] .kcard {
+  background: var(--card); border: 1px solid var(--card-line); box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none;
+}
+html[data-skin="a"] .tile { padding: 16px 18px 14px; border-radius: 6px; }
+html[data-skin="a"] .tile:hover, html[data-skin="a"] .cliniccard:hover { box-shadow: none; transform: none; border-color: var(--hair); }
+html[data-skin="a"] .tile .lb, html[data-skin="a"] th { font-weight: 500; letter-spacing: .09em; font-size: 10.5px; }
+html[data-skin="a"] .tile .v { font-weight: 500; font-size: 27px; letter-spacing: -.02em; }
+html[data-skin="a"] th { background: transparent; border-bottom: 1px solid var(--hair); }
+html[data-skin="a"] td { border-bottom-color: var(--hair2); }
+html[data-skin="a"] .rail { background: #1E1812; -webkit-backdrop-filter: none; backdrop-filter: none; border-right: none; }
+html[data-skin="a"] .rail nav button { border-radius: 4px; font-weight: 500; }
+html[data-skin="a"] .rail nav button.on { background: transparent; box-shadow: inset 2px 0 0 #D9B48A; }
+html[data-skin="a"] .btn { background: transparent; border-radius: 4px; font-weight: 500; box-shadow: none; }
+html[data-skin="a"] .btn:hover { transform: none; box-shadow: none; border-color: var(--ink); }
+html[data-skin="a"] .btn.small { border-radius: 4px; }
+html[data-skin="a"] .btn.primary { background: var(--ink); border-color: var(--ink); color: #FFFDF9; }
+html[data-skin="a"] .chip { background: transparent !important; padding: 2px 4px 2px 0; font-weight: 500; }
+html[data-skin="a"] .chip::before { width: 6px; height: 6px; }
+html[data-skin="a"] .chip.plain { padding: 1px 8px; border: 1px solid var(--hair); }
+html[data-skin="a"] button.chip { border: 1px solid var(--hair2); padding: 3px 10px; border-radius: 4px; }
+html[data-skin="a"] button.chip.on { border-color: var(--ink); box-shadow: none; }
+html[data-skin="a"] .filters select, html[data-skin="a"] .filters input, html[data-skin="a"] td select, html[data-skin="a"] td input { background: var(--card); border-radius: 4px; }
+html[data-skin="a"] .kcol { background: transparent; border: 1px dashed var(--hair); }
+html[data-skin="a"] .viewtoggle { border-radius: 4px; }
+html[data-skin="a"] .viewtoggle button.on { background: var(--ink); }
+html[data-skin="a"] .pagehead h2 { font-weight: 600; letter-spacing: -.03em; }

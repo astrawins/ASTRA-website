@@ -15,6 +15,8 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800&family=Spline+Sans+Mono:wght@400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/app/shared/ui.css">
+  <script>/* Δοκιμαστικά designs: ?skin=a|b|c (μένει στον browser) · ?skin=0 = το κανονικό */
+  (function(){try{var q=new URLSearchParams(location.search).get('skin');if(q!==null){if(/^[abc]$/.test(q))localStorage.setItem('astra-skin',q);else localStorage.removeItem('astra-skin');}var s=localStorage.getItem('astra-skin');if(/^[abc]$/.test(s)){document.documentElement.setAttribute('data-skin',s);document.write('<link rel="stylesheet" href="/app/shared/skins/'+s+'.css">');}}catch(e){}})();</script>
   <script src="https://accounts.google.com/gsi/client" async defer></script>
 <script src="/app/shared/nozoom.js"></script>
 </head>

@@ -1,0 +1,46 @@
+/* Skin C — «Studio»: ανοιχτό μενού, λευκές κάρτες με αέρα, αριθμοί σε serif. Πιο «boutique», όπως ένα high-end brand. */
+@import url('https://fonts.googleapis.com/css2?family=Instrument+Serif&family=Inter+Tight:wght@400;500;600;700&display=swap');
+html[data-skin="c"] {
+  --bg: #F8F6F2; --card: #FFFFFF; --card2: #F6F3EE; --ink: #1D1A16; --soft: #8A8176;
+  --hair: rgba(29, 26, 22, .10); --hair2: rgba(29, 26, 22, .06);
+  --bronze: #A0703F; --bronze-deep: #1D1A16; --on-bronze: #FFFFFF;
+  --sans: 'Inter Tight', 'Helvetica Neue', Arial, sans-serif;
+  --radius: 14px; --card-line: rgba(29, 26, 22, .06);
+  --elev: 0 1px 0 rgba(29, 26, 22, .03), 0 1px 2px rgba(29, 26, 22, .04);
+  --elev-hover: 0 1px 0 rgba(29, 26, 22, .04), 0 6px 18px -8px rgba(29, 26, 22, .14);
+  --rail-bg: #F8F6F2; --rail-ink: #1D1A16; --rail-soft: #8A8176;
+}
+html[data-skin="c"] body { background: var(--bg); }
+html[data-skin="c"] .card, html[data-skin="c"] .tile, html[data-skin="c"] .kcard {
+  background: var(--card); border: 1px solid var(--card-line); box-shadow: var(--elev); -webkit-backdrop-filter: none; backdrop-filter: none;
+}
+html[data-skin="c"] .tile { padding: 18px 20px 16px; }
+html[data-skin="c"] .tile .lb { text-transform: none; letter-spacing: 0; font-size: 12.5px; font-weight: 500; color: var(--soft); }
+html[data-skin="c"] .tile .v { font-family: 'Instrument Serif', Georgia, serif; font-weight: 400; font-size: 38px; letter-spacing: -.01em; line-height: 1.05; margin-top: 8px; }
+html[data-skin="c"] .tile .d { font-size: 12px; margin-top: 6px; }
+html[data-skin="c"] th { background: transparent; text-transform: none; letter-spacing: 0; font-size: 12px; font-weight: 500; color: var(--soft); }
+html[data-skin="c"] .tablewrap th:first-child, html[data-skin="c"] .tablewrap td:first-child { padding-left: 20px; }
+/* ανοιχτό μενού */
+html[data-skin="c"] .rail { background: var(--bg); -webkit-backdrop-filter: none; backdrop-filter: none; border-right: 1px solid var(--hair2); }
+html[data-skin="c"] .rail .brand { border-bottom-color: var(--hair2); }
+html[data-skin="c"] .rail .brand img { filter: invert(1) brightness(.2); }
+html[data-skin="c"] .rail nav button { color: var(--soft); border-radius: 10px; font-weight: 500; }
+html[data-skin="c"] .rail nav button:hover { color: var(--ink); background: rgba(29, 26, 22, .04); }
+html[data-skin="c"] .rail nav button.on { color: var(--ink); background: #FFFFFF; box-shadow: 0 1px 2px rgba(29, 26, 22, .06), 0 0 0 1px rgba(29, 26, 22, .05); }
+html[data-skin="c"] .rail .railfoot { border-top-color: var(--hair2); }
+html[data-skin="c"] .rail .railfoot button { border-color: var(--hair); }
+html[data-skin="c"] .btn { background: var(--card); border-color: var(--hair); border-radius: 10px; font-weight: 500; box-shadow: 0 1px 1px rgba(29, 26, 22, .04); }
+html[data-skin="c"] .btn:hover { transform: none; border-color: rgba(29, 26, 22, .22); box-shadow: 0 1px 2px rgba(29, 26, 22, .06); }
+html[data-skin="c"] .btn.small { border-radius: 99px; }
+html[data-skin="c"] .btn.primary { background: var(--ink); border-color: var(--ink); color: #fff; }
+html[data-skin="c"] .chip { font-weight: 500; }
+html[data-skin="c"] .chip.plain { background: transparent; border: 1px solid var(--hair); }
+html[data-skin="c"] button.chip { border: 1px solid transparent; }
+html[data-skin="c"] button.chip.on { border-color: currentColor; box-shadow: none; background: #fff; }
+html[data-skin="c"] .filters select, html[data-skin="c"] .filters input, html[data-skin="c"] td select, html[data-skin="c"] td input { background: var(--card); border-radius: 10px; }
+html[data-skin="c"] .kcol { background: rgba(29, 26, 22, .025); border: none; }
+html[data-skin="c"] .viewtoggle { border-radius: 10px; }
+html[data-skin="c"] .viewtoggle button.on { background: var(--ink); color: #fff; }
+html[data-skin="c"] .pagehead h2 { font-family: 'Instrument Serif', Georgia, serif; font-weight: 400; font-size: 36px; letter-spacing: -.01em; }
+html[data-skin="c"] .cliniccard .stats b { font-family: 'Instrument Serif', Georgia, serif; font-weight: 400; font-size: 21px; }
+html[data-skin="c"] .cliniccard:hover { transform: none; }
