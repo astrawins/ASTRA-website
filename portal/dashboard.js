@@ -3993,22 +3993,18 @@ function renderOverview() {
   const expM = S.fin.filter((f) => f.kind === 'expense' && monthKey(f.date) === mk).reduce((s, f) => s + (+f.net || 0), 0);
   const delta = leadsP ? Math.round(100 * (leadsM - leadsP) / leadsP) : null;
   $('ovTiles').innerHTML = `
-    <div class="tile"><div class="lb">Leads · ${mLabel(mk)}</div><div class="v">${leadsM}</div><div class="d">${delta === null ? '—' : `<span class="${delta >= 0 ? 'up' : 'down'}">${delta >= 0 ? '▲' : '▼'} ${Math.abs(delta)}%</span> vs ${mLabel(prev)}`}</div></div>
-    <div class="tile"><div class="lb">Ad spend · ${mLabel(mk)}</div><div class="v">${eur(spendM)}</div><div class="d">από ${S.camps.filter((c) => c.month === mk).length} καμπάνιες</div></div>
-    <div class="tile"><div class="lb">Έσοδα πωλήσεων πελατών</div><div class="v">${eur(revM)}</div><div class="d">${salesM.length} πωλήσεις τον μήνα</div></div>
-    <div class="tile"><div class="lb">ROAS μήνα</div><div class="v ${spendM > 0 ? (roas >= 2 ? 'pos' : roas < 1 ? 'neg' : '') : ''}">${spendM > 0 ? roas.toFixed(2) + '×' : '—'}</div><div class="d">έσοδα ÷ δαπάνη</div></div>
-    ${(() => { const t = taxEstimate(); return `<div class="tile"><div class="lb">Κέρδος Astra · ${mLabel(mk)}</div><div class="v ${t.profitM >= 0 ? 'pos' : 'neg'}">${eur(t.profitM)}</div><div class="d">τζίρος ${eur(t.revM)} (${t.apptM} ραντεβού × ${eur(apptFee())}) − έξοδα ${eur(t.expMn)}</div></div>`; })()}
-    <div class="tile"><div class="lb">Ενεργές κλινικές</div><div class="v">${S.clinics.length}</div><div class="d">${S.clinics.filter((c) => c.sheetId).length} με συνδεδεμένο sheet</div></div>
-    ${(() => {
-      const t = taxEstimate();
-      return `<div class="tile"><div class="lb">ΦΠΑ ${mLabel(t.mk)}</div><div class="v ${t.vatMonth > 0 ? 'neg' : 'pos'}">${eur(t.vatMonth)}</div><div class="d">${t.vatMonth > 0 ? 'για απόδοση' : 'πιστωτικό'} · φόρος έτους ${eur(t.tax + t.prepay)}</div></div>`;
-    })()}
+    <div class="tile"><div class="lb">Leads · ${mLabel(mk)}</div><div class="v">${leadsM}</div><div class="d">${delta === null ? '—' : `<span class="${delta >= 0 ? 'up' : 'down'}">${Math.abs(delta)}% ${delta >= 0 ? 'περισσότερα' : 'λιγότερα'}</span> από τον ${mLabel(prev)}`}</div></div>
+    <div class="tile"><div class="lb">Διαφήμιση Meta · ${mLabel(mk)}</div><div class="v">${eur(spendM)}</div><div class="d">ξοδεύτηκαν σε ${S.camps.filter((c) => c.month === mk).length} καμπάνιες</div></div>
+    <div class="tile"><div class="lb">Πωλήσεις κλινικών · ${mLabel(mk)}</div><div class="v">${eur(revM)}</div><div class="d">από ${salesM.length} πελάτες που ήρθαν από τα leads</div></div>
+    <div class="tile"><div class="lb">Απόδοση διαφήμισης</div><div class="v ${spendM > 0 ? (roas >= 2 ? 'pos' : roas < 1 ? 'neg' : '') : ''}">${spendM > 0 ? eur(roas) : '—'}</div><div class="d">${spendM > 0 ? `πωλήσεις για κάθε 1 € διαφήμισης${roas < 1 ? ' — ακόμα κάτω από τα έξοδα' : ''}` : 'δεν υπάρχει δαπάνη ακόμα'}</div></div>
+    ${(() => { const t = taxEstimate(); return `<div class="tile"><div class="lb">Κέρδος Astra · ${mLabel(mk)}</div><div class="v ${t.profitM >= 0 ? 'pos' : 'neg'}">${eur(t.profitM)}</div><div class="d">μπήκαν ${eur(t.revM)} (${t.apptM} ραντεβού) − έξοδα ${eur(t.expMn)}</div></div>`; })()}
+    <div class="tile"><div class="lb">Ενεργές κλινικές</div><div class="v">${S.clinics.length}</div><div class="d">${S.clinics.filter((c) => c.sheetId).length} φέρνουν leads αυτόματα</div></div>
     ${(() => {
       const g = +SET().goalQuarterRevenue || 0; if (!g) return '';
       const qk = quarterOf(new Date().toISOString());
       const qInc = S.fin.filter((f) => f.kind === 'income' && quarterOf(f.date) === qk).reduce((s, f) => s + (+f.net || 0), 0);
       const pct = Math.min(100, Math.round(100 * qInc / g));
-      return `<div class="tile"><div class="lb">Στόχος τριμήνου</div><div class="v ${pct >= 100 ? 'pos' : ''}">${pct}%</div><div class="d">${eur(qInc)} από ${eur(g)}</div></div>`;
+      return `<div class="tile"><div class="lb">Στόχος τριμήνου</div><div class="v ${pct >= 100 ? 'pos' : ''}">${pct}%</div><div class="d">μπήκαν ${eur(qInc)} από τα ${eur(g)}</div></div>`;
     })()}`;
   $('ovFunnel').innerHTML = workLeads().length ? funnelHTML(workLeads()) : '';
   const months = lastMonths(6);
@@ -4027,7 +4023,7 @@ function renderOverview() {
   if (fresh.length) alerts.push({ cls: 'warn', ic: '!', txt: `${fresh.length} νέα leads περιμένουν πάνω από 48 ώρες χωρίς επικοινωνία.` });
   S.camps.filter((c) => c.month === mk && c.spend > 0).forEach((c) => {
     const ls = campLeads(c); const rev = ls.filter((l) => l.status === 'won').reduce((s, l) => s + (+l.amount || 0), 0);
-    if (c.spend > 100 && rev / c.spend < 1 && ls.length) alerts.push({ cls: 'crit', ic: '▼', txt: `Η καμπάνια «${c.name}» τρέχει με ROAS ${(rev / c.spend).toFixed(2)}× αυτόν τον μήνα.` });
+    if (c.spend > 100 && rev / c.spend < 1 && ls.length) alerts.push({ cls: 'crit', ic: '▼', txt: `Η καμπάνια «${c.name}» ξόδεψε ${eur(c.spend)} αυτόν τον μήνα και έφερε ${rev ? eur(rev) + ' πωλήσεις' : 'καμία πώληση ακόμα'}.` });
     if (!ls.length && c.spend > 50) alerts.push({ cls: 'warn', ic: '!', txt: `Η καμπάνια «${c.name}» έχει δαπάνη ${eur(c.spend)} χωρίς κανένα αντιστοιχισμένο lead — έλεγξε ότι το όνομα ταιριάζει με το Meta.` });
   });
   const { stale } = todayItems();
@@ -4073,12 +4069,12 @@ function renderSources() {
   // πλατφόρμες
   const plats = [['fb', 'Facebook'], ['ig', 'Instagram'], ['manual', 'Χειροκίνητα']];
   const other = ls.filter((l) => !plats.some(([k]) => l.platform === k));
-  $('platformTiles').innerHTML = !ls.length ? '' : plats.map(([k, name]) => {
+  $('platformTiles').innerHTML = !ls.length || other.length === ls.length ? '' : plats.map(([k, name]) => {
     const g = ls.filter((l) => l.platform === k);
     if (!g.length) return '';
     const w = g.filter(won).length;
-    return `<div class="tile"><div class="lb">${name}</div><div class="v">${g.length}</div><div class="d">${w} πωλήσεις · ${Math.round(100 * w / g.length)}% conv.</div></div>`;
-  }).join('') + (other.length ? `<div class="tile"><div class="lb">Άλλο</div><div class="v">${other.length}</div><div class="d">${other.filter(won).length} πωλήσεις</div></div>` : '');
+    return `<div class="tile"><div class="lb">${name}</div><div class="v">${g.length}</div><div class="d">${w} έγιναν πελάτες</div></div>`;
+  }).join('') + (other.length ? `<div class="tile"><div class="lb">Άλλο</div><div class="v">${other.length}</div><div class="d">${other.filter(won).length} έγιναν πελάτες</div></div>` : '');
   // ημέρα εβδομάδας
   const dow = (l) => { const d = new Date(l.createdTime); return isNaN(d) ? null : (d.getDay() + 6) % 7; };
   const wdL = [0, 0, 0, 0, 0, 0, 0], wdW = [0, 0, 0, 0, 0, 0, 0];
@@ -4119,23 +4115,24 @@ function speedToLead(clinicId) {
     if (f && f > born) diffs.push((f - born) / 60000);
   }
   if (!diffs.length) return null;
-  const avg = diffs.reduce((s, x) => s + x, 0) / diffs.length;
-  return { avg, n: diffs.length };
+  const s = diffs.sort((a, b) => a - b), m = Math.floor(s.length / 2);
+  const avg = s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2; // συνήθης τιμή (διάμεσος)
+  return { avg, n: diffs.length, fast: diffs.filter((x) => x <= 30).length };
 }
 const fmtMins = (m) => m >= 60 ? Math.floor(m / 60) + 'ω ' + Math.round(m % 60) + '′' : Math.round(m) + '′';
 function renderTeam() {
   const sp = speedToLead(null);
   const spHtml = sp
-    ? `<div class="alertrow ${sp.avg <= 30 ? 'ok' : sp.avg <= 240 ? 'warn' : 'crit'}"><span class="ic">⚡</span><span><b>Ταχύτητα 1ης ενέργειας: ${fmtMins(sp.avg)}</b> κατά μέσο όρο (${sp.n} leads, 30 ημέρες). ${sp.avg <= 30 ? 'Εξαιρετικά — κάτω από 30′.' : 'Στόχος: κάτω από 30′ — τα γρήγορα leads κλείνουν ραντεβού.'}</span></div>`
+    ? `<div class="alertrow ${sp.avg <= 30 ? 'ok' : sp.avg <= 240 ? 'warn' : 'crit'}"><span class="ic">⚡</span><span>Συνήθως περνάνε <b>${fmtMins(sp.avg)}</b> από τη φόρμα μέχρι την 1η κίνηση μας · ${sp.fast} από τα ${sp.n} leads (30 ημέρες) τα πιάσαμε μέσα σε 30′. ${sp.avg <= 30 ? 'Πολύ καλά.' : 'Στόχος: κάτω από 30′.'}</span></div>`
     : '';
   if (spHtml) { /* μπαίνει πάνω από τον πίνακα ομάδας */ }
   const cut = Date.now() - 7 * 24 * 3600 * 1000;
   const acts = S.act.filter((a) => new Date(a.at).getTime() > cut);
   const by = {};
-  acts.forEach((a) => { const k = a.by || '—'; by[k] = by[k] || { total: 0, status: 0, note: 0, next: 0 }; by[k].total++; if (by[k][a.type] !== undefined) by[k][a.type]++; });
+  acts.filter((a) => a.by !== 'sheet').forEach((a) => { const k = a.by || '—'; by[k] = by[k] || { total: 0, status: 0, note: 0, next: 0 }; by[k].total++; if (by[k][a.type] !== undefined) by[k][a.type]++; });
   const keys = Object.keys(by).sort((a, b) => by[b].total - by[a].total);
   $('teamTable').innerHTML = spHtml + (keys.length
-    ? '<table><thead><tr><th>Μέλος</th><th class="num">Ενέργειες</th><th class="num">Αλλαγές σταδίου</th><th class="num">Σχόλια</th><th class="num">Follow-ups</th></tr></thead><tbody>'
+    ? '<table><thead><tr><th>Μέλος</th><th class="num">Κινήσεις συνολικά</th><th class="num">Άλλαξε στάδιο</th><th class="num">Έγραψε σχόλιο</th><th class="num">Όρισε επόμενη ενέργεια</th></tr></thead><tbody>'
       + keys.map((k) => `<tr><td><b>${esc(k === '—' ? 'Χωρίς όνομα' : k.split('@')[0])}</b></td><td class="num">${by[k].total}</td><td class="num">${by[k].status}</td><td class="num">${by[k].note}</td><td class="num">${by[k].next}</td></tr>`).join('')
       + '</tbody></table>'
     : '<div class="empty" style="padding:20px">Καμία δραστηριότητα τις τελευταίες 7 ημέρες.</div>');
@@ -4200,7 +4197,7 @@ const csTable = (head, rows, empty = 'Δεν υπάρχουν ακόμη δεδ�
   : `<div class="empty" style="padding:14px">${empty}</div>`);
 function renderCallStats() {
   const selC = $('csClinic'); const cur = selC.value;
-  selC.innerHTML = '<option value="">Όλες οι κλινικές</option>' + S.clinics.map((c) => `<option value="${c.id}"${c.id === cur ? ' selected' : ''}>${esc(c.name)}</option>`).join('');
+  selC.innerHTML = '<option value="">Όλες οι κλινικές</option>' + S.clinics.filter(teamClinic).map((c) => `<option value="${c.id}"${c.id === cur ? ' selected' : ''}>${esc(c.name)}</option>`).join('');
   const cid = selC.value; const days = +$('csPeriod').value || 30; const from = Math.max(CALLSTATS_FROM, Date.now() - days * 864e5);
   const t0 = (l) => new Date(l.createdTime).getTime();
   const leads = workLeads().filter((l) => (!cid || l.clinicId === cid) && t0(l) >= from);
@@ -4229,14 +4226,6 @@ function renderCallStats() {
   /* 1. ταχύτητα 1ης κλήσης */
   const SPEED = [['< 5′', 0, 5], ['5–10′', 5, 10], ['10–30′', 10, 30], ['30′–2 ώρες', 30, 120], ['> 2 ώρες', 120, 1e9]];
   const inB = (m, b) => m >= b[1] && m < b[2];
-  const tiles = `<div class="tiles" style="margin-bottom:18px">
-    <div class="tile"><div class="lb">Leads περιόδου</div><div class="v">${leads.length}</div><div class="d">${withCall.length} με καταγεγραμμένη κλήση</div></div>
-    <div class="tile"><div class="lb">1η κλήση · διάμεσος</div><div class="v">${csMins(csMedian(fm))}</div><div class="d">σε &lt;5′: ${csPct(fm.filter((m) => m < 5).length, fm.length)} · &lt;10′: ${csPct(fm.filter((m) => m < 10).length, fm.length)} · &lt;30′: ${csPct(fm.filter((m) => m < 30).length, fm.length)}</div></div>
-    <div class="tile"><div class="lb">Contact rate</div><div class="v">${csPct(info.filter((x) => x.contacted).length, leads.length)}</div><div class="d">μιλήσαμε (από όλα τα leads) · μ.ό. ${(() => { const t = info.map((x) => x.triesToContact).filter(Boolean); return t.length ? (t.reduce((s, v) => s + v, 0) / t.length).toFixed(1) : '—'; })()} κλήσεις μέχρι να σηκώσει</div></div>
-    <div class="tile"><div class="lb">Απάντηση 1ης κλήσης</div><div class="v">${csPct(withCall.filter((x) => x.first.outcome === 'answered').length, withCall.length)}</div><div class="d">${logs.filter((x) => x.kind === 'call').length} κλήσεις συνολικά</div></div>
-    <div class="tile"><div class="lb">Ραντεβού / leads</div><div class="v">${csPct(info.filter((x) => x.booked).length, leads.length)}</div><div class="d">ήρθαν ${csPct(info.filter((x) => x.showed).length, info.filter((x) => x.booked).length)} των ραντεβού</div></div>
-    <div class="tile"><div class="lb">Ξεχασμένα τώρα</div><div class="v ${(() => { const n = workLeads().filter((l) => (!cid || l.clinicId === cid) && l.status === 'neo' && !(+l.followStep) && Date.now() - t0(l) > 36e5 && Date.now() - t0(l) < 7 * 864e5).length; return n ? 'neg' : 'pos'; })()}">${S.leads.filter((l) => (!cid || l.clinicId === cid) && l.status === 'neo' && !(+l.followStep) && Date.now() - t0(l) > 36e5 && Date.now() - t0(l) < 7 * 864e5).length}</div><div class="d">νέα leads &gt;1 ώρα χωρίς καμία επαφή</div></div>
-  </div>`;
   /* 2. απάντηση ανά ταχύτητα */
   const speedRows = SPEED.map((b) => { const g = withCall.filter((x) => inB(x.firstMin, b)); return [b[0], g.length, csPct(g.filter((x) => x.first.outcome === 'answered').length, g.length), csPct(g.filter((x) => x.contacted).length, g.length), csPct(g.filter((x) => x.booked).length, g.length)]; }).filter((r) => r[1]);
   /* 3. μήνυμα → κλήση */
@@ -4268,15 +4257,11 @@ function renderCallStats() {
   /* 8. κανάλι ✉1 */
   const CH = { sms: 'SMS', viber: 'Viber', whatsapp: 'WhatsApp (παλιό)', gmail: 'Gmail', copy: 'Αντιγραφή (άλλο app)' };
   const chRows = Object.keys(CH).map((k) => { const g = m1.filter((x) => (x.msg1.channel || '') === k); return [CH[k], g.length, csPct(g.filter((x) => x.lg.some((y) => y.kind === 'reply' && +y.attempt === 1)).length, g.length), csPct(g.filter((x) => x.first && x.first.outcome === 'answered').length, g.filter((x) => x.first).length), csPct(g.filter((x) => x.contacted).length, g.length)]; }).filter((r) => r[1]);
-  /* 9. funnel ανά κλινική */
-  const funnel = (xs) => [xs.length, `${xs.filter((x) => x.contacted).length} <span class="tmeta">${csPct(xs.filter((x) => x.contacted).length, xs.length)}</span>`, `${xs.filter((x) => x.booked).length} <span class="tmeta">${csPct(xs.filter((x) => x.booked).length, xs.length)}</span>`, `${xs.filter((x) => x.showed).length} <span class="tmeta">${csPct(xs.filter((x) => x.showed).length, xs.filter((x) => x.booked).length)}</span>`, `${xs.filter((x) => x.l.status === 'won').length} <span class="tmeta">${csPct(xs.filter((x) => x.l.status === 'won').length, xs.length)}</span>`];
-  const fRows = S.clinics.filter((c) => !cid || c.id === cid).map((c) => [esc(c.name), ...funnel(info.filter((x) => x.l.clinicId === c.id))]).filter((r) => r[1]);
-  if (!cid && fRows.length > 1) fRows.push(['<b>Σύνολο</b>', ...funnel(info)]);
   /* 10. lead → ραντεβού, show rate */
   const toRv = info.filter((x) => x.rvAct).map((x) => (new Date(x.rvAct.at).getTime() - t0(x.l)) / 60000);
   const conf = info.filter((x) => x.booked && x.l.confirmedAt), unconf = info.filter((x) => x.booked && !x.l.confirmedAt);
   const showOf = (xs) => { const done = xs.filter((x) => x.showed || x.noshow); return `${csPct(done.filter((x) => x.showed).length, done.length)} <span class="tmeta">(${done.length})</span>`; };
-  const rvRows = [['Χρόνος lead → ραντεβού (διάμεσος)', csMins(csMedian(toRv)), `${toRv.length} ραντεβού`], ['Show rate · επιβεβαιωμένα τηλεφωνικά', showOf(conf), ''], ['Show rate · χωρίς επιβεβαίωση', showOf(unconf), '']];
+  const rvRows = [['Συνήθης χρόνος από τη φόρμα μέχρι το ραντεβού', csMins(csMedian(toRv)), `${toRv.length} ραντεβού`], ['Ήρθαν · όσοι επιβεβαιώθηκαν τηλεφωνικά', showOf(conf), ''], ['Ήρθαν · χωρίς επιβεβαίωση', showOf(unconf), '']];
   /* 11. καμπάνια / διαφήμιση / πακέτο */
   const groupRows = (keyFn, limit = 15) => { const g = {}; info.forEach((x) => { const k = keyFn(x.l) || '—'; (g[k] = g[k] || []).push(x); });
     return Object.entries(g).sort((a, b) => b[1].length - a[1].length).slice(0, limit).map(([k, xs]) => [esc(k), xs.length, csPct(xs.filter((x) => x.contacted).length, xs.length), csPct(xs.filter((x) => x.booked).length, xs.length), csPct(xs.filter((x) => x.showed).length, xs.length), csPct(xs.filter((x) => x.l.status === 'won').length, xs.length)]); };
@@ -4300,23 +4285,60 @@ function renderCallStats() {
     dayRows.push([new Date(d).toLocaleDateString('el-GR', { weekday: 'short', day: 'numeric', month: 'short' }), g.length, `${late.length} <span class="tmeta">${csPct(late.length, g.length)}</span>`, csMins(csMedian(g.map((x) => x.touchMin).filter((m) => m != null)))]);
   }
   const card = (title, sub, html) => `<h3 class="sectionhead">${title}${sub ? ` <span class="chip plain">${sub}</span>` : ''}</h3><div class="card tablewrap" style="margin-bottom:18px">${html}</div>`;
-  $('callStats').innerHTML = tiles
-    + card('Ταχύτητα 1ης κλήσης → απάντηση', 'όσο πιο γρήγορα, τόσο περισσότεροι σηκώνουν', csTable(['Χρόνος από τη φόρμα', 'Leads', 'Σήκωσε την 1η', 'Μιλήσαμε τελικά', 'Ραντεβού'], speedRows))
-    + card('Μήνυμα ✉1 → κλήση', 'πόσο να περιμένεις μετά το SMS', csTable(['Κλήση μετά το μήνυμα', 'Leads', 'Σήκωσε την 1η', 'Μιλήσαμε τελικά'], lagRows))
-    + card('Απάντηση ανά προσπάθεια', 'από 27/10: 4 κλήσεις, η 3η και η 4η από το 2ο τηλέφωνο', csTable(['Κλήση', 'Κλήσεις', OUT.answered, OUT.no_answer, OUT.closed, OUT.wrong], attRows))
+  /* Απλή εικόνα: η πορεία των leads σε 5 βήματα + «τι μάθαμε» σε προτάσεις */
+  const cnt = (xs) => ({ n: xs.length, talk: xs.filter((x) => x.contacted).length, book: xs.filter((x) => x.booked).length, show: xs.filter((x) => x.showed).length, won: xs.filter((x) => x.l.status === 'won').length });
+  const T = cnt(info);
+  const in10 = (a, b) => { if (!b || !a) return '0'; const v = Math.round((10 * a) / b); return v ? String(v) : 'λιγότερο από 1'; };
+  const step = (n, label, sub) => `<div style="flex:1;min-width:110px;padding:12px 14px;border-radius:12px;background:var(--bg2, rgba(0,0,0,.03))"><div style="font-size:26px;font-weight:700;line-height:1.1">${n}</div><div style="font-size:13px;margin-top:4px">${label}</div>${sub ? `<div class="tmeta" style="margin-top:2px">${sub}</div>` : ''}</div>`;
+  const arrow = '<div style="align-self:center;color:var(--soft);font-size:18px">→</div>';
+  const story = `<div class="card" style="padding:16px 18px;margin-bottom:18px">
+    <div style="display:flex;gap:8px;flex-wrap:wrap">${[step(T.n, 'leads μπήκαν'), step(T.talk, 'μιλήσαμε μαζί τους'), step(T.book, 'έκλεισαν ραντεβού'), step(T.show, 'ήρθαν στο ραντεβού', T.book - T.show > 0 ? `κάποια ραντεβού είναι ακόμα μπροστά` : ''), step(T.won, 'έγιναν πελάτες')].join(arrow)}</div>
+    <div style="margin-top:12px;font-size:14.5px">Με απλά λόγια: <b>από κάθε 10 leads, μιλάμε με τα ${in10(T.talk, T.n)} και κλείνουν ραντεβού τα ${in10(T.book, T.n)}.</b></div></div>`;
+  /* «Τι μάθαμε»: μόνο ό,τι έχει αρκετά δεδομένα για να βγάλουμε συμπέρασμα */
+  const tips = [];
+  const fmed = csMedian(fm);
+  if (fmed != null) tips.push(['⏱', `Συνήθως καλούμε <b>${csMins(fmed)}</b> μετά τη φόρμα. Μέσα σε 10′ καλέσαμε ${fm.filter((m) => m < 10).length} από τα ${fm.length} leads.`]);
+  const fast = withCall.filter((x) => x.firstMin < 30), slow = withCall.filter((x) => x.firstMin >= 120);
+  if (fast.length >= 5 && slow.length >= 5) tips.push(['📞', `Όταν καλούμε μέσα σε 30′, κλείνουν ραντεβού <b>${in10(fast.filter((x) => x.booked).length, fast.length)} στα 10</b>· όταν αργούμε πάνω από 2 ώρες, <b>${in10(slow.filter((x) => x.booked).length, slow.length)} στα 10</b>.`]);
+  const tries = info.map((x) => x.triesToContact).filter(Boolean);
+  const c1 = withCall.filter((x) => x.first.outcome === 'answered').length;
+  if (withCall.length >= 5) tips.push(['🔁', `Την 1η κλήση τη σηκώνουν μόνο <b>${in10(c1, withCall.length)} στους 10</b> — γι' αυτό αξίζουν οι επόμενες κλήσεις${tries.length ? ` (όσοι σηκώνουν, σηκώνουν συνήθως στην ${Math.round(csMedian(tries))}η)` : ''}.`]);
+  const cells = []; grid.forEach((row, i) => row.forEach((c, j) => { if (j < 4 && c[1] >= 5) cells.push({ d: DAYS[i], b: BLOCKS[j][0], r: c[0] / c[1], n: c[1] }); }));
+  if (cells.length >= 3) {
+    const best = [...cells].sort((a, b) => b.r - a.r)[0], worst = [...cells].sort((a, b) => a.r - b.r)[0];
+    tips.push(['🕐', `Πιο εύκολα σηκώνουν: <b>${best.d} ${best.b}</b> (${in10(Math.round(best.r * best.n), best.n)} στις 10 κλήσεις). Πιο δύσκολα: ${worst.d} ${worst.b}.`]);
+  }
+  const cmp = Object.values(info.reduce((g, x) => { const k = x.l.campaign; if (k) (g[k] = g[k] || { k, xs: [] }).xs.push(x); return g; }, {})).filter((g) => g.xs.length >= 8).map((g) => ({ k: g.k, r: g.xs.filter((x) => x.booked).length / g.xs.length }));
+  if (cmp.length >= 2) { cmp.sort((a, b) => b.r - a.r); tips.push(['📣', `Η καμπάνια με τα περισσότερα ραντεβού: <b>${esc(cmp[0].k)}</b> (${in10(Math.round(cmp[0].r * 100), 100)} στα 10 leads). Η πιο αδύναμη: ${esc(cmp[cmp.length - 1].k)}.`]); }
+  const noWhy = lost.filter((x) => !x.l.lostReason).length, top = lostRows.find((r) => r[0] !== 'Χωρίς λόγο');
+  if (lost.length) tips.push(['✖', `${lost.length} leads χάθηκαν.${top ? ` Συχνότερος λόγος: <b>${top[0]}</b>.` : ''}${noWhy >= 3 ? ` Σε ${noWhy} δεν γράφτηκε λόγος — διαλέγετε λόγο όταν βάζετε «Χαμένο».` : ''}`]);
+  const forgotten = workLeads().filter((l) => (!cid || l.clinicId === cid) && l.status === 'neo' && !(+l.followStep) && Date.now() - t0(l) > 36e5 && Date.now() - t0(l) < 7 * 864e5).length;
+  tips.push(forgotten ? ['⚠', `<b style="color:var(--crit)">${forgotten} νέα leads περιμένουν πάνω από 1 ώρα χωρίς κλήση</b> — δες το «Σήμερα».`] : ['✓', 'Κανένα νέο lead δεν περιμένει πάνω από 1 ώρα.']);
+  const learned = `<h3 class="sectionhead">Τι μάθαμε</h3><div class="card" style="padding:6px 18px;margin-bottom:18px">${tips.map(([i, t]) => `<div style="display:flex;gap:10px;padding:9px 0;border-bottom:1px solid var(--line);font-size:14px"><span style="width:20px;text-align:center">${i}</span><span>${t}</span></div>`).join('')}</div>`;
+  const simple = (xs) => { const c = cnt(xs); return [c.n, c.talk, c.book, c.show, c.won, `<b>${in10(c.book, c.n)}</b>`]; };
+  const SIMPLE_HEAD = ['Leads', 'Μιλήσαμε', 'Ραντεβού', 'Ήρθαν', 'Πελάτες', 'Ραντεβού στα 10 leads'];
+  const cRows = S.clinics.filter((c) => teamClinic(c) && (!cid || c.id === cid)).map((c) => [esc(c.name), ...simple(info.filter((x) => x.l.clinicId === c.id))]).filter((r) => r[1]);
+  if (!cid && cRows.length > 1) cRows.push(['<b>Σύνολο</b>', ...simple(info)]);
+  const kRows = Object.entries(info.reduce((g, x) => { const k = x.l.campaign || '—'; (g[k] = g[k] || []).push(x); return g; }, {})).sort((a, b) => b[1].length - a[1].length).slice(0, 10).map(([k, xs]) => [esc(k), ...simple(xs)]);
+  $('callStats').innerHTML = story + learned
+    + card('Ανά κλινική', '', csTable(['Κλινική', ...SIMPLE_HEAD], cRows))
+    + card('Ανά καμπάνια', '', csTable(['Καμπάνια', ...SIMPLE_HEAD], kRows))
+    + `<details class="csmore"><summary class="btn" style="margin:6px 0 16px">Αναλυτικοί πίνακες (για βαθύτερη ανάλυση)</summary>`
+    + card('Πόσο γρήγορα καλέσαμε → τι έγινε', 'από όσα leads καλέσαμε', csTable(['Καλέσαμε μετά από', 'Leads', 'Σήκωσαν την 1η', 'Μιλήσαμε τελικά', 'Έκλεισαν ραντεβού'], speedRows))
+    + card('Πόση ώρα μετά το SMS να καλείς', '', csTable(['Καλέσαμε μετά το SMS', 'Leads', 'Σήκωσαν την 1η', 'Μιλήσαμε τελικά'], lagRows))
+    + card('Τι έγινε σε κάθε κλήση', 'η 3η και η 4η γίνονται από το 2ο τηλέφωνο', csTable(['Κλήση', 'Κλήσεις', OUT.answered, OUT.no_answer, OUT.closed, OUT.wrong], attRows))
     + card('Απαντήσεις σε μηνύματα', '«↩ Απάντησε σε μήνυμα»', csTable(['Μήνυμα', 'Στάλθηκε', 'Απάντησε'], msgRows))
-    + card('Πότε σηκώνουν', '% απάντησης ανά ημέρα και ώρα κλήσης (πλήθος κλήσεων)', heat)
-    + card('Κανάλι του ✉1', '', csTable(['Κανάλι', 'Leads', 'Απάντησε στο μήνυμα', 'Σήκωσε την 1η κλήση', 'Μιλήσαμε τελικά'], chRows))
-    + card('Funnel ανά κλινική', 'lead → μιλήσαμε → ραντεβού → ήρθε (% των ραντεβού) → πελάτης', csTable(['Κλινική', 'Leads', 'Μιλήσαμε', 'Ραντεβού', 'Ήρθαν', 'Πελάτες'], fRows))
+    + card('Πότε σηκώνουν', 'στα 100 κλήσεις πόσες απαντήθηκαν · σε παρένθεση πόσες κλήσεις έγιναν', heat)
+    + card('Από πού στείλαμε το 1ο μήνυμα', '', csTable(['Κανάλι', 'Leads', 'Απάντησε στο μήνυμα', 'Σήκωσε την 1η κλήση', 'Μιλήσαμε τελικά'], chRows))
     + card('Ραντεβού', '', csTable(['', 'Τιμή', ''], rvRows))
-    + card('Ανά καμπάνια', '', csTable(['Καμπάνια', 'Leads', 'Μιλήσαμε', 'Ραντεβού', 'Ήρθαν', 'Πελάτες'], groupRows((l) => l.campaign)))
     + card('Ανά διαφήμιση', 'top 15', csTable(['Διαφήμιση', 'Leads', 'Μιλήσαμε', 'Ραντεβού', 'Ήρθαν', 'Πελάτες'], groupRows((l) => l.adName)))
     + (info.some((x) => leadArea(x.l)) ? card('Ανά σημείο', '«Πού σε βολεύει;» στη φόρμα', csTable(['Σημείο', 'Leads', 'Μιλήσαμε', 'Ραντεβού', 'Ήρθαν', 'Πελάτες'], groupRows(leadArea))) : '')
     + (info.some((x) => leadAudience(x.l)) ? card('Ανά κοινό', 'ad set της διαφήμισης', csTable(['Κοινό', 'Leads', 'Μιλήσαμε', 'Ραντεβού', 'Ήρθαν', 'Πελάτες'], groupRows(leadAudience))) : '')
     + card('Ανά πακέτο / προσφορά', '', csTable(['Πακέτο', 'Leads', 'Μιλήσαμε', 'Ραντεβού', 'Ήρθαν', 'Πελάτες'], groupRows(pkg)))
     + card('«Θα το σκεφτώ»', 'τι απογίνονται όσοι το λένε', csTable(['', 'Leads', '%'], thRows, 'Κανείς δεν είπε «θα το σκεφτώ» στην περίοδο.'))
     + card('Γιατί χάνονται', `${lost.length} χαμένα`, csTable(['Λόγος', 'Leads', '%'], lostRows, 'Κανένα χαμένο lead στην περίοδο.'))
-    + card('Ξεχασμένα ανά ημέρα', 'leads 09:00–21:00 που δεν είχαν καμία επαφή σε 1 ώρα', csTable(['Ημέρα', 'Leads', '>1 ώρα χωρίς επαφή', 'Διάμεσος 1ης επαφής'], dayRows));
+    + card('Ξεχασμένα ανά ημέρα', 'leads 09:00–21:00 που δεν είχαν καμία επαφή σε 1 ώρα', csTable(['Ημέρα', 'Leads', '>1 ώρα χωρίς επαφή', 'Συνήθης χρόνος 1ης επαφής'], dayRows))
+    + '</details>';
 }
 $('csClinic').addEventListener('change', renderCallStats);
 $('csPeriod').addEventListener('change', renderCallStats);
