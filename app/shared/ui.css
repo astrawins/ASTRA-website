@@ -763,7 +763,7 @@ html, body { touch-action: manipulation; }  /* zoom lock */
 .todayrow.q .who { min-width: 0; }
 .todayrow.q .meta { display: flex; flex-direction: column; gap: 4px; align-items: flex-start; padding-top: 1px; }
 .todayrow.q .meta > div { display: flex; gap: 4px; flex-wrap: wrap; }
-.todayrow.q .acts { margin-left: 0; justify-content: flex-end; max-width: 360px; }
+.todayrow.q .acts { margin-left: 0; justify-content: flex-end; max-width: 470px; }
 .tfolds { margin-top: 26px; display: flex; flex-direction: column; gap: 10px; }
 details.tmore { margin-top: 10px; }
 details.tmore > summary { cursor: pointer; list-style: none; display: flex; align-items: center; gap: 8px; font-weight: 600; font-size: 14.5px; padding: 12px 16px; border-radius: var(--radius); background: var(--card); border: 1px solid var(--card-line); }

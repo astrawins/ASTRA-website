@@ -883,7 +883,7 @@ function todayRow(l, kind) {
       <button class="btn small" data-act="p7" title="Μετάθεση της επόμενης ενέργειας σε μία εβδομάδα">+1 εβδ.</button>
       ${margaBtn(l)}
       ${kind !== 'fresh' && kind !== 'confirm' ? '<button class="btn small" data-act="done">✓ Έγινε</button>' : ''}
-      ${['confirm', 'up'].includes(kind) && l.status === 'rv' ? (l.confirmedAt ? '<span class="chip show" title="Επιβεβαιώθηκε τηλεφωνικά">Επιβεβαιωμένο ✓</span>' : '<button class="btn small primary" data-act="confirm" title="Ο ασθενής επιβεβαίωσε τηλεφωνικά ότι θα έρθει">✓ Επιβεβαιώθηκε</button>') : ''}
+      ${['confirm', 'up', 'remind'].includes(kind) && l.status === 'rv' ? (l.confirmedAt ? '<span class="chip show" title="Επιβεβαιώθηκε τηλεφωνικά">Επιβεβαιωμένο ✓</span>' : '<button class="btn small primary" data-act="confirm" title="Ο ασθενής επιβεβαίωσε τηλεφωνικά ότι θα έρθει">✓ Επιβεβαιώθηκε</button>') : ''}
     </div>
   </div>`;
 }
@@ -978,7 +978,7 @@ function todayQueue(ti) {
   const sum = `<div class="tiles tsums">
     ${tile(K.length, 'Τηλέφωνα σήμερα', K.filter((l) => l.nextAction && l.nextAction < todayISO()).length ? `${K.filter((l) => l.nextAction && l.nextAction < todayISO()).length} έχουν καθυστερήσει` : 'όλα στην ώρα τους', 'neg', 'tq-call')}
     ${tile(R.length, 'SMS υπενθύμισης', 'να σταλούν τώρα', 'neg', 'tq-remind')}
-    ${tile(C.length, 'Επιβεβαιώσεις', 'ραντεβού σήμερα / αύριο', '', 'tq-confirm')}
+    ${(() => { const n = byC(ti.confirm).length; return tile(n, 'Επιβεβαιώσεις', 'ραντεβού σήμερα / αύριο χωρίς επιβεβαίωση', '', C.length ? 'tq-confirm' : 'tq-remind'); })()}
     ${tile(byC(rvToday).length, 'Ραντεβού σήμερα', byC(rvToday).filter((l) => l.confirmedAt).length + ' επιβεβαιωμένα', '', 'tq-confirm')}
   </div>`;
   const sec = (id, title, hint, arr, kind, render) => arr.length ? `<div class="tsec" id="${id}"><h3 class="sectionhead">${title} <span class="chip plain">${arr.length}</span>${hint ? `<span class="tmeta" style="font-weight:400">${hint}</span>` : ''}</h3>
