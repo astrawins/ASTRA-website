@@ -12,8 +12,8 @@ html[data-skin="b"] .card, html[data-skin="b"] .kcard {
   background: var(--card); border: 1px solid var(--card-line); box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none;
 }
 /* tiles: ενωμένο πλέγμα σαν πίνακας */
-html[data-skin="b"] .tiles { gap: 1px; background: var(--hair); border: 1px solid var(--hair); border-radius: 4px; overflow: hidden; }
-html[data-skin="b"] .tile { background: var(--card); border: none; border-radius: 0; box-shadow: none; padding: 16px 18px; }
+html[data-skin="b"] .tiles { gap: 0; padding: 1px 0 0 1px; }
+html[data-skin="b"] .tile { background: var(--card); border: 1px solid var(--hair); margin: -1px 0 0 -1px; border-radius: 0; box-shadow: none; padding: 16px 18px; }
 html[data-skin="b"] .tile .lb { text-transform: none; letter-spacing: 0; font-size: 12.5px; font-weight: 500; color: var(--soft); }
 html[data-skin="b"] .tile .v { font-family: var(--sans); font-weight: 500; font-size: 30px; letter-spacing: -.035em; margin-top: 8px; }
 html[data-skin="b"] .tile .d { font-size: 12px; }
