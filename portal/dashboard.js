@@ -962,9 +962,9 @@ try { todayClinic = localStorage.getItem('astra-today-clinic') || ''; } catch { 
 function todayQueue(ti) {
   const seen = new Set();
   const take = (arr) => arr.filter((l) => (seen.has(l.id) ? false : (seen.add(l.id), true)));
-  const remind = take(ti.remind), confirm = take(ti.confirm);
-  /* Ραντεβού μεθαύριο: υπενθύμιση / τηλεφωνική επιβεβαίωση από νωρίς (όσα δεν είναι ήδη στα SMS) */
+  /* Ραντεβού μεθαύριο: δική τους ενότητα (με τα κουμπιά SMS υπενθύμισης μέσα στη γραμμή) */
   const in2 = take(workLeads().filter((l) => l.status === 'rv' && l.nextAction === addDays(2)).sort((a, b) => (hhmm(a.apptTime) || '99').localeCompare(hhmm(b.apptTime) || '99')));
+  const remind = take(ti.remind), confirm = take(ti.confirm);
   const call = take([...ti.due, ...ti.fresh]);
   const open = take(ti.inProgress), stale = take(ti.stale), up = take(ti.upcoming);
   const rvToday = workLeads().filter((l) => l.status === 'rv' && l.nextAction === todayISO());
@@ -982,7 +982,7 @@ function todayQueue(ti) {
     ${tile(R.length, 'SMS υπενθύμισης', 'να σταλούν τώρα', 'neg', 'tq-remind')}
     ${(() => { const n = byC(ti.confirm).length; return tile(n, 'Επιβεβαιώσεις', 'ραντεβού σήμερα / αύριο χωρίς επιβεβαίωση', '', C.length ? 'tq-confirm' : 'tq-remind'); })()}
     ${tile(byC(rvToday).length, 'Ραντεβού σήμερα', byC(rvToday).filter((l) => l.confirmedAt).length + ' επιβεβαιωμένα', '', 'tq-confirm')}
-    ${(() => { const all2 = byC(workLeads().filter((l) => l.status === 'rv' && l.nextAction === addDays(2))); return tile(all2.length, 'Ραντεβού μεθαύριο', all2.filter((l) => l.confirmedAt).length + ' επιβεβαιωμένα', '', M2.length ? 'tq-in2' : 'tq-remind'); })()}
+    ${(() => { const all2 = byC(workLeads().filter((l) => l.status === 'rv' && l.nextAction === addDays(2))); return tile(all2.length, 'Ραντεβού μεθαύριο', all2.filter((l) => l.confirmedAt).length + ' επιβεβαιωμένα', '', 'tq-in2'); })()}
   </div>`;
   const sec = (id, title, hint, arr, kind, render) => arr.length ? `<div class="tsec" id="${id}"><h3 class="sectionhead">${title} <span class="chip plain">${arr.length}</span>${hint ? `<span class="tmeta" style="font-weight:400">${hint}</span>` : ''}</h3>
     <div class="card">${arr.map(render || ((l) => todayRow(l, kind))).join('')}</div></div>` : '';
@@ -995,8 +995,8 @@ function todayQueue(ti) {
   const nothing = !R.length && !C.length && !K.length ? '<div class="card" style="margin-bottom:18px"><div class="empty">Τίποτα επείγον για σήμερα ✓</div></div>' : '';
   return sum + bar + nothing
     + sec('tq-remind', 'Στείλε SMS υπενθύμισης', 'ραντεβού σε 3 μέρες / αύριο / σε 1 ώρα', R, 'remind')
-    + sec('tq-confirm', 'Επιβεβαίωσε ραντεβού', 'κάλεσε και πάτα «✓ Επιβεβαιώθηκε»', C, 'confirm')
     + sec('tq-in2', 'Ραντεβού μεθαύριο', new Date(addDays(2) + 'T12:00:00').toLocaleDateString('el-GR', { weekday: 'long', day: 'numeric', month: 'long' }) + ' · υπενθύμιση / επιβεβαίωση', M2, 'up')
+    + sec('tq-confirm', 'Επιβεβαίωσε ραντεβού', 'κάλεσε και πάτα «✓ Επιβεβαιώθηκε»', C, 'confirm')
     + sec('tq-call', 'Κάλεσε σήμερα', 'πρώτα όσα έχουν καθυστερήσει', K, 'due', (l) => todayRow(l, l.nextAction ? 'due' : 'fresh'))
     + `<div class="tfolds">`
     + fold('tq-open', 'Σε εξέλιξη · με ενέργεια αργότερα ή χωρίς ημερομηνία', O, 'open')
