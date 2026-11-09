@@ -1,0 +1,86 @@
+/* Skin D — A «Χαρτί» + Liquid Glass (Apple): ημιδιάφανες επιφάνειες με blur, φωτεινή ακμή, αιωρούμενο μενού.
+   Φορτώνεται ΜΑΖΙ με το a.css (data-skin="a" + data-glass). */
+html[data-glass] {
+  --lg-fill: rgba(255, 253, 249, .52);
+  --lg-fill-strong: rgba(255, 253, 249, .70);
+  --lg-edge: rgba(255, 255, 255, .85);
+  --lg-blur: blur(22px) saturate(185%);
+  --lg-shadow: inset 0 1px 0 rgba(255, 255, 255, .9), inset 0 -1px 0 rgba(255, 255, 255, .25), inset 1px 0 0 rgba(255, 255, 255, .35),
+               0 1px 2px rgba(60, 40, 20, .05), 0 12px 32px -14px rgba(60, 40, 20, .22);
+  --lg-shadow-hover: inset 0 1px 0 rgba(255, 255, 255, .95), inset 0 -1px 0 rgba(255, 255, 255, .3), inset 1px 0 0 rgba(255, 255, 255, .4),
+               0 2px 4px rgba(60, 40, 20, .06), 0 18px 40px -14px rgba(60, 40, 20, .30);
+  --card-line: rgba(255, 255, 255, .55);
+  --radius: 18px;
+}
+/* φόντο με χρώμα από πίσω, για να «διαβάζεται» το γυαλί */
+html[data-glass] body {
+  background:
+    radial-gradient(900px 620px at 92% -6%, rgba(214, 160, 104, .45), transparent 62%),
+    radial-gradient(760px 560px at 8% 18%, rgba(255, 236, 214, .9), transparent 60%),
+    radial-gradient(700px 600px at 55% 62%, rgba(186, 204, 222, .38), transparent 62%),
+    radial-gradient(820px 640px at 100% 100%, rgba(196, 140, 92, .30), transparent 60%),
+    #EFE6DA;
+  background-attachment: fixed;
+}
+html[data-glass] .card, html[data-glass] .tile, html[data-glass] .kcard {
+  background: var(--lg-fill);
+  -webkit-backdrop-filter: var(--lg-blur); backdrop-filter: var(--lg-blur);
+  border: 1px solid var(--card-line); border-top-color: var(--lg-edge);
+  box-shadow: var(--lg-shadow);
+  border-radius: var(--radius);
+}
+html[data-glass] .tile { border-radius: 18px; position: relative; overflow: hidden; }
+/* γυαλιστερή αντανάκλαση στην πάνω αριστερή γωνία */
+html[data-glass] .tile::before {
+  content: ""; position: absolute; inset: 0; pointer-events: none; border-radius: inherit;
+  background: linear-gradient(135deg, rgba(255, 255, 255, .55) 0%, rgba(255, 255, 255, 0) 38%);
+  mix-blend-mode: soft-light;
+}
+html[data-glass] .tile:hover, html[data-glass] .cliniccard:hover { box-shadow: var(--lg-shadow-hover); border-color: var(--card-line); border-top-color: var(--lg-edge); }
+html[data-glass] .kcard { border-radius: 14px; }
+html[data-glass] .kcol { background: rgba(255, 255, 255, .18); border: 1px solid rgba(255, 255, 255, .45); border-radius: 18px; }
+html[data-glass] th { background: rgba(255, 255, 255, .25); }
+html[data-glass] .tablewrap { border-radius: var(--radius); }
+
+/* αιωρούμενο γυάλινο μενού */
+html[data-glass] .rail {
+  inset: 12px auto 12px 12px; width: calc(var(--rail) - 24px); border-radius: 26px;
+  background: rgba(30, 22, 15, .58);
+  -webkit-backdrop-filter: blur(30px) saturate(190%); backdrop-filter: blur(30px) saturate(190%);
+  border: 1px solid rgba(255, 255, 255, .14); border-top-color: rgba(255, 255, 255, .28);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .18), 0 24px 60px -20px rgba(30, 20, 10, .55);
+}
+html[data-glass] .rail nav button { border-radius: 12px; }
+html[data-glass] .rail nav button.on {
+  background: rgba(255, 255, 255, .14); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .25), inset 0 0 0 1px rgba(255, 255, 255, .08);
+}
+
+/* κουμπιά, φίλτρα, chips: γυάλινες κάψουλες */
+html[data-glass] .btn, html[data-glass] button.chip, html[data-glass] .viewtoggle,
+html[data-glass] .filters select, html[data-glass] .filters input {
+  background: rgba(255, 255, 255, .42);
+  -webkit-backdrop-filter: blur(14px) saturate(180%); backdrop-filter: blur(14px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, .7); border-bottom-color: rgba(255, 255, 255, .35);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .8), 0 1px 3px rgba(60, 40, 20, .08);
+  border-radius: 99px;
+}
+html[data-glass] .filters select, html[data-glass] .filters input { padding-inline: 14px; }
+html[data-glass] .btn:hover { border-color: rgba(255, 255, 255, .95); background: rgba(255, 255, 255, .6); }
+html[data-glass] .btn.primary {
+  background: rgba(35, 28, 21, .82); color: #fff; border-color: rgba(255, 255, 255, .18);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .22), 0 6px 16px -8px rgba(35, 28, 21, .6);
+}
+html[data-glass] button.chip.on { background: rgba(255, 255, 255, .78) !important; border-color: rgba(255, 255, 255, .95); box-shadow: inset 0 1px 0 #fff, 0 2px 8px -2px rgba(60, 40, 20, .2); }
+html[data-glass] .viewtoggle { overflow: hidden; padding: 2px; }
+html[data-glass] .viewtoggle button { background: transparent; border-radius: 99px; }
+html[data-glass] .viewtoggle button.on { background: rgba(35, 28, 21, .82); }
+html[data-glass] td select, html[data-glass] td input { background: rgba(255, 255, 255, .5); border-radius: 8px; }
+html[data-glass] .modal, html[data-glass] .searchbox {
+  background: var(--lg-fill-strong); border-radius: 24px;
+  -webkit-backdrop-filter: blur(34px) saturate(190%); backdrop-filter: blur(34px) saturate(190%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .9), 0 30px 80px -24px rgba(40, 25, 10, .45);
+}
+@media (prefers-reduced-transparency: reduce) {
+  html[data-glass] .card, html[data-glass] .tile, html[data-glass] .kcard, html[data-glass] .rail { -webkit-backdrop-filter: none; backdrop-filter: none; background: #FFFDF9; }
+  html[data-glass] .rail { background: #1E1812; }
+}
