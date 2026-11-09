@@ -206,6 +206,7 @@ tfoot td { font-weight: 700; border-top: 2px solid var(--hair); background: var(
 .chip.cancel { color: var(--warn); background: var(--crit-bg); }
 .chip.won { color: var(--good); background: var(--good-bg); }
 .chip.lost { color: var(--crit); background: var(--crit-bg); }
+.chip.noshowx, .chip.cancelx { color: var(--soft); background: var(--crit-bg); text-decoration: line-through; text-decoration-thickness: 1px; text-decoration-color: rgba(140, 29, 24, .45); }
 .chip.show { color: var(--chip-show); background: var(--chip-show-bg); }
 /* chips-φίλτρα στο funnel των leads */
 button.chip { border: 1.5px solid transparent; cursor: pointer; font: inherit; font-size: 12px; font-weight: 600; line-height: 1.5; }

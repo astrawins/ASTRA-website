@@ -308,6 +308,24 @@ function statusPatch(st, l) {
   return p;
 }
 
+/* Ακύρωση / No show χωρίζονται σε δύο:
+   · «ξανακαλούμε» (cancel / noshow) — θέλει νέο ραντεβού, μπαίνει στις κλήσεις
+   · «τέλος» — δεν ενδιαφέρεται, ΔΕΝ ξανακαλούμε. Αποθηκεύεται ως lost + ειδικός λόγος, ώστε να βγαίνει
+     αυτόματα από κλήσεις/υπενθυμίσεις/follow-ups· στην οθόνη έχει δική του στήλη και φίλτρο. */
+const CANCEL_END = 'Ακύρωσε — δεν ενδιαφέρεται', NOSHOW_END = 'No show — δεν ενδιαφέρεται';
+const XSTAT = { cancelx: CANCEL_END, noshowx: NOSHOW_END };
+const uiStatus = (l) => (l.status === 'lost' && l.lostReason === CANCEL_END ? 'cancelx' : l.status === 'lost' && l.lostReason === NOSHOW_END ? 'noshowx' : l.status);
+const UI_STATUS = { neo: STATUS.neo, noans: STATUS.noans, epik: STATUS.epik, think: STATUS.think, rv: STATUS.rv,
+  noshow: 'No show · ξανακαλούμε', noshowx: 'No show · τέλος', cancel: 'Ακύρωση · ξανακαλούμε', cancelx: 'Ακύρωση · τέλος', won: STATUS.won, lost: STATUS.lost };
+const statusOptions = (l) => Object.entries(UI_STATUS).map(([k, v]) => `<option value="${k}"${uiStatus(l) === k ? ' selected' : ''}>${v}</option>`).join('');
+/* Αλλαγή σταδίου από select/kanban (δέχεται και cancelx/noshowx) */
+async function setUiStatus(id, v, how = '') {
+  const l = leadById(id); if (!l || uiStatus(l) === v) return;
+  const patch = XSTAT[v] ? { ...statusPatch('lost', l), lostReason: XSTAT[v], nextAction: null, followDue: null, confirmedAt: null } : statusPatch(v, l);
+  if (!XSTAT[v] && v !== 'lost' && l.lostReason && Object.values(XSTAT).includes(l.lostReason)) patch.lostReason = null;
+  await updateLead(id, patch, 'status', 'Στάδιο → ' + UI_STATUS[v] + how + (XSTAT[v] ? ' · δεν ξανακαλούμε' : ''));
+}
+
 /* ============ Google Sheet / CSV import ============ */
 async function importRows(rows, clinic, label, silent) {
   let leads;
@@ -1092,7 +1110,7 @@ function openLeadModal(id) {
   $('lmTemplates').innerHTML = tpls.map((t, i) => `<button class="btn small" data-tpl="${i}" title="Αντιγραφή μηνύματος">${esc(t.t)}</button>`).join('');
   $('lmTemplates').dataset.clinic = c ? c.id : '';
   $('lmFollow').innerHTML = followStrip(l); $('lmFollow').hidden = !inFollow(l);
-  $('lm_status').innerHTML = Object.entries(STATUS).map(([k, v]) => `<option value="${k}"${l.status === k ? ' selected' : ''}>${v}</option>`).join('');
+  $('lm_status').innerHTML = statusOptions(l);
   $('lm_next').value = l.nextAction || '';
   $('lm_time').value = hhmm(l.apptTime);
   $('lm_amount').value = l.amount || '';
@@ -1150,17 +1168,18 @@ $('leadModal').addEventListener('click', (e) => { if (e.target === $('leadModal'
 $('lm_status').addEventListener('change', async () => {
   if (!modalLeadId) return;
   const v = $('lm_status').value;
-  const patch = statusPatch(v, leadById(modalLeadId));
-  await updateLead(modalLeadId, patch, 'status', 'Στάδιο → ' + STATUS[v]);
+  await setUiStatus(modalLeadId, v);
   const l = leadById(modalLeadId); if (l) { renderTimeline(l); setLostReason(l); }
   if (v === 'lost') toast('Διάλεξε λόγο απώλειας — μετρά στα Στατιστικά κλήσεων.');
+  if (XSTAT[v]) toast('Δεν θα ξανακληθεί — βγήκε από κλήσεις και υπενθυμίσεις.');
+  if (v === 'cancel' || v === 'noshow') toast('Μπήκε στις κλήσεις σήμερα για νέο ραντεβού.');
   if (v === 'think') toast('Επανάκληση σε 2 μέρες — στείλε και το μήνυμα από το «Σήμερα».');
 });
 /* Λόγος απώλειας (leads.lost_reason) — εμφανίζεται μόνο όταν το lead είναι «Χαμένο». */
 const NO_SALE = 'Ήρθε χωρίς αγορά'; // ήρθε στο ιατρείο αλλά δεν αγόρασε: Χαμένο με attendedAt → μετρά στους «ήρθαν», αμοιβή 0 (χρεώνουμε μόνο ραντεβού που έγινε ΚΑΙ πληρώθηκε)
-const LOST_REASONS = ['Ακριβό', 'Μακριά', 'Δεν θυμάται τη φόρμα', 'Λάθος νούμερο', 'Δεν απάντησε ποτέ', 'Το σκέφτεται / αργότερα', 'Πήγε αλλού', NO_SALE, 'Αδράνεια', 'Άλλο'];
+const LOST_REASONS = [CANCEL_END, NOSHOW_END, 'Ακριβό', 'Μακριά', 'Δεν θυμάται τη φόρμα', 'Λάθος νούμερο', 'Δεν απάντησε ποτέ', 'Το σκέφτεται / αργότερα', 'Πήγε αλλού', NO_SALE, 'Αδράνεια', 'Άλλο'];
 function setLostReason(l) {
-  $('lm_lostWrap').hidden = l.status !== 'lost';
+  $('lm_lostWrap').hidden = l.status !== 'lost' || !!XSTAT[uiStatus(l)];
   $('lm_lost').innerHTML = '<option value="">— διάλεξε —</option>' + LOST_REASONS.map((r) => `<option${l.lostReason === r ? ' selected' : ''}>${esc(r)}</option>`).join('');
 }
 $('lm_lost').addEventListener('change', async () => {
@@ -2214,9 +2233,9 @@ async function toggleMarga(id) {
 }
 /* Funnel: κάθε chip είναι φίλτρο — κλικ δείχνει μόνο αυτό το στάδιο (ή τους «Μάργα»), ξανά κλικ το καθαρίζει. Από την Επισκόπηση πάει στα Leads. */
 function funnelHTML(leads, active = '') {
-  const order = ['neo', 'noans', 'epik', 'think', 'rv', 'noshow', 'cancel', 'won', 'lost'];
+  const order = Object.keys(UI_STATUS);
   const chip = (k, cls, label, n, title) => `<button type="button" class="chip ${cls}${active === k ? ' on' : ''}" data-fs="${k}" title="${title || (active === k ? 'Κλικ για όλα τα στάδια' : 'Κλικ: μόνο αυτά')}">${label} · ${n}</button>`;
-  return order.map((k) => chip(k, k, STATUS[k], leads.filter((l) => l.status === k).length)).join('')
+  return order.map((k) => chip(k, k, UI_STATUS[k], leads.filter((l) => uiStatus(l) === k).length)).join('')
     + chip('marga', 'noans', 'Μάργα', leads.filter(forMarga).length, 'Της Μάργας: 3+ κλήσεις χωρίς απάντηση (2ο τηλέφωνο) + ό,τι της έστειλες με «→ Μάργα»')
     + chip('rvtoday', 'rv', '📅 Ραντεβού σήμερα', `${leads.filter((l) => isTodayAppt(l) && l.status === 'rv').length}/${leads.filter(isTodayAppt).length}`, 'Τα ραντεβού της ημέρας ανά ώρα — εκκρεμή / σύνολο. Όταν τελειώσει το ραντεβού άλλαξε το στάδιο (Πελάτης / Χαμένο)')
     + chip('confirm', 'rv', '📞 Επιβεβαίωση αύριο', `${leads.filter(isTomorrowAppt).filter((l) => !l.confirmedAt).length}/${leads.filter(isTomorrowAppt).length}`, 'Όλα τα ραντεβού της επόμενης μέρας — ανεπιβεβαίωτα / σύνολο. Κάλεσε και πάτα «✓ Επιβεβαιώθηκε»')
@@ -2240,7 +2259,7 @@ const RV_AHEAD = { confirm: 1, rv2: 2, rv3: 3 };
 const isWeekAppt = (l) => l.status === 'rv' && l.nextAction >= todayISO() && l.nextAction <= addDays(7);
 const isApptFs = (fs) => fs === 'rvweek' || fs in RV_AHEAD;
 const apptMatch = (fs) => fs === 'rvweek' ? isWeekAppt : (l) => l.status === 'rv' && l.nextAction === addDays(RV_AHEAD[fs]);
-const fsMatch = (fs) => fs === 'petros' || fs === 'marga' ? forMarga : fs === 'rvtoday' ? isTodayAppt : isApptFs(fs) ? apptMatch(fs) : (l) => l.status === fs;
+const fsMatch = (fs) => fs === 'petros' || fs === 'marga' ? forMarga : fs === 'rvtoday' ? isTodayAppt : isApptFs(fs) ? apptMatch(fs) : (l) => uiStatus(l) === fs;
 /* «Ραντεβού σήμερα»: τα ραντεβού της ημέρας ανά ώρα (+ όσοι ήρθαν σήμερα, για να μένουν ορατοί). Το στάδιο αλλάζει με το ίδιο select της λίστας → statusPatch (attendedAt/χρέωση). */
 const isTodayAppt = (l) => (['rv', 'noshow', 'cancel'].includes(l.status) && l.nextAction === todayISO()) || l.attendedAt === todayISO();
 function todayApptTableHTML(ls) {
@@ -2256,7 +2275,7 @@ function todayApptTableHTML(ls) {
       <td class="mono" style="font-size:12.5px">${l.phone ? telLink(l.phone) + `<button class="copybtn" data-copy="${esc(l.phone)}" title="Αντιγραφή">${COPY_ICON}</button>` : '—'}</td>
       <td>${esc(c ? c.name : '—')}</td>
       <td style="white-space:nowrap">${l.confirmedAt ? '<span class="chip show">Επιβεβαιωμένο ✓</span>' : (l.status === 'rv' ? '<span class="chip plain">Ανεπιβεβαίωτο</span>' : '')}</td>
-      <td><select data-f="status">${Object.entries(STATUS).map(([k, v]) => `<option value="${k}"${l.status === k ? ' selected' : ''}>${v}</option>`).join('')}</select></td>
+      <td><select data-f="status">${statusOptions(l)}</select></td>
       <td style="font-size:12px;color:var(--soft);max-width:260px">${note ? esc(note.text.slice(0, 120)) : ''}</td>
     </tr>`;
   }).join('') + '</tbody></table>';
@@ -2358,10 +2377,10 @@ function apptBadge(l) {
   return `<span class="apptb" style="display:inline-block;margin-top:3px;padding:2px 8px;border-radius:999px;font-size:11.5px;font-weight:600;background:${over ? 'rgba(200,40,40,.12)' : 'rgba(40,120,80,.12)'};color:${over ? 'var(--crit)' : 'var(--ok, #1d6b4a)'}" title="Ραντεβού">📅 ${txt}</span>`;
 }
 function renderKanban(ls) {
-  $('leadKanban').innerHTML = Object.keys(STATUS).map((k) => {
-    const col = ls.filter((l) => l.status === k);
+  $('leadKanban').innerHTML = Object.keys(UI_STATUS).map((k) => {
+    const col = ls.filter((l) => uiStatus(l) === k);
     return `<div class="kcol" data-status="${k}">
-      <div class="khead"><span class="chip ${k}">${STATUS[k]}</span><span class="mono" style="font-size:12px">${col.length}</span></div>
+      <div class="khead"><span class="chip ${k}">${UI_STATUS[k]}</span><span class="mono" style="font-size:12px">${col.length}</span></div>
       ${col.map(kanbanCard).join('')}
     </div>`;
   }).join('');
@@ -2375,9 +2394,7 @@ kb.addEventListener('drop', async (e) => {
   const col = e.target.closest('.kcol'); if (!col) return;
   e.preventDefault(); col.classList.remove('dragover');
   const id = e.dataTransfer.getData('text/plain'); const st = col.dataset.status;
-  const l = leadById(id); if (!l || l.status === st) return;
-  const patch = statusPatch(st, l);
-  await updateLead(id, patch, 'status', 'Στάδιο → ' + STATUS[st] + ' (kanban)');
+  await setUiStatus(id, st, ' (kanban)');
 });
 kb.addEventListener('click', (e) => { const c = e.target.closest('.kcard'); if (c) openLeadModal(c.dataset.id); });
 function renderLeads() {
@@ -2478,7 +2495,7 @@ function leadRowHTML(l) {
     <td class="mono" style="font-size:12.5px">${l.phone ? telLink(l.phone) + `<button class="copybtn" data-copy="${esc(l.phone)}" title="Αντιγραφή">${COPY_ICON}</button>` : ''}${l.phone && l.email ? '<br>' : ''}${esc(l.email || '')}</td>
     <td>${esc(c ? c.name : '—')}</td>
     <td style="font-size:12.5px">${esc(l.campaign || '—')}${plat ? ` <span class="chip plain">${plat}</span>` : ''}</td>
-    <td><select data-f="status">${Object.entries(STATUS).map(([k, v]) => `<option value="${k}"${l.status === k ? ' selected' : ''}>${v}</option>`).join('')}</select></td>
+    <td><select data-f="status">${statusOptions(l)}</select></td>
     <td style="white-space:nowrap"><input type="date" data-f="nextAction" value="${l.nextAction || ''}" style="${over ? 'color:var(--crit);font-weight:600' : ''}"> <input type="time" data-f="apptTime" value="${hhmm(l.apptTime)}" title="Ώρα ραντεβού" style="width:92px"></td>
     <td class="num">${l.status === 'won' ? `<input class="amt" data-f="amount" value="${l.amount || ''}" placeholder="0" inputmode="decimal">` : (+l.amount ? eur(+l.amount) : '—')}</td>
   </tr>`;
@@ -2489,8 +2506,7 @@ async function onLeadRowChange(e) {
   const id = tr.dataset.id, f = t.dataset.f; if (!f) return;
   try {
     if (f === 'status') {
-      const patch = statusPatch(t.value, leadById(id));
-      await updateLead(id, patch, 'status', 'Στάδιο → ' + STATUS[t.value]);
+      await setUiStatus(id, t.value);
     } else if (f === 'amount') {
       const v = parseNum(t.value);
       await updateLead(id, { amount: v }, 'amount', 'Ποσό αγοράς: ' + eur(v));
