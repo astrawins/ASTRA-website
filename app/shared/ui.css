@@ -750,3 +750,30 @@ html, body { touch-action: manipulation; }  /* zoom lock */
 .tellink { color: var(--bronze-deep); text-decoration: none; font-weight: 600; white-space: nowrap; padding: 4px 0; }
 .tellink:active { opacity: .6; }
 @media (hover: hover) { .tellink:hover { text-decoration: underline; } }
+
+/* ---------- «Σήμερα» ως ουρά εργασίας ---------- */
+.tsums { margin-bottom: 14px; }
+.tsum { text-align: left; cursor: pointer; font: inherit; color: inherit; }
+.tsum.zero .v { color: var(--soft); }
+.tclinbar { display: flex; gap: 6px; flex-wrap: wrap; margin: 0 0 6px; }
+.tsec { scroll-margin-top: 16px; }
+.tsec .sectionhead { margin-top: 22px; }
+.tsec .sectionhead .tmeta { color: var(--soft); font-size: 12.5px; margin-left: 4px; }
+.todayrow.q { display: grid; grid-template-columns: minmax(0, 1fr) 190px auto; gap: 14px; align-items: start; flex-wrap: nowrap; }
+.todayrow.q .who { min-width: 0; }
+.todayrow.q .meta { display: flex; flex-direction: column; gap: 4px; align-items: flex-start; padding-top: 1px; }
+.todayrow.q .meta > div { display: flex; gap: 4px; flex-wrap: wrap; }
+.todayrow.q .acts { margin-left: 0; justify-content: flex-end; max-width: 360px; }
+.tfolds { margin-top: 26px; display: flex; flex-direction: column; gap: 10px; }
+details.tmore { margin-top: 10px; }
+details.tmore > summary { cursor: pointer; list-style: none; display: flex; align-items: center; gap: 8px; font-weight: 600; font-size: 14.5px; padding: 12px 16px; border-radius: var(--radius); background: var(--card); border: 1px solid var(--card-line); }
+details.tmore > summary::-webkit-details-marker { display: none; }
+details.tmore > summary::before { content: "▸"; color: var(--soft); font-size: 12px; }
+details.tmore[open] > summary::before { content: "▾"; }
+details.tmore > .card { margin-top: 8px; }
+html[data-glass] details.tmore > summary { background: var(--lg-fill); -webkit-backdrop-filter: var(--lg-blur); backdrop-filter: var(--lg-blur); box-shadow: var(--lg-shadow); border-radius: 18px; }
+@media (max-width: 900px) {
+  .todayrow.q { grid-template-columns: 1fr; gap: 8px; }
+  .todayrow.q .meta { flex-direction: row; flex-wrap: wrap; align-items: center; gap: 8px; }
+  .todayrow.q .acts { max-width: none; justify-content: flex-start; }
+}

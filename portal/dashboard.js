@@ -870,11 +870,11 @@ function todayRow(l, kind) {
   const note = lastNote(l);
   const noteTxt = note ? `<div class="todaynote" title="${esc(note.text)}">📝 ${esc(note.text.slice(0, 140))}${note.text.length > 140 ? '…' : ''}${note.at ? ` <span class="tmeta">${new Date(note.at).toLocaleDateString('el-GR', { day: 'numeric', month: 'short' })}</span>` : ''}</div>` : '';
   const when = kind === 'open' ? (l.nextAction ? dueTxt : 'χωρίς επόμενη ενέργεια') : dueTxt;
-  return `<div class="todayrow" data-id="${l.id}">
+  return `<div class="todayrow q" data-id="${l.id}">
     <div class="who"><b data-act="open">${esc(l.name)}</b><div class="sub">${esc(c ? c.name : '—')}${l.campaign ? ' · ' + esc(l.campaign) : ''}</div>${areaChips(l) ? '<div style="margin-top:3px">' + areaChips(l) + '</div>' : ''}${noteTxt}${followStrip(l)}${l.status === 'rv' ? apptStrip(l, true) : ''}</div>
-    <span class="chip ${l.status}">${STATUS[l.status]}</span>${margaChip(l)}
-    <span class="due ${over ? 'over' : ''}">${when}</span>
-    <span class="mono" style="font-size:12.5px">${telLink(l.phone)}${l.phone ? `<button class="copybtn" data-copy="${esc(l.phone)}" title="Αντιγραφή">${COPY_ICON}</button>` : ''}</span>
+    <div class="meta"><div><span class="chip ${uiStatus(l)}">${UI_STATUS[uiStatus(l)] || STATUS[l.status]}</span>${margaChip(l)}</div>
+      <span class="due ${over ? 'over' : ''}">${when}</span>
+      <span class="mono" style="font-size:12.5px">${telLink(l.phone)}${l.phone ? `<button class="copybtn" data-copy="${esc(l.phone)}" title="Αντιγραφή">${COPY_ICON}</button>` : ''}</span></div>
     <div class="acts">
       ${kind === 'fresh' ? '<button class="btn small" data-act="called">Κλήθηκε</button>' : ''}
       ${['fresh', 'due', 'open'].includes(kind) && !inFollow(l) ? '<button class="btn small" data-act="noans" title="Δεν σήκωσε — ξαναπροσπάθεια αύριο">Δεν απάντησε</button>' : ''}
@@ -952,7 +952,53 @@ function renderToday() {
   const ti = todayItems();
   /* Τα tasks δεν εμφανίζονται στη «Σήμερα» (οδηγία 30/10/2026) — υπάρχει η δική τους καρτέλα. */
   void taskBlock;
-  $('todayBody').innerHTML = scheduleBlock() + portalBlock + '<div style="height:20px"></div>' + touchBlock + subBlock + clinicCallsBlock(due, fresh, upcoming, stale, ti.confirm, ti.inProgress, ti.remind);
+  $('todayBody').innerHTML = todayQueue(ti) + touchBlock + subBlock + scheduleBlock()
+    + (portalBlock ? `<details class="tmore"><summary>Από τα ιατρεία · τελευταίες 7 μέρες <span class="chip plain">${fromPortal.length}</span></summary>${portalBlock.replace(/<h3[\s\S]*?<\/h3>/, '')}</details>` : '');
+}
+/* «Σήμερα» ως ουρά εργασίας: σύνοψη → φίλτρο κλινικής → ενότητες με σειρά προτεραιότητας.
+   Κάθε lead εμφανίζεται μία φορά, στην πιο επείγουσα ενότητα. */
+let todayClinic = '';
+try { todayClinic = localStorage.getItem('astra-today-clinic') || ''; } catch { /* ok */ }
+function todayQueue(ti) {
+  const seen = new Set();
+  const take = (arr) => arr.filter((l) => (seen.has(l.id) ? false : (seen.add(l.id), true)));
+  const remind = take(ti.remind), confirm = take(ti.confirm);
+  const call = take([...ti.due, ...ti.fresh]);
+  const open = take(ti.inProgress), stale = take(ti.stale), up = take(ti.upcoming);
+  const rvToday = workLeads().filter((l) => l.status === 'rv' && l.nextAction === todayISO());
+  /* μπάρα κλινικών με πλήθος «για δουλειά» (SMS + επιβεβαιώσεις + κλήσεις) */
+  const work = [...remind, ...confirm, ...call];
+  if (todayClinic && !S.clinics.some((c) => c.id === todayClinic)) todayClinic = '';
+  const byC = (arr) => (todayClinic ? arr.filter((l) => l.clinicId === todayClinic) : arr);
+  const cnt = (cid) => work.filter((l) => l.clinicId === cid).length;
+  const clinics = S.clinics.filter(teamClinic).map((c) => ({ c, n: cnt(c.id) })).filter((x) => x.n || x.c.id === todayClinic).sort((a, b) => b.n - a.n);
+  const bar = `<div class="tclinbar"><button class="btn small${todayClinic ? '' : ' primary'}" data-tclin="">Όλες · ${work.length}</button>${clinics.map(({ c, n }) => `<button class="btn small${todayClinic === c.id ? ' primary' : ''}" data-tclin="${c.id}">${esc(c.name)} · ${n}</button>`).join('')}</div>`;
+  const tile = (n, lb, d, cls, target) => `<button class="tile tsum${n ? '' : ' zero'}" data-tjump="${target}"><div class="lb">${lb}</div><div class="v ${n ? cls : ''}">${n}</div><div class="d">${d}</div></button>`;
+  const R = byC(remind), C = byC(confirm), K = byC(call), O = byC(open), ST = byC(stale), U = byC(up);
+  const sum = `<div class="tiles tsums">
+    ${tile(K.length, 'Τηλέφωνα σήμερα', K.filter((l) => l.nextAction && l.nextAction < todayISO()).length ? `${K.filter((l) => l.nextAction && l.nextAction < todayISO()).length} έχουν καθυστερήσει` : 'όλα στην ώρα τους', 'neg', 'tq-call')}
+    ${tile(R.length, 'SMS υπενθύμισης', 'να σταλούν τώρα', 'neg', 'tq-remind')}
+    ${tile(C.length, 'Επιβεβαιώσεις', 'ραντεβού σήμερα / αύριο', '', 'tq-confirm')}
+    ${tile(byC(rvToday).length, 'Ραντεβού σήμερα', byC(rvToday).filter((l) => l.confirmedAt).length + ' επιβεβαιωμένα', '', 'tq-confirm')}
+  </div>`;
+  const sec = (id, title, hint, arr, kind, render) => arr.length ? `<div class="tsec" id="${id}"><h3 class="sectionhead">${title} <span class="chip plain">${arr.length}</span>${hint ? `<span class="tmeta" style="font-weight:400">${hint}</span>` : ''}</h3>
+    <div class="card">${arr.map(render || ((l) => todayRow(l, kind))).join('')}</div></div>` : '';
+  const fold = (id, title, arr, kind, render, max = 40) => arr.length ? `<details class="tmore" id="${id}"><summary>${title} <span class="chip plain">${arr.length}</span></summary>
+    <div class="card">${arr.slice(0, max).map(render || ((l) => todayRow(l, kind))).join('')}</div></details>` : '';
+  const staleRow = (l) => { const n = lastNote(l); return `<div class="todayrow q" data-id="${l.id}">
+      <div class="who"><b data-act="open">${esc(l.name)}</b><div class="sub">${esc((clinicById(l.clinicId) || {}).name || '')}</div>${n ? `<div class="todaynote">📝 ${esc(n.text.slice(0, 140))}</div>` : ''}</div>
+      <div class="meta"><div><span class="chip ${l.status}">${STATUS[l.status]}</span></div><span class="mono" style="font-size:12.5px">${telLink(l.phone)}</span></div>
+      <div class="acts"><button class="btn small" data-act="p3">Ξαναπάρε σε 3 μέρες</button><button class="btn small danger" data-act="marklost">Κλείσε ως χαμένο</button></div></div>`; };
+  const nothing = !R.length && !C.length && !K.length ? '<div class="card" style="margin-bottom:18px"><div class="empty">Τίποτα επείγον για σήμερα ✓</div></div>' : '';
+  return sum + bar + nothing
+    + sec('tq-remind', 'Στείλε SMS υπενθύμισης', 'ραντεβού σε 3 μέρες / αύριο / σε 1 ώρα', R, 'remind')
+    + sec('tq-confirm', 'Επιβεβαίωσε ραντεβού', 'κάλεσε και πάτα «✓ Επιβεβαιώθηκε»', C, 'confirm')
+    + sec('tq-call', 'Κάλεσε σήμερα', 'πρώτα όσα έχουν καθυστερήσει', K, 'due', (l) => todayRow(l, l.nextAction ? 'due' : 'fresh'))
+    + `<div class="tfolds">`
+    + fold('tq-open', 'Σε εξέλιξη · με ενέργεια αργότερα ή χωρίς ημερομηνία', O, 'open')
+    + fold('tq-stale', 'Ξεχασμένα · 21+ μέρες χωρίς επαφή', ST, 'stale', staleRow)
+    + fold('tq-up', 'Επόμενα ραντεβού', U, 'up')
+    + `</div>`;
 }
 /* Κλήσεις ημέρας ομαδοποιημένες ανά κλινική — κλειστές κάρτες με σύνοψη, ανοίγουν με κλικ. */
 let openCallGroups = new Set();
@@ -1023,6 +1069,10 @@ $('btnTodayRefresh').onclick = refresh;
 $('todayBody').addEventListener('click', async (e) => {
   if (e.target.closest('[data-fstep],[data-fsent],[data-fcopy],[data-fcall],[data-freply],[data-fnoans],[data-flost]')) { await followClick(e); return; }
   if (e.target.closest('[data-asent],[data-acopy]')) { const row = e.target.closest('[data-id]'); const l = row && leadById(row.dataset.id); if (l) await apptClick(e, l); return; }
+  const tc = e.target.closest('[data-tclin]');
+  if (tc) { todayClinic = tc.dataset.tclin; try { localStorage.setItem('astra-today-clinic', todayClinic); } catch { /* ok */ } renderToday(); return; }
+  const tj = e.target.closest('[data-tjump]');
+  if (tj) { const el = document.getElementById(tj.dataset.tjump); if (el) { if (el.tagName === 'DETAILS') el.open = true; el.scrollIntoView({ behavior: 'smooth', block: 'start' }); } return; }
   const tg = e.target.closest('[data-cgrp]');
   if (tg) {
     const k = tg.dataset.cgrp;
