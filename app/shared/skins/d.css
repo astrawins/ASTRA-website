@@ -87,3 +87,11 @@ html[data-glass] .modal, html[data-glass] .searchbox {
   html[data-glass] .card, html[data-glass] .tile, html[data-glass] .kcard, html[data-glass] .rail { -webkit-backdrop-filter: none; backdrop-filter: none; background: #FFFDF9; }
   html[data-glass] .rail { background: #1E1812; }
 }
+/* κινητά: διαφάνεια χωρίς blur στις κάρτες για ομαλό scroll (το blur μένει στο top bar / tab bar) */
+@media (max-width: 900px) {
+  html[data-glass] .card, html[data-glass] .tile, html[data-glass] .kcard,
+  html[data-glass] .btn, html[data-glass] button.chip, html[data-glass] .filters select, html[data-glass] .filters input {
+    -webkit-backdrop-filter: none; backdrop-filter: none;
+  }
+  html[data-glass] .card, html[data-glass] .tile, html[data-glass] .kcard { background: rgba(255, 253, 249, .72); }
+}
