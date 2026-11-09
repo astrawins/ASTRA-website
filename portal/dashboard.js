@@ -2819,13 +2819,13 @@ function renderFin() {
     <div class="tile"><div class="lb">ΦΠΑ εκροών − εισροών</div><div class="v ${vatDue > 0 ? 'neg' : 'pos'}">${eur(vatDue)}</div><div class="d">${vatDue > 0 ? 'για απόδοση' : 'πιστωτικό'} τον μήνα</div></div>`;
   const ae = apptEarnings(mk);
   $('finApptTiles').innerHTML = `
-    <div class="tile"><div class="lb">Κέρδη από ραντεβού που έγιναν · σύνολο</div><div class="v pos">${eur(ae.total)}</div><div class="d">${ae.n} ραντεβού από την αρχή · καθαρά, χωρίς ΦΠΑ</div></div>
+    <div class="tile"><div class="lb">Κέρδη από ραντεβού που έγιναν · σύνολο</div><div class="v pos">${eur(ae.total)}</div><div class="d">${ae.n} ραντεβού από την αρχή · χωρίς ΦΠΑ${ae.ad ? ` · αφαιρέθηκαν ${eur(ae.ad)} διαφήμιση που πληρώνουμε εμείς` : ''}</div></div>
     <div class="tile"><div class="lb">Κέρδη από ραντεβού · ${mLabel(mk)}</div><div class="v">${eur(ae.totalM)}</div><div class="d">${ae.nM} ραντεβού τον μήνα</div></div>
-    <div class="tile"><div class="lb">Έχουν εισπραχθεί</div><div class="v">${eur(ae.paid)}</div><div class="d">${eur(Math.max(0, ae.total - ae.paid))} ακόμη προς χρέωση / είσπραξη</div></div>`;
+    <div class="tile"><div class="lb">Έχουν εισπραχθεί</div><div class="v">${eur(ae.paid)}</div><div class="d">${eur(Math.max(0, ae.fees - ae.paid))} ακόμη προς χρέωση / είσπραξη</div></div>`;
   $('finApptTable').innerHTML = ae.rows.length
-    ? '<table><thead><tr><th>Κλινική</th><th>Αμοιβή</th><th class="num">Ραντεβού</th><th class="num">' + mLabel(mk) + '</th><th class="num">Σύνολο</th><th class="num">Εισπράχθηκαν</th></tr></thead><tbody>'
-      + ae.rows.map((r) => `<tr><td>${esc(r.c.name)}</td><td>${esc(r.model)}</td><td class="num">${r.n}</td><td class="num">${eur(r.totalM)}</td><td class="num"><b>${eur(r.total)}</b></td><td class="num">${eur(r.paid)}</td></tr>`).join('')
-      + `<tr><td><b>Σύνολο</b></td><td></td><td class="num"><b>${ae.n}</b></td><td class="num"><b>${eur(ae.totalM)}</b></td><td class="num"><b>${eur(ae.total)}</b></td><td class="num"><b>${eur(ae.paid)}</b></td></tr></tbody></table>`
+    ? '<table><thead><tr><th>Κλινική</th><th>Αμοιβή</th><th class="num">Ραντεβού</th><th class="num">Κέρδος ' + mLabel(mk) + '</th><th class="num">Αμοιβές σύνολο</th><th class="num">− Διαφήμιση που πληρώνουμε</th><th class="num">Κέρδος σύνολο</th><th class="num">Εισπράχθηκαν</th></tr></thead><tbody>'
+      + ae.rows.map((r) => `<tr><td>${esc(r.c.name)}</td><td>${esc(r.model)}</td><td class="num">${r.n}</td><td class="num">${eur(r.totalM)}</td><td class="num">${eur(r.fees)}</td><td class="num">${r.ad ? '<span class="neg">−' + eur(r.ad) + '</span>' : '—'}</td><td class="num"><b class="${r.total >= 0 ? '' : 'neg'}">${eur(r.total)}</b></td><td class="num">${eur(r.paid)}</td></tr>`).join('')
+      + `<tr><td><b>Σύνολο</b></td><td></td><td class="num"><b>${ae.n}</b></td><td class="num"><b>${eur(ae.totalM)}</b></td><td class="num"><b>${eur(ae.fees)}</b></td><td class="num">${ae.ad ? '<b class="neg">−' + eur(ae.ad) + '</b>' : '—'}</td><td class="num"><b>${eur(ae.total)}</b></td><td class="num"><b>${eur(ae.paid)}</b></td></tr></tbody></table>`
     : '<div class="empty">Κανένα ραντεβού δεν έχει σημανθεί «Πελάτης» ακόμη.</div>';
   const kf = $('ffKindFilter').value;
   let rows = inQ; if (kf) rows = rows.filter((f) => f.kind === kf);
@@ -3065,6 +3065,10 @@ const apptFee = () => +SET().appointmentFee || 50;
 /* Αμοιβή ανά ολοκληρωμένο ραντεβού: ανά κλινική (clinics.appt_fee) ή η γενική ρύθμιση. */
 const clinicFee = (c) => +(c && c.apptFee) || apptFee();
 /* Μερίδιο δαπάνης Meta που πληρώνει η Astra (clinics.spend_share %, π.χ. Karma 50): τα campaigns.spend είναι ήδη το μερίδιό μας. */
+/* Ό,τι γράφεται στα campaigns μιας κλινικής με spendShare < 100 είναι ΤΟ ΔΙΚΟ ΜΑΣ μερίδιο (το πληρώνει η Astra).
+   Στις υπόλοιπες το budget το πληρώνει η κλινική — δεν είναι έξοδο Astra. */
+const ourAdSpend = (c, monthOk = () => true) => (shareOf(c) < 1 ? +S.camps.filter((x) => x.clinicId === c.id && monthOk(x.month)).reduce((s, x) => s + (+x.spend || 0), 0).toFixed(2) : 0);
+const ourAdAll = (monthOk) => +S.clinics.reduce((s, c) => s + ourAdSpend(c, monthOk), 0).toFixed(2);
 const shareOf = (c) => Math.min(1, Math.max(0.01, (+(c && c.spendShare) || 100) / 100));
 /* Πακέτα με διαφορετική αμοιβή στην ίδια κλινική (clinics.fee_options, π.χ. Artista Medico Κανονικό/Φοιτήτρια):
    η επιλογή της ομάδας (leads.fee_option) ή αυτόματα από την «Προσφορά» του lead, αλλιώς το 1ο πακέτο. */
@@ -3102,10 +3106,11 @@ function apptEarnings(mk) {
     const net = (ls) => (share ? shareNet(c, ls) : sumFees(c, ls));
     const paid = S.billing.filter((b) => b.clinicId === c.id && b.payStatus === 'paid').reduce((s, b) => s + (+b.total || 0), 0);
     const model = share ? `${+c.sharePct || 50}% επί καθαρού πωλήσεων` : (feeOpts(c).length ? feeOpts(c).map((o) => `${o.label}: ${+o.fee}€`).join(' · ') : `${eur(clinicFee(c))} / ραντεβού${c.feeFixed ? ' σταθερά' : ' (ή 50 % καθαρής αξίας αν υπάρχει ποσό)'}`);
-    return { c, model, n: all.length, nM: inM.length, total: net(all), totalM: net(inM), paid: +paid.toFixed(2) };
-  }).filter((r) => r.n).sort((a, b) => b.total - a.total);
+    const ad = ourAdSpend(c), adM = ourAdSpend(c, (m) => m === mk);
+    return { c, model, n: all.length, nM: inM.length, fees: net(all), ad, total: +(net(all) - ad).toFixed(2), totalM: +(net(inM) - adM).toFixed(2), paid: +paid.toFixed(2) };
+  }).filter((r) => r.n || r.ad).sort((a, b) => b.total - a.total);
   const sum = (k) => +rows.reduce((s, r) => s + r[k], 0).toFixed(2);
-  return { rows, n: sum('n'), nM: sum('nM'), total: sum('total'), totalM: sum('totalM'), paid: sum('paid') };
+  return { rows, n: sum('n'), nM: sum('nM'), fees: sum('fees'), ad: sum('ad'), total: sum('total'), totalM: sum('totalM'), paid: sum('paid') };
 }
 function taxEstimate() {
   const mk = nowMonth();
@@ -3125,7 +3130,8 @@ function taxEstimate() {
   const feeOf = (ls) => ls.reduce((s, l) => s + leadFee(l), 0); // αμοιβή ανά κλινική / πακέτο
   const revM = feeOf(apptLM) + sum(incM, 'net');      // τζίρος μήνα
   const revY = feeOf(apptLY) + sum(incY, 'net');
-  const expMn = sum(expM, 'net'), expYn = sum(expY, 'net');
+  const adM = ourAdAll((m) => m === mk), adY = ourAdAll((m) => String(m).startsWith(year)); // μερίδιο Astra στο ad spend (π.χ. Karma 50%)
+  const expMn = sum(expM, 'net') + adM, expYn = sum(expY, 'net') + adY;
   const profitM = revM - expMn;                            // ξεκινά αρνητικό από τα πάγια
   const profitY = revY - expYn;
   // ΦΠΑ: 24% πάνω στα τιμολόγια ραντεβού + χειροκίνητα έσοδα − εισροές
@@ -3138,7 +3144,7 @@ function taxEstimate() {
 function renderTaxTiles() {
   const t = taxEstimate();
   $('finTaxTiles').innerHTML = `
-    <div class="tile"><div class="lb">Τζίρος ${mLabel(t.mk)}</div><div class="v">${eur(t.revM)}</div><div class="d">${t.apptM} ραντεβού × ${eur(apptFee())}</div></div>
+    <div class="tile"><div class="lb">Τζίρος ${mLabel(t.mk)}</div><div class="v">${eur(t.revM)}</div><div class="d">αμοιβές από ${t.apptM} ραντεβού που έγιναν</div></div>
     ${(() => {
       const be = Math.ceil(t.expMn / apptFee());
       const day = new Date().getDate();
@@ -3578,13 +3584,14 @@ function renderProfit() {
   const qk = quarterOf(new Date().toISOString());
   const qm = quarterMonthsOf(qk);
   const rows = S.clinics.map((c) => {
-    const inc = S.fin.filter((f) => f.kind === 'income' && f.clinicId === c.id && quarterOf(f.date) === qk).reduce((s, f) => s + (+f.net || 0), 0);
+    const incFin = S.fin.filter((f) => f.kind === 'income' && f.clinicId === c.id && quarterOf(f.date) === qk && f.category !== 'Χρέωση ραντεβού').reduce((s, f) => s + (+f.net || 0), 0);
     const exp = S.fin.filter((f) => f.kind === 'expense' && f.clinicId === c.id && quarterOf(f.date) === qk).reduce((s, f) => s + (+f.net || 0), 0);
-    const spend = S.camps.filter((x) => x.clinicId === c.id && qm.includes(x.month)).reduce((s, x) => s + (+x.spend || 0), 0);
+    const spend = ourAdSpend(c, (m) => qm.includes(m)); // το budget των άλλων κλινικών το πληρώνουν οι ίδιες
+    const inc = incFin + weekNet(c, S.leads.filter((l) => l.clinicId === c.id && isBooked(l) && qm.includes(monthKey(billDate(l)))));
     return { c, inc, exp, spend, net: inc - exp - spend };
   }).filter((r) => r.inc || r.exp || r.spend).sort((a, b) => b.net - a.net);
   $('profitTable').innerHTML = rows.length
-    ? '<table><thead><tr><th>Κλινική</th><th class="num">Έσοδα</th><th class="num">Ad spend</th><th class="num">Λοιπά έξοδα</th><th class="num">Καθαρό</th></tr></thead><tbody>'
+    ? '<table><thead><tr><th>Κλινική</th><th class="num">Αμοιβές μας</th><th class="num">Διαφήμιση που πληρώνουμε</th><th class="num">Λοιπά έξοδα</th><th class="num">Καθαρό</th></tr></thead><tbody>'
       + rows.map((r) => `<tr><td><b>${esc(r.c.name)}</b></td><td class="num">${eur(r.inc)}</td><td class="num">${eur(r.spend)}</td><td class="num">${eur(r.exp)}</td><td class="num ${r.net >= 0 ? 'pos' : 'neg'}"><b>${eur(r.net)}</b></td></tr>`).join('')
       + '</tbody></table>'
     : '<div class="empty">Θα γεμίσει μόλις καταχωρηθούν έσοδα/έξοδα με κλινική στο τρέχον τρίμηνο.</div>';
