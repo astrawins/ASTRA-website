@@ -639,7 +639,10 @@ const DEF_MSG5 = 'Γεια σας {όνομα}, σας γράφουμε για �
 const DEF_MSG3 = 'Γεια σας {όνομα}, {εγώ} από την {κλινική}. Χάρηκα που μιλήσαμε! Όπως είπαμε, σας στέλνω εδώ την προσφορά για να τη δείτε με την ησυχία σας. Θα σας καλέσω ξανά σε 2 μέρες — αν στο μεταξύ αποφασίσετε, γράψτε μου εδώ ποια μέρα σας βολεύει και σας κλείνω ραντεβού. 😊';
 const DEF_MSG4 = 'Γεια σας {όνομα}, {εγώ} από {κλινική}. Το ραντεβού σας είναι {ημέρα} στις {ώρα}.\n📍 {διεύθυνση}\nΑν χρειαστεί αλλαγή ώρας, στείλτε μου ένα μήνυμα εδώ. Θα τα πούμε από κοντά! 😊';
 /* Μήνυμα ραντεβού: ημέρα + ώρα από την καρτέλα, διεύθυνση από την κλινική, link χάρτη. */
-const DEF_MSG6 = 'Γεια σας {όνομα}, σας υπενθυμίζουμε το ραντεβού σας στην {κλινική} {πότε}.\n📍 {διεύθυνση}\nΑν κάτι αλλάξει, στείλτε μας ένα μήνυμα εδώ. 😊';
+const DEF_MSG6 = 'Γεια σας {όνομα}, σας υπενθυμίζουμε το ραντεβού σας στην {κλινική} {πότε}.\n📍 {διεύθυνση}\n📞 {τηλέφωνα}';
+/* {τηλέφωνα}: τα τηλέφωνα της ΚΛΙΝΙΚΗΣ (πεδίο «Τηλέφωνο» της καρτέλας της· σταθερό, κινητό ή και τα δύο χωρισμένα με «/» ή κόμμα) —
+   όρισε ο χρήστης 15/11/2026 αντί για «Αν κάτι αλλάξει, στείλτε μας ένα μήνυμα εδώ». Χωρίς τηλέφωνο, η γραμμή παραλείπεται. */
+const clinicPhones = (c) => String((c && c.phone) || '').split(/\s*[\/,;|]\s*|\s+(?:ή|και)\s+/).map((x) => x.trim()).filter((x) => x.replace(/\D/g, '').length >= 10);
 /* Υπενθυμίσεις ραντεβού (όρισε ο χρήστης 27/10/2026): 3 μέρες πριν (10:00), 1 μέρα πριν (10:00), 1 ώρα πριν.
    Κάθε μία στέλνεται με ένα πάτημα (SMS/Viber) και καταγράφεται στο call_log ως msg με attempt 6/7/8. */
 const REMINDERS = [
@@ -671,10 +674,12 @@ function apptText(l, w = 4) {
   // {χάρτης}: μόνο αν η κλινική έχει σύντομο link (π.χ. maps.app.goo.gl)· αλλιώς τίποτα — η διεύθυνση γίνεται πατητή μόνη της στο SMS
   const map = (c && c.mapUrl || '').trim();
   const r = REMINDERS.find((x) => x.w === w);
-  const tpl = r ? (st.followMsg6 || DEF_MSG6) : (st.followMsg4 || DEF_MSG4);
+  const phones = clinicPhones(c).join(' · ');
+  let tpl = r ? (st.followMsg6 || DEF_MSG6) : (st.followMsg4 || DEF_MSG4);
+  if (!phones) tpl = tpl.split('\n').filter((ln) => !ln.includes('{τηλέφωνα}')).join('\n');
   return fillClinic(fillSender(tpl, c), c).replaceAll('{όνομα}', first)
     .replaceAll('{πότε}', r ? r.pote(l) : '').replaceAll('{ημέρα}', apptDayText(l)).replaceAll('{ώρα}', hhmm(l.apptTime) || '—')
-    .replaceAll('{διεύθυνση}', addr || (c && c.name) || '').replaceAll('{χάρτης}', map)
+    .replaceAll('{διεύθυνση}', addr || (c && c.name) || '').replaceAll('{χάρτης}', map).replaceAll('{τηλέφωνα}', phones)
     .replace(/\n{2,}/g, '\n').trim();
 }
 /* Μία γραμμή κουμπιών SMS/Viber/Αντιγραφή για μήνυμα w */
@@ -691,7 +696,8 @@ function apptBtns(l, w, title, extra = '') {
    onlyDue: μόνο οι υπενθυμίσεις που πρέπει να σταλούν τώρα (σελίδα «Σήμερα»). */
 function apptStrip(l, onlyDue = false) {
   if (l.status !== 'rv' || !l.nextAction) return '';
-  const warn = !(clinicById(l.clinicId) || {}).address ? ' <span class="chip lost" title="Βάλε διεύθυνση στην καρτέλα της κλινικής">χωρίς διεύθυνση</span>' : '';
+  const warn = (!(clinicById(l.clinicId) || {}).address ? ' <span class="chip lost" title="Βάλε διεύθυνση στην καρτέλα της κλινικής">χωρίς διεύθυνση</span>' : '')
+    + (!clinicPhones(clinicById(l.clinicId)).length ? ' <span class="chip lost" title="Βάλε τηλέφωνο (σταθερό / κινητό) στην καρτέλα της κλινικής — μπαίνει στο τέλος της υπενθύμισης">χωρίς τηλέφωνο</span>' : '');
   if (onlyDue) return remindersDue(l).map((r) => apptBtns(l, r.w, `✉ Υπενθύμιση · ${r.short}`, warn)).join('');
   const ap = apptAt(l); const now = Date.now();
   const rem = REMINDERS.map((r) => { const d = reminderDue(l, r); const due = d && d.getTime() <= now && ap.getTime() > now; const past = ap.getTime() <= now;
@@ -915,7 +921,7 @@ function renderToday() {
     .sort((a, b) => String(a.nextTouch).localeCompare(String(b.nextTouch)));
   const touchBlock = touches.length ? `<h3 class="sectionhead" style="margin-top:0">Πελάτες — επόμενη επαφή <span class="chip epik">${touches.length}</span></h3>
     <div class="card" style="margin-bottom:20px">${touches.map((c) => `<div class="todayrow" data-clinic="${c.id}">
-      <div class="who"><b data-tact2="openclinic">${esc(c.name)}</b><div class="sub">${telLink(c.phone)}</div></div>
+      <div class="who"><b data-tact2="openclinic">${esc(c.name)}</b><div class="sub">${clinicPhones(c).map((x) => telLink(x)).join(' ') || telLink(c.phone)}</div></div>
       <span class="due ${c.nextTouch < todayISO() ? 'over' : ''}">${new Date(c.nextTouch).toLocaleDateString('el-GR', { day: 'numeric', month: 'short' })}</span>
       <div class="acts">
         <button class="btn small" data-tact2="t7">+1 εβδ.</button>
