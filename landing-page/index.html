@@ -1,0 +1,475 @@
+<!doctype html>
+<html lang="el">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>astra | Personal brand για γιατρούς</title>
+<meta name="description" content="Αναλαμβάνουμε ολόκληρα τα social media σου και χτίζουμε το προσωπικό σου brand, ώστε να φέρνει νέα ραντεβού κάθε μήνα.">
+<meta name="theme-color" content="#ffffff">
+<meta property="og:type" content="website">
+<meta property="og:title" content="astra | Personal brand για γιατρούς">
+<meta property="og:description" content="Πάνω από 3 εκατομμύρια άνθρωποι θα δουν εσένα και το ιατρείο σου τις επόμενες 90 μέρες. Δες πώς.">
+<link rel="icon" type="image/png" sizes="32x32" href="assets/img/favicon-32.png">
+<link rel="apple-touch-icon" href="assets/img/apple-touch-icon.png">
+<link rel="preload" href="assets/fonts/manrope-greek.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="assets/fonts.css">
+<link rel="stylesheet" href="assets/site.css">
+<style>
+  /* Hero */
+  .hero { padding: 30px 16px 48px; background: linear-gradient(180deg, #fff 0%, #f7fcfd 100%); text-align: center; }
+  .hero h1 { max-width: 1000px; margin: 22px auto 12px; font-size: clamp(29px, 3.4vw, 46px); line-height: 1.12; font-weight: 600; letter-spacing: -.01em; text-wrap: balance; }
+  .hero h1 .accent { font-weight: 800; }
+  .subhead { margin: 0 auto 4px; font-size: clamp(19px, 2.2vw, 28px); line-height: 1.2; font-weight: 700; }
+  .subhead .down { display: inline-block; color: var(--accent); }
+
+  /* VSL */
+  .media { position: relative; width: min(955px, 100%); margin: 24px auto 0; border: 1px solid var(--line-2); border-radius: 8px; overflow: hidden; background: #0d1620; box-shadow: var(--shadow); aspect-ratio: 16 / 9; }
+  .media video { width: 100%; height: 100%; object-fit: cover; display: none; }
+  .media.has-video video { display: block; }
+  .media .ph { position: absolute; inset: 0; display: grid; place-items: center; align-content: center; gap: 8px; color: #9fb0bf; font-size: 14px; background: radial-gradient(90% 80% at 50% 30%, #1d2b38, #0d1620); }
+  .media.has-video .ph { display: none; }
+  .media .logo { position: absolute; top: 14px; right: 14px; z-index: 2; width: clamp(54px, 8vw, 86px); padding: 8px 10px; background: rgba(255, 255, 255, .92); border-radius: 6px; box-shadow: 0 8px 18px rgba(0, 0, 0, .18); }
+  .sound {
+    position: absolute; left: 50%; top: 50%; z-index: 3; transform: translate(-50%, -50%);
+    min-height: 60px; max-width: calc(100% - 32px); padding: 14px 24px; border: 0; border-radius: 8px; cursor: pointer;
+    color: #fff; background: var(--rose); box-shadow: 0 18px 45px rgba(120, 20, 34, .28);
+    font-size: clamp(14px, 2vw, 20px); font-weight: 800; letter-spacing: .01em;
+    transition: transform 180ms var(--ease-out), background-color 180ms var(--ease-out), opacity 220ms var(--ease-out);
+  }
+  @media (hover: hover) and (pointer: fine) { .sound:hover { background: #e85d6d; transform: translate(-50%, -50%) scale(1.03); } }
+  .sound:active { transform: translate(-50%, -50%) scale(.98); }
+  .media.unmuted .sound { opacity: 0; pointer-events: none; }
+  .hero .cta { margin-top: 26px; }
+
+  /* Top banner: red, glowing, impossible to miss */
+  .topbar {
+    position: sticky; top: 0; z-index: 40; overflow: hidden;
+    display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 6px 14px;
+    padding: 13px 16px; text-decoration: none; text-align: center; color: #fff;
+    background: linear-gradient(180deg, #ef2b22, #c4140d);
+    box-shadow: 0 6px 26px rgba(229, 32, 25, .55);
+    animation: glow 1.8s ease-in-out infinite;
+  }
+  .topbar .tb-main { font-size: clamp(15px, 1.7vw, 19px); font-weight: 800; letter-spacing: .03em; text-shadow: 0 0 14px rgba(255, 210, 200, .75), 0 1px 0 rgba(0, 0, 0, .15); }
+  .topbar .tb-go { display: inline-flex; align-items: center; padding: 5px 12px; border-radius: 999px; background: #fff; color: #c4140d; font-size: 14px; font-weight: 800; white-space: nowrap; box-shadow: 0 0 18px rgba(255, 255, 255, .65); transition: transform 160ms var(--ease-out); }
+  @media (hover: hover) and (pointer: fine) { .topbar:hover .tb-go { transform: scale(1.05); } }
+  .topbar::after { content: ""; position: absolute; top: 0; bottom: 0; left: -40%; width: 30%; pointer-events: none;
+    background: linear-gradient(100deg, transparent, rgba(255, 255, 255, .45), transparent); transform: skewX(-18deg); animation: shine 3.2s ease-in-out infinite; }
+  @keyframes glow {
+    0%, 100% { box-shadow: 0 6px 22px rgba(229, 32, 25, .45); filter: brightness(1); }
+    50% { box-shadow: 0 8px 38px rgba(255, 45, 35, .9), 0 0 60px rgba(255, 60, 40, .55); filter: brightness(1.12); }
+  }
+  @keyframes shine { 0% { left: -40%; } 55%, 100% { left: 130%; } }
+  .topbar .bam { display: inline-block; animation: bam 650ms cubic-bezier(.2, 1.6, .4, 1) 250ms both; }
+  @keyframes bam { 0% { transform: scale(.4); opacity: 0; } 70% { transform: scale(1.12); opacity: 1; } 100% { transform: scale(1); } }
+  @media (prefers-reduced-motion: reduce) { .topbar, .topbar::after, .topbar .bam { animation: none; } .topbar::after { display: none; } }
+
+  /* Modal with the form, then the calendar */
+  .modal { width: min(620px, calc(100% - 24px)); max-height: calc(100dvh - 24px); margin: auto; padding: 0; border: 0; border-radius: 12px; background: #fff; color: var(--ink); box-shadow: 0 30px 90px rgba(13, 27, 38, .35); overflow: auto; overscroll-behavior: contain; }
+  .modal.wide { width: min(1000px, calc(100% - 24px)); }
+  .modal:focus, .modal:focus-visible { outline: none; }
+  .modal::backdrop { background: rgba(16, 24, 40, .55); backdrop-filter: blur(3px); }
+  .modal[open] { animation: mIn 320ms var(--ease-out) both; }
+  .modal[open]::backdrop { animation: fadeIn 260ms ease both; }
+  @keyframes mIn { from { opacity: 0; transform: translateY(14px) scale(.98); } to { opacity: 1; transform: none; } }
+  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+  .m-head { position: sticky; top: 0; z-index: 2; display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; padding: 20px clamp(20px, 4vw, 32px) 14px; background: #fff; border-bottom: 1px solid var(--line); }
+  .m-title { font-size: clamp(20px, 2.4vw, 24px); font-weight: 800; line-height: 1.2; }
+  .m-sub { color: var(--muted); font-size: 14px; margin-top: 2px; }
+  .m-close { flex: none; width: 40px; height: 40px; border: 0; border-radius: 50%; background: #f0f3f6; color: var(--ink); font-size: 24px; line-height: 1; cursor: pointer; transition: background-color 160ms var(--ease-out); }
+  @media (hover: hover) and (pointer: fine) { .m-close:hover { background: #e2e8ee; } }
+  .m-body { padding: 22px clamp(20px, 4vw, 32px) clamp(22px, 4vw, 30px); text-align: left; }
+  .modal.wide .m-body { padding: 0; }
+  body.locked { overflow: hidden; }
+  .prog { display: flex; align-items: center; gap: 12px; margin-bottom: 22px; }
+  .prog .track { flex: 1; height: 6px; border-radius: 6px; background: #edf2f6; overflow: hidden; }
+  .prog .fill { height: 100%; width: 33.3%; border-radius: 6px; background: var(--accent); transition: width 420ms var(--ease-out); }
+  .prog .n { font-size: 13px; font-weight: 700; color: var(--muted); white-space: nowrap; }
+  .step { display: none; }
+  .step.on { display: block; animation: stepIn 380ms var(--ease-out) both; }
+  @keyframes stepIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+  .q { font-size: clamp(21px, 2.4vw, 26px); line-height: 1.25; font-weight: 800; margin-bottom: 8px; }
+  .qhelp { color: var(--muted); font-size: 15px; margin-bottom: 20px; }
+  .field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; }
+  .field[hidden] { display: none; }
+  .field label { font-size: 14px; font-weight: 700; color: var(--text); }
+  .input, .select { width: 100%; min-height: 52px; padding: 13px 14px; border: 1px solid var(--line-2); border-radius: 8px; background: #fff; font-size: 16px; color: var(--ink); transition: border-color 160ms var(--ease-out), box-shadow 160ms var(--ease-out); }
+  .input::placeholder { color: #6b7a89; }
+  .input:focus, .select:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(92, 58, 33, .16); }
+  .select { appearance: none; -webkit-appearance: none; cursor: pointer; padding-right: 44px;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%235f6f7f' stroke-width='1.8'%3E%3Cpath d='M3.5 6l4.5 4.5L12.5 6'/%3E%3C/svg%3E");
+    background-repeat: no-repeat; background-position: right 14px center; background-size: 16px; }
+  .field.bad .input, .field.bad .select { border-color: var(--err); }
+  .err { color: var(--err); font-size: 14px; font-weight: 600; }
+  .err:empty { display: none; }
+  .opts { display: grid; gap: 10px; border: 0; }
+  .opt input { position: absolute; opacity: 0; pointer-events: none; }
+  .opt label { display: flex; align-items: center; gap: 14px; min-height: 58px; padding: 14px 16px; border: 1px solid var(--line-2); border-radius: 8px; cursor: pointer; font-size: 17px; font-weight: 700; transition: border-color 160ms var(--ease-out), background-color 160ms var(--ease-out); }
+  .opt label::before { content: ""; width: 20px; height: 20px; flex: none; border-radius: 50%; border: 2px solid #b8c6d1; transition: border-color 160ms var(--ease-out), box-shadow 160ms var(--ease-out); }
+  @media (hover: hover) and (pointer: fine) { .opt label:hover { border-color: #c9a98f; } }
+  .opt input:checked + label { border-color: var(--accent); background: #f8f2ed; }
+  .opt input:checked + label::before { border-color: var(--accent); box-shadow: inset 0 0 0 4px #fff, inset 0 0 0 10px var(--accent); }
+  .opt input:focus-visible + label { outline: 3px solid rgba(92, 58, 33, .5); outline-offset: 2px; }
+  .two { display: grid; gap: 0 14px; }
+  @media (min-width: 560px) { .two { grid-template-columns: 1fr 1fr; } }
+  .nav { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 22px; }
+  .back { background: none; border: 0; cursor: pointer; color: var(--muted); font-weight: 700; padding: 10px 2px; }
+  @media (hover: hover) and (pointer: fine) { .back:hover { color: var(--ink); } }
+  .nav .button { width: auto; min-height: 54px; padding: 12px 28px; font-size: 17px; }
+  .fine { margin-top: 14px; font-size: 12px; color: var(--soft); }
+  .spin { width: 16px; height: 16px; border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%; animation: spin 700ms linear infinite; display: none; }
+  .busy .spin { display: inline-block; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .done { text-align: center; padding: 10px 0; }
+  .done .q { margin-bottom: 10px; }
+  .done p { color: var(--muted); max-width: 480px; margin: 0 auto; }
+  .done .nf-cover { width: 150px; height: auto; margin: 22px auto 18px; border-radius: 4px; transform: rotate(-3deg); box-shadow: 0 18px 40px rgba(62, 38, 21, .3); }
+  .done .button { width: 100%; }
+  .cal-head { padding: 18px 24px 0; text-align: center; }
+  .cal-head .q { margin-bottom: 4px; }
+  .cal-head p { color: var(--muted); font-size: 15px; }
+  .calendly-inline-widget { min-width: 320px; height: 700px; }
+  .cal-empty { min-height: 360px; display: grid; place-items: center; text-align: center; padding: 30px; color: var(--muted); }
+  .cal-empty strong { display: block; color: var(--ink); font-size: 18px; margin-bottom: 6px; }
+
+  /* Trust */
+  .rating { display: grid; justify-items: center; gap: 4px; }
+  .stars { color: var(--gold); letter-spacing: 3px; }
+  .stars.big { font-size: clamp(28px, 3.4vw, 38px); line-height: 1; }
+  .score { font-size: clamp(20px, 2.4vw, 28px); font-weight: 600; color: var(--ink); margin-top: 8px; }
+  .score strong { font-weight: 800; }
+  .score-sub { color: var(--muted); font-size: 15px; }
+  .partners { margin-top: clamp(40px, 6vw, 64px); }
+  .partners-title { font-size: clamp(20px, 2.4vw, 28px); font-weight: 800; line-height: 1.2; color: var(--ink); margin-bottom: 28px; text-wrap: balance; }
+  .logos { list-style: none; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 26px 20px; align-items: center; justify-items: center; }
+  .logos li:last-child:nth-child(odd) { grid-column: 1 / -1; }
+  @media (min-width: 860px) { .logos { grid-template-columns: repeat(5, minmax(0, 1fr)); } .logos li:last-child:nth-child(odd) { grid-column: auto; } }
+  .logos a { display: grid; place-items: center; text-decoration: none; opacity: .62; transition: opacity 180ms var(--ease-out); }
+  @media (hover: hover) and (pointer: fine) { .logos a:hover { opacity: 1; } }
+  .logos img { height: var(--h, 34px); width: auto; max-width: 100%; filter: brightness(0); }
+  .logos .word { font-weight: 800; letter-spacing: .04em; font-size: 15px; color: #000; line-height: 1.2; text-align: center; }
+  .logos .word small { display: block; font-weight: 600; letter-spacing: 0; font-size: 12px; margin-top: 2px; }
+
+  /* On the call */
+  .call { width: min(1000px, 100%); margin-inline: auto; display: grid; gap: 22px; align-items: center; background: var(--panel-strong); border: 1px solid var(--line); border-radius: 10px; box-shadow: var(--shadow); padding: clamp(24px, 4vw, 44px); }
+  .call h2 { font-size: clamp(28px, 3.6vw, 44px); line-height: 1.12; font-weight: 800; }
+  .checks { list-style: none; display: grid; gap: 12px; }
+  .checks li { display: flex; gap: 12px; align-items: flex-start; background: #fff; border: 1px solid var(--line); border-radius: 8px; padding: 14px 16px; font-size: 15px; color: var(--text); }
+  .checks .ok { width: 24px; height: 24px; flex: none; border-radius: 50%; background: var(--accent); display: grid; place-items: center; margin-top: 1px; }
+  .checks .ok svg { width: 13px; height: 13px; }
+  @media (min-width: 860px) { .call { grid-template-columns: 1fr 1.15fr; gap: 36px; } }
+
+  /* Final CTA */
+  .final .lead { margin-bottom: 26px; }
+
+  /* FAQ */
+  .faq .h2 { margin-bottom: 24px; }
+  .faq-list { width: min(820px, 100%); margin-inline: auto; display: grid; gap: 12px; text-align: left; }
+  .qa { border: 1px solid var(--line); border-radius: 8px; background: #fff; box-shadow: 0 6px 18px rgba(16, 24, 40, .05); }
+  .qa summary { list-style: none; cursor: pointer; display: flex; justify-content: space-between; align-items: center; gap: 16px; padding: 16px 18px; font-weight: 800; font-size: 16px; }
+  .qa summary::-webkit-details-marker { display: none; }
+  .pm { position: relative; width: 22px; height: 22px; flex: none; border-radius: 50%; background: var(--accent); }
+  .pm::before, .pm::after { content: ""; position: absolute; left: 6px; top: 10px; width: 10px; height: 2px; background: #fff; border-radius: 1px; transition: transform 240ms var(--ease-out); }
+  .pm::after { transform: rotate(90deg); }
+  .qa[open] .pm::after { transform: rotate(0deg); }
+  .ans { display: grid; grid-template-rows: 0fr; transition: grid-template-rows 300ms var(--ease-out); }
+  .qa[open] .ans { grid-template-rows: 1fr; }
+  .ans > div { overflow: hidden; }
+  .ans p { padding: 0 18px 18px; color: var(--muted); font-size: 15px; }
+
+  @media (prefers-reduced-motion: reduce) { .modal[open], .modal[open]::backdrop { animation: none; } .step.on { animation: none; } .ans, .prog .fill, .sound { transition: none; } }
+</style>
+</head>
+<body>
+
+<a class="topbar" href="#apply" data-cta="banner"><span class="tb-main bam">ΜΕΧΡΙ 2 ΣΥΝΕΡΓΑΤΕΣ ΑΝΑ ΕΙΔΙΚΟΤΗΤΑ</span><span class="tb-go">Κλείσε τη θέση σου →</span></a>
+
+<main>
+  <!-- HERO -->
+  <section class="hero" id="hero">
+    <div class="wrap">
+      <span class="pill">ΓΙΑ ΓΙΑΤΡΟΥΣ ΜΕ ΙΔΙΩΤΙΚΟ ΙΑΤΡΕΙΟ</span>
+      <h1>Πάνω από <span class="accent">3 εκατομμύρια</span> άνθρωποι θα δουν εσένα και το ιατρείο σου τις <span class="accent">επόμενες 90 μέρες</span></h1>
+      <p class="subhead">Δες πώς <span class="down" aria-hidden="true">↓</span></p>
+
+      <div class="media" id="media">
+        <!-- VSL: put the file in assets/ and set CONFIG.vsl in assets/config.js -->
+        <video id="vsl" playsinline muted loop preload="metadata" controlslist="nodownload"></video>
+        <div class="ph" aria-hidden="true">Το βίντεο μπαίνει εδώ</div>
+        <img class="logo" src="assets/img/astra-wordmark-ink.svg" alt="" aria-hidden="true">
+        <button class="sound" id="sound" type="button">ΠΑΤΑ ΓΙΑ ΝΑ ΔΕΙΣ ΜΕ ΗΧΟ</button>
+      </div>
+
+      <div class="cta">
+        <a class="button" href="#apply" data-cta="hero">ΚΛΕΙΣΕ ΣΤΡΑΤΗΓΙΚΗ ΚΛΗΣΗ →</a>
+        <p class="microcopy">Μέχρι 2 συνεργάτες ανά ειδικότητα. Απαντάς σε 3 σύντομες ερωτήσεις και διαλέγεις ώρα.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- TRUST: Google rating + partners -->
+  <section class="section trust center" id="trust" style="background:#f7fbfd">
+    <div class="wrap">
+      <div class="rating reveal">
+        <div class="stars big" aria-hidden="true">★★★★★</div>
+        <p class="score"><strong>5,0</strong> από <strong>37 κριτικές</strong> στο Google</p>
+        <p class="score-sub">από ευχαριστημένους πελάτες μας</p>
+      </div>
+      <div class="partners reveal">
+        <h2 class="partners-title">Συνεργαζόμαστε με <span class="accent">μεγάλα ιατρικά brands</span> στην Αθήνα</h2>
+        <ul class="logos">
+          <li><a href="https://facemed.gr/" target="_blank" rel="noopener"><img src="assets/partners/facemed.png" alt="Facemed" style="--h:32px" loading="lazy"></a></li>
+          <li><a href="https://antiagers.gr/" target="_blank" rel="noopener"><img src="assets/partners/antiagers.svg" alt="The Antiagers" style="--h:24px" loading="lazy"></a></li>
+          <li><a href="https://healthydermaclinics.com/" target="_blank" rel="noopener"><img src="assets/partners/healthyderma.png" alt="Healthy Derma Clinics" style="--h:42px" loading="lazy"></a></li>
+          <li><a href="https://foreverlaser.gr/" target="_blank" rel="noopener"><img src="assets/partners/foreverlaser.png" alt="Forever Laser Clinic" style="--h:28px" loading="lazy"></a></li>
+          <li><a href="https://www.angeiocheirourgos.gr/" target="_blank" rel="noopener"><span class="word">ΑΓΓΕΙΟΧΕΙΡΟΥΡΓΟΣ<small>Δρ. Γεώργιος Ελευθερίου</small></span></a></li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- ON THE CALL -->
+  <section class="section">
+    <div class="call reveal">
+      <h2>Στην κλήση θα σου δείξουμε πώς το σύστημά μας θα:</h2>
+      <ul class="checks">
+        <li><span class="ok"><svg viewBox="0 0 16 16" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8.5l3 3 7-7"/></svg></span>Αναλάβει ολόκληρα τα social media σου: στρατηγική, σενάρια, βιντεοληψία, μοντάζ και ανεβάσματα.</li>
+        <li><span class="ok"><svg viewBox="0 0 16 16" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8.5l3 3 7-7"/></svg></span>Χτίσει εμπιστοσύνη με ανθρώπους που σε βλέπουν για μήνες, πριν καν σε χρειαστούν.</li>
+        <li><span class="ok"><svg viewBox="0 0 16 16" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8.5l3 3 7-7"/></svg></span>Φέρνει νέα ραντεβού κάθε μήνα, με ένα σύστημα πίσω από το προφίλ σου που τα κλείνει αυτόματα.</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- FINAL CTA -->
+  <section class="section final center">
+    <div class="narrow reveal">
+      <h2 class="h2">Θέλεις να δεις πώς θα δούλευε αυτό για το <span class="accent">ιατρείο σου</span>;</h2>
+      <p class="lead">Κλείσε μια στρατηγική κλήση και θα σου δείξουμε τον πιο γρήγορο δρόμο για να γίνεις το πιο γνωστό όνομα στην ειδικότητά σου.</p>
+      <a class="button" href="#apply" data-cta="final">ΚΛΕΙΣΕ ΣΤΡΑΤΗΓΙΚΗ ΚΛΗΣΗ →</a>
+    </div>
+  </section>
+
+  <!-- FAQ -->
+  <section class="section faq center" style="padding-top:0">
+    <h2 class="h2">Συχνές ερωτήσεις</h2>
+    <div class="faq-list">
+      <details class="qa"><summary>Πόσο χρόνο θα χρειάζεται να διαθέτω;<span class="pm" aria-hidden="true"></span></summary><div class="ans"><div><p>Μία βιντεοληψία τον μήνα, 2–3 ώρες, όπου γυρίζουμε όλα τα βίντεο του μήνα μαζί. Τα σενάρια είναι έτοιμα από πριν και τα εγκρίνεις εσύ. Όλα τα υπόλοιπα τα αναλαμβάνουμε εμείς.</p></div></div></details>
+      <details class="qa"><summary>Δεν είμαι άνετος μπροστά στην κάμερα. Θα τα καταφέρω;<span class="pm" aria-hidden="true"></span></summary><div class="ans"><div><p>Δεν χρειάζεται εμπειρία. Τα σενάρια γράφονται για εσένα, με τον τρόπο που μιλάς, και στη βιντεοληψία είμαστε δίπλα σου και σε καθοδηγούμε σε κάθε λήψη.</p></div></div></details>
+      <details class="qa"><summary>Πόσο γρήγορα θα δω αποτελέσματα;<span class="pm" aria-hidden="true"></span></summary><div class="ans"><div><p>Η στρατηγική είναι έτοιμη σε 7–10 ημέρες. Τα πρώτα βίντεο ανεβαίνουν μέσα στον πρώτο μήνα και αρχίζει να χτίζεται κοινό. Μέχρι τον τρίτο μήνα έρχονται τα πρώτα ραντεβού από ανθρώπους που σε είδαν εκεί.</p></div></div></details>
+      <details class="qa"><summary>Σε ποιες πλατφόρμες ανεβαίνουν τα βίντεο;<span class="pm" aria-hidden="true"></span></summary><div class="ans"><div><p>Instagram, Facebook και TikTok.</p></div></div></details>
+      <details class="qa"><summary>Δουλεύετε με κάθε ειδικότητα;<span class="pm" aria-hidden="true"></span></summary><div class="ans"><div><p>Δουλεύουμε με γιατρούς που έχουν ιδιωτικό ιατρείο ή συνεργάζονται με ιδιωτική κλινική, σε κάθε ειδικότητα.</p></div></div></details>
+      <details class="qa"><summary>Πόσο κοστίζει;<span class="pm" aria-hidden="true"></span></summary><div class="ans"><div><p>Κάθε νέα συνεργασία ξεκινάει με ένα τρίμηνο. Σε αυτό έχουμε τον χρόνο να χτίσουμε τις βάσεις και ολόκληρο το σύστημά μας, ώστε να αρχίσει να φέρνει νέα ραντεβού και να εδραιωθεί. Δεν είναι μια φθηνή λύση, και δεν ψάχνουμε συνεργάτες που ψάχνουν κάτι φθηνό ή οικονομικό. Το ακριβές κόστος το συζητάμε στην κλήση, αφού δούμε την περίπτωσή σου.</p></div></div></details>
+    </div>
+  </section>
+</main>
+
+<dialog class="modal" id="apply" aria-labelledby="mTitle">
+  <div class="m-head">
+    <div>
+      <h2 class="m-title" id="mTitle">Κλείσε <span class="accent">Στρατηγική Κλήση</span></h2>
+      <p class="m-sub">Συμπλήρωσε τα στοιχεία σου και διάλεξε ώρα.</p>
+    </div>
+    <button class="m-close" type="button" data-close aria-label="Κλείσιμο">×</button>
+  </div>
+  <div class="m-body" id="card">
+    <form id="f" novalidate>
+          <div class="prog" aria-hidden="true"><div class="track"><div class="fill" id="fill"></div></div><span class="n" id="count">1 / 3</span></div>
+
+          <div class="step on" data-step="1">
+            <h3 class="q">Πού να σε βρούμε;</h3>
+            <p class="qhelp">Για να επιβεβαιώσουμε την κλήση και να δούμε το προφίλ σου πριν μιλήσουμε.</p>
+            <div class="field" id="fName">
+              <label for="fullname">Ονοματεπώνυμο</label>
+              <input class="input" id="fullname" name="fullname" autocomplete="name" placeholder="π.χ. Γιώργος Παπαδόπουλος" required>
+              <p class="err" id="eName"></p>
+            </div>
+            <div class="two">
+              <div class="field" id="fPhone">
+                <label for="phone">Κινητό</label>
+                <input class="input" id="phone" name="phone" type="tel" inputmode="tel" autocomplete="tel" placeholder="69XXXXXXXX" required>
+                <p class="err" id="ePhone"></p>
+              </div>
+              <div class="field" id="fEmail">
+                <label for="email">Email</label>
+                <input class="input" id="email" name="email" type="email" inputmode="email" autocomplete="email" placeholder="onoma@email.gr" required>
+                <p class="err" id="eEmail"></p>
+              </div>
+            </div>
+            <div class="field" id="fIg">
+              <label for="instagram">Instagram</label>
+              <input class="input" id="instagram" name="instagram" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="@toonomasou" required>
+              <p class="err" id="eIg"></p>
+            </div>
+            <div class="nav"><span></span><button class="button" type="button" data-next>Συνέχεια →</button></div>
+            <p class="fine">Τα στοιχεία σου τα χρησιμοποιούμε μόνο για την κλήση.</p>
+          </div>
+<div class="step" data-step="2">
+            <h3 class="q">Τι ειδικότητα έχεις;</h3>
+            <div class="field" id="fSpec">
+              <label for="specialty">Ειδικότητα</label>
+              <select class="select" id="specialty" name="specialty" required>
+                <option value="" selected disabled>Διάλεξε ειδικότητα</option>
+                <option>Αγγειοχειρουργική</option>
+                <option>Δερματολογία-Αφροδισιολογία</option>
+                <option>Καρδιολογία</option>
+                <option>Μαιευτική-Γυναικολογία</option>
+                <option>Οδοντιατρική</option>
+                <option>Ορθοπαιδική</option>
+                <option>Ουρολογία</option>
+                <option>Οφθαλμολογία</option>
+                <option>Πλαστική Χειρουργική</option>
+                <option>Ωτορινολαρυγγολογία</option>
+                <option value="other">Άλλη ειδικότητα</option>
+              </select>
+              <p class="err" id="eSpec"></p>
+            </div>
+            <div class="field" id="fOther" hidden>
+              <label for="specOther">Ποια είναι η ειδικότητά σου;</label>
+              <input class="input" id="specOther" name="specOther" placeholder="π.χ. Ρευματολογία">
+              <p class="err" id="eOther"></p>
+            </div>
+            <div class="nav"><button class="back" type="button" data-back>← Πίσω</button><button class="button" type="button" data-next>Συνέχεια →</button></div>
+          </div>
+
+          <div class="step" data-step="3">
+            <h3 class="q">Η πρώτη μας συνεργασία διαρκεί 3 μήνες.</h3>
+            <p class="qhelp">Πόσα χρήματα διαθέτεις να επενδύσεις συνολικά για το τρίμηνο σε μια συνεργασία που θα αναπτύξει το ιατρείο σου;</p>
+            <fieldset class="opts" id="fBudget">
+              <legend style="position:absolute;left:-9999px">Επένδυση για το τρίμηνο</legend>
+              <div class="opt"><input type="radio" name="budget" id="b1" value="under-1500"><label for="b1">Κάτω από 1.500€</label></div>
+              <div class="opt"><input type="radio" name="budget" id="b2" value="1500-3000"><label for="b2">1.500€ – 3.000€</label></div>
+              <div class="opt"><input type="radio" name="budget" id="b3" value="3000-plus"><label for="b3">Πάνω από 3.000€</label></div>
+            </fieldset>
+            <p class="err" id="eBudget"></p>
+            <div class="nav"><button class="back" type="button" data-back>← Πίσω</button><button class="button" type="submit" id="submit">Ολοκλήρωση <span class="spin" aria-hidden="true"></span></button></div>
+          </div>
+
+                  </form>
+  </div>
+</dialog>
+
+<footer class="foot">
+  <a class="foot-logo" href="https://astramarketing.gr/" aria-label="astra marketing"><img src="assets/img/astra-wordmark-ink.svg" alt="astra" width="120" height="36"></a>
+  <strong>©2026 ASTRA MARKETING</strong>
+  <p>Αυτή η σελίδα δεν αποτελεί μέρος του YouTube, της Google, του Facebook ή της Meta και δεν υποστηρίζεται από αυτές με κανέναν τρόπο. Τα αποτελέσματα διαφέρουν ανάλογα με την ειδικότητα, την περιοχή και τη συνέπεια στις βιντεοληψίες.</p>
+</footer>
+
+<script src="assets/config.js"></script>
+<script src="assets/track.js"></script>
+<script>
+  /* ---------- VSL: muted autoplay, click to restart with sound ---------- */
+  const media = document.getElementById('media'), vsl = document.getElementById('vsl'), sound = document.getElementById('sound');
+  if (CONFIG.vsl && CONFIG.vsl.src) {
+    vsl.src = CONFIG.vsl.src; if (CONFIG.vsl.poster) vsl.poster = CONFIG.vsl.poster;
+    media.classList.add('has-video');
+    const p = vsl.play(); if (p && p.catch) p.catch(() => {});
+  }
+  sound.addEventListener('click', () => {
+    if (!media.classList.contains('has-video')) return;
+    vsl.loop = false; vsl.muted = false; vsl.currentTime = 0; vsl.controls = true;
+    const p = vsl.play(); if (p && p.catch) p.catch(() => {});
+    media.classList.add('unmuted'); track('vsl_start');
+  });
+  [25, 50, 75].forEach(q => { let hit = false; vsl.addEventListener('timeupdate', () => { if (!hit && !vsl.muted && vsl.duration && vsl.currentTime / vsl.duration * 100 >= q) { hit = true; track('vsl_' + q); } }); });
+  vsl.addEventListener('ended', () => { if (!vsl.muted) track('vsl_complete'); });
+
+  /* ---------- Scroll reveal ---------- */
+  if (!matchMedia('(prefers-reduced-motion: reduce)').matches && 'IntersectionObserver' in window) {
+    const els = document.querySelectorAll('.reveal');
+    els.forEach(el => { if (el.getBoundingClientRect().top > innerHeight * .9) el.classList.add('pre'); });
+    const io = new IntersectionObserver(es => es.forEach(e => { if (e.isIntersecting) { e.target.classList.remove('pre'); io.unobserve(e.target); } }), { rootMargin: '0px 0px -8% 0px' });
+    els.forEach(el => io.observe(el));
+  }
+
+  /* ---------- Modal ---------- */
+  const modal = document.getElementById('apply');
+  function openModal(placement) {
+    if (modal.open) return;
+    track('cta_click', { placement });
+    if (typeof modal.showModal === 'function') modal.showModal(); else modal.setAttribute('open', '');
+    document.body.classList.add('locked');
+    track('form_open', { placement });
+  }
+  function closeModal() { if (modal.open) modal.close(); }
+  modal.addEventListener('close', () => document.body.classList.remove('locked'));
+  modal.addEventListener('click', e => { if (e.target === modal || e.target.closest('[data-close]')) closeModal(); });
+  document.querySelectorAll('[data-cta]').forEach(a => a.addEventListener('click', e => { e.preventDefault(); openModal(a.dataset.cta); }));
+  if (location.hash === '#apply') openModal('direct-link');
+
+  /* ---------- Form ---------- */
+  const f = document.getElementById('f'), card = document.getElementById('card');
+  const steps = [...f.querySelectorAll('.step')];
+  let cur = 0, started = false;
+
+  function show(i) {
+    steps[cur].classList.remove('on'); cur = i; steps[cur].classList.add('on');
+    document.getElementById('count').textContent = (cur + 1) + ' / 3';
+    document.getElementById('fill').style.width = ((cur + 1) / 3 * 100) + '%';
+    modal.scrollTop = 0;
+  }
+  function setErr(fieldId, errId, msg) {
+    const fld = document.getElementById(fieldId); if (fld) fld.classList.toggle('bad', !!msg);
+    document.getElementById(errId).textContent = msg || ''; return !msg;
+  }
+  const digits = s => s.replace(/[^\d]/g, '');
+  function phoneOk(v) { let d = digits(v); if (d.startsWith('0030')) d = d.slice(4); else if (d.startsWith('30') && d.length === 12) d = d.slice(2); return /^(69\d{8}|2\d{9})$/.test(d); }
+  function igClean(v) { return v.trim().replace(/^https?:\/\/(www\.)?instagram\.com\//i, '').replace(/[/?#].*$/, '').replace(/^@+/, ''); }
+  function valid(i) {
+    if (i === 0) {
+      let ok = true;
+      ok = setErr('fName', 'eName', f.fullname.value.trim().split(/\s+/).length >= 2 ? '' : 'Γράψε όνομα και επώνυμο.') && ok;
+      ok = setErr('fPhone', 'ePhone', phoneOk(f.phone.value) ? '' : 'Γράψε ένα ελληνικό τηλέφωνο, 10 ψηφία.') && ok;
+      ok = setErr('fEmail', 'eEmail', /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(f.email.value.trim()) ? '' : 'Το email δεν φαίνεται σωστό.') && ok;
+      ok = setErr('fIg', 'eIg', /^[A-Za-z0-9._]{2,30}$/.test(igClean(f.instagram.value)) ? '' : 'Γράψε το όνομα χρήστη του Instagram σου, π.χ. @toonomasou.') && ok;
+      if (!ok) { const bad = f.querySelector('.bad input, .bad select'); if (bad) bad.focus(); }
+      return ok;
+    }
+    if (i === 1) {
+      if (!setErr('fSpec', 'eSpec', f.specialty.value ? '' : 'Διάλεξε την ειδικότητά σου.')) return false;
+      if (f.specialty.value === 'other') return setErr('fOther', 'eOther', f.specOther.value.trim().length >= 3 ? '' : 'Γράψε την ειδικότητά σου.');
+      return true;
+    }
+    return setErr('fBudget', 'eBudget', f.budget.value ? '' : 'Διάλεξε μία επιλογή για να συνεχίσεις.');
+  }
+  f.addEventListener('focusin', () => { if (!started) { started = true; track('form_start'); } });
+  f.addEventListener('click', e => {
+    if (e.target.closest('[data-next]')) { if (valid(cur)) { track('form_step', { step: cur + 1 }); show(cur + 1); } }
+    if (e.target.closest('[data-back]')) show(cur - 1);
+  });
+  f.querySelectorAll('input[name=budget]').forEach(r => r.addEventListener('change', () => setErr('fBudget', 'eBudget', '')));
+  f.specialty.addEventListener('change', () => {
+    setErr('fSpec', 'eSpec', '');
+    const other = f.specialty.value === 'other';
+    document.getElementById('fOther').hidden = !other;
+    if (other) f.specOther.focus(); else setErr('fOther', 'eOther', '');
+  });
+  f.addEventListener('keydown', e => { if (e.key === 'Enter' && cur < 2 && e.target.tagName !== 'BUTTON') { e.preventDefault(); steps[cur].querySelector('[data-next]').click(); } });
+
+  f.addEventListener('submit', async e => {
+    e.preventDefault();
+    if (cur < 2 || !valid(2)) return;
+    const btn = document.getElementById('submit'); btn.disabled = true; btn.classList.add('busy');
+    const qualified = CONFIG.qualifyingBudgets.includes(f.budget.value);
+    const lead = {
+      source: 'landing', submitted_at: new Date().toISOString(), specialty: f.specialty.value === 'other' ? 'Άλλη: ' + f.specOther.value.trim() : f.specialty.value, budget: f.budget.value,
+      qualified: qualified ? 'yes' : 'no', name: f.fullname.value.trim(), phone: f.phone.value.trim(),
+      email: f.email.value.trim(), instagram: '@' + igClean(f.instagram.value),
+      page: location.href.split('#')[0], utm: location.search.replace(/^\?/, '')
+    };
+    Object.assign(lead, window.astraCtx ? astraCtx() : {});
+    // Every answer goes to the Sheet, qualified or not; never block the visitor on it.
+    if (CONFIG.sheetUrl) {
+      const send = fetch(CONFIG.sheetUrl, { method: 'POST', mode: 'no-cors', keepalive: true, body: new URLSearchParams(lead) }).catch(() => {});
+      await Promise.race([send, new Promise(r => setTimeout(r, 1500))]);
+    }
+    track('form_submit', { qualified: lead.qualified, budget: lead.budget, specialty: lead.specialty });
+    // New submission: reset the once-per-lead pixel flags, keep the answers for the next page
+    try { sessionStorage.setItem('astra_lead', JSON.stringify(lead)); sessionStorage.removeItem('astra_lead_tracked'); sessionStorage.removeItem('astra_nq_tracked'); } catch (err) {}
+    location.href = qualified ? 'kleise-ora.html' : 'dorean-odigos.html';
+  });
+
+
+
+</script>
+</body>
+</html>

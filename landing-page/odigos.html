@@ -1,0 +1,198 @@
+<!doctype html>
+<html lang="el">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Δωρεάν οδηγός | Personal Brand για Γιατρούς · astra</title>
+<meta name="description" content="Δωρεάν οδηγός για γιατρούς: πώς χτίζεις ένα personal brand που φέρνει νέους ασθενείς, με μία βιντεοληψία τον μήνα.">
+<meta name="theme-color" content="#ffffff">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Δωρεάν οδηγός: Personal Brand για Γιατρούς">
+<meta property="og:description" content="Οι 5 πυλώνες, τα σωστά κανάλια, δεοντολογία και ένα πλάνο 30 ημερών για να ξεκινήσεις.">
+<meta property="og:image" content="assets/img/guide-cover.jpg">
+<link rel="icon" type="image/png" sizes="32x32" href="assets/img/favicon-32.png">
+<link rel="apple-touch-icon" href="assets/img/apple-touch-icon.png">
+<link rel="preload" href="assets/fonts/manrope-greek.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="assets/fonts.css">
+<link rel="stylesheet" href="assets/site.css">
+<style>
+  .hero { padding: 34px 16px 56px; background: linear-gradient(180deg, #fff 0%, #fbf8f5 100%); }
+  .head { text-align: center; }
+  .head h1 { max-width: 900px; margin: 20px auto 12px; font-size: clamp(28px, 3.4vw, 44px); line-height: 1.12; font-weight: 600; letter-spacing: -.01em; text-wrap: balance; }
+  .head h1 .accent { font-weight: 800; }
+  .head .sub { max-width: 640px; margin: 0 auto; color: var(--muted); font-size: clamp(15px, 1.5vw, 18px); }
+
+  .grid { display: grid; gap: 34px; align-items: center; margin-top: 38px; }
+  @media (min-width: 900px) { .grid { grid-template-columns: 1fr 1fr; gap: 56px; } }
+  .cover { justify-self: center; width: min(360px, 78%); }
+  .cover img { width: 100%; height: auto; border-radius: 6px; transform: rotate(-3deg); box-shadow: 0 30px 70px rgba(62, 38, 21, .32), 0 6px 16px rgba(62, 38, 21, .18); }
+
+  .card { background: #fff; border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--shadow); padding: clamp(22px, 3.4vw, 34px); width: min(500px, 100%); justify-self: center; }
+  .card h2 { font-size: 22px; font-weight: 800; line-height: 1.2; margin-bottom: 4px; }
+  .card .cs { color: var(--muted); font-size: 14px; margin-bottom: 18px; }
+  .field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; }
+  .field label { font-size: 14px; font-weight: 700; color: var(--text); }
+  .input, .select { width: 100%; min-height: 50px; padding: 12px 14px; border: 1px solid var(--line-2); border-radius: 8px; background: #fff; font-size: 16px; color: var(--ink); transition: border-color 160ms var(--ease-out), box-shadow 160ms var(--ease-out); }
+  .input::placeholder { color: #6b7a89; }
+  .input:focus, .select:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(92, 58, 33, .16); }
+  .select { appearance: none; -webkit-appearance: none; cursor: pointer; padding-right: 44px;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%235f6f7f' stroke-width='1.8'%3E%3Cpath d='M3.5 6l4.5 4.5L12.5 6'/%3E%3C/svg%3E");
+    background-repeat: no-repeat; background-position: right 14px center; background-size: 16px; }
+  .field.bad .input, .field.bad .select { border-color: var(--err); }
+  .consent { display: flex; gap: 10px; align-items: flex-start; font-size: 13px; color: var(--muted); line-height: 1.5; margin: 4px 0 6px; cursor: pointer; }
+  .consent input { flex: none; width: 18px; height: 18px; margin-top: 1px; accent-color: var(--accent); cursor: pointer; }
+  .consent.bad { color: var(--err); }
+  .err { color: var(--err); font-size: 14px; font-weight: 600; }
+  .err:empty { display: none; }
+  .card .button { width: 100%; margin-top: 14px; min-height: 58px; font-size: 18px; }
+  .spin { width: 16px; height: 16px; border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%; animation: spin 700ms linear infinite; display: none; }
+  .busy .spin { display: inline-block; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .fine { margin-top: 12px; font-size: 12px; color: var(--soft); text-align: center; }
+
+  .done { text-align: center; }
+  .done .tick { width: 54px; height: 54px; margin: 0 auto 14px; border-radius: 50%; background: var(--accent); display: grid; place-items: center; }
+  .done .tick svg { width: 26px; height: 26px; }
+  .done p { color: var(--muted); margin-bottom: 4px; }
+  .done .next { margin-top: 22px; padding-top: 18px; border-top: 1px solid var(--line); }
+  .done .next strong { display: block; color: var(--ink); margin-bottom: 4px; }
+  .done .link { color: var(--accent); font-weight: 800; }
+
+  .inside .h2 { text-align: center; margin-bottom: 26px; }
+  .items { list-style: none; display: grid; gap: 12px; width: min(900px, 100%); margin-inline: auto; }
+  @media (min-width: 760px) { .items { grid-template-columns: 1fr 1fr; } }
+  .items li { display: flex; gap: 12px; align-items: flex-start; background: #fff; border: 1px solid var(--line); border-radius: 8px; padding: 14px 16px; font-size: 15px; }
+  .items .ok { width: 24px; height: 24px; flex: none; border-radius: 50%; background: var(--accent); display: grid; place-items: center; margin-top: 1px; }
+  .items .ok svg { width: 13px; height: 13px; }
+  .items b { color: var(--ink); }
+  .again { text-align: center; margin-top: 34px; }
+  @media (prefers-reduced-motion: reduce) { .cover img { transform: none; } }
+</style>
+</head>
+<body>
+
+<main>
+  <section class="hero">
+    <div class="wrap">
+      <div class="head">
+        <span class="pill">ΔΩΡΕΑΝ ΟΔΗΓΟΣ ΓΙΑ ΓΙΑΤΡΟΥΣ · 2026</span>
+        <h1>Πώς χτίζεις ένα personal brand που φέρνει <span class="accent">νέους ασθενείς</span>, χωρίς να γίνεις content creator</h1>
+        <p class="sub">11 σελίδες με όλη τη μέθοδο: τι να πεις, πού να το πεις, πόσο χρόνο θέλει και τι να προσέχεις.</p>
+      </div>
+
+      <div class="grid">
+        <div class="cover"><img src="assets/img/guide-cover.jpg" alt="Εξώφυλλο του οδηγού Personal Brand για Γιατρούς" width="560" height="792"></div>
+
+        <div class="card" id="card">
+          <form id="g" novalidate>
+            <h2>Στείλε μου τον οδηγό</h2>
+            <p class="cs">Συμπλήρωσε τα στοιχεία σου και κατέβασέ τον αμέσως.</p>
+            <div class="field" id="fName">
+              <label for="fullname">Ονοματεπώνυμο</label>
+              <input class="input" id="fullname" name="fullname" autocomplete="name" placeholder="π.χ. Γιώργος Παπαδόπουλος">
+              <p class="err" id="eName"></p>
+            </div>
+            <div class="field" id="fEmail">
+              <label for="email">Email</label>
+              <input class="input" id="email" name="email" type="email" inputmode="email" autocomplete="email" placeholder="onoma@email.gr">
+              <p class="err" id="eEmail"></p>
+            </div>
+            <div class="field" id="fSpec">
+              <label for="specialty">Ειδικότητα</label>
+              <select class="select" id="specialty" name="specialty">
+                <option value="" selected disabled>Διάλεξε ειδικότητα</option>
+                <option>Αγγειοχειρουργική</option>
+                <option>Δερματολογία-Αφροδισιολογία</option>
+                <option>Καρδιολογία</option>
+                <option>Μαιευτική-Γυναικολογία</option>
+                <option>Οδοντιατρική</option>
+                <option>Ορθοπαιδική</option>
+                <option>Ουρολογία</option>
+                <option>Οφθαλμολογία</option>
+                <option>Πλαστική Χειρουργική</option>
+                <option>Ωτορινολαρυγγολογία</option>
+                <option>Άλλη ειδικότητα</option>
+              </select>
+              <p class="err" id="eSpec"></p>
+            </div>
+            <label class="consent" id="fConsent"><input type="checkbox" id="consent" name="consent"> <span>Θέλω να λαμβάνω email από την astra με συμβουλές για το personal brand μου. Μπορώ να διαγραφώ όποτε θέλω.</span></label>
+            <p class="err" id="eConsent"></p>
+            <button class="button" type="submit" id="submit">ΚΑΤΕΒΑΣΕ ΤΟΝ ΟΔΗΓΟ → <span class="spin" aria-hidden="true"></span></button>
+            <p class="fine">Δωρεάν. Χωρίς spam.</p>
+          </form>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section inside">
+    <div class="wrap">
+      <h2 class="h2">Τι θα βρεις <span class="accent">μέσα</span></h2>
+      <ul class="items">
+        <li><span class="ok"><svg viewBox="0 0 16 16" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8.5l3 3 7-7"/></svg></span><span><b>Οι 5 πυλώνες</b> ενός brand που φέρνει ραντεβού, όχι απλά likes.</span></li>
+        <li><span class="ok"><svg viewBox="0 0 16 16" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8.5l3 3 7-7"/></svg></span><span><b>Τα 3 είδη βίντεο</b> που χρειάζεσαι, με παραδείγματα τίτλων που δουλεύουν.</span></li>
+        <li><span class="ok"><svg viewBox="0 0 16 16" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8.5l3 3 7-7"/></svg></span><span><b>Ποια κανάλια αξίζουν</b> στην Ελλάδα και ποια να αφήσεις.</span></li>
+        <li><span class="ok"><svg viewBox="0 0 16 16" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8.5l3 3 7-7"/></svg></span><span><b>Το σύστημα της μίας βιντεοληψίας</b>: ένα πρωινό τον μήνα, βίντεο για όλο τον μήνα.</span></li>
+        <li><span class="ok"><svg viewBox="0 0 16 16" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8.5l3 3 7-7"/></svg></span><span><b>Δεοντολογία και ΓΚΠΔ</b> στην πράξη, για να μην ρισκάρεις τη φήμη σου.</span></li>
+        <li><span class="ok"><svg viewBox="0 0 16 16" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8.5l3 3 7-7"/></svg></span><span><b>Πλάνο 30 ημερών</b> σε checklist, για να ξεκινήσεις από αύριο.</span></li>
+      </ul>
+      <div class="again"><a class="button" href="#card" id="again">ΘΕΛΩ ΤΟΝ ΟΔΗΓΟ →</a></div>
+    </div>
+  </section>
+</main>
+
+<footer class="foot">
+  <a class="foot-logo" href="https://astramarketing.gr/" aria-label="astra marketing"><img src="assets/img/astra-wordmark-ink.svg" alt="astra" width="120" height="36"></a>
+  <strong>©2026 ASTRA MARKETING</strong>
+  <p>Αυτή η σελίδα δεν αποτελεί μέρος του YouTube, της Google, του Facebook ή της Meta και δεν υποστηρίζεται από αυτές με κανέναν τρόπο.</p>
+</footer>
+
+<script src="assets/config.js"></script>
+<script src="assets/track.js"></script>
+<script>
+  const g = document.getElementById('g'), card = document.getElementById('card');
+  document.getElementById('again').addEventListener('click', e => {
+    e.preventDefault(); card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    setTimeout(() => { const n = document.getElementById('fullname'); if (n) n.focus({ preventScroll: true }); }, 450);
+  });
+
+  function setErr(fieldId, errId, msg) {
+    const fld = document.getElementById(fieldId); if (fld) fld.classList.toggle('bad', !!msg);
+    document.getElementById(errId).textContent = msg || ''; return !msg;
+  }
+  let started = false;
+  g.addEventListener('focusin', () => { if (!started) { started = true; track('guide_form_start'); } });
+
+  g.addEventListener('submit', async e => {
+    e.preventDefault();
+    let ok = true;
+    ok = setErr('fName', 'eName', g.fullname.value.trim().length >= 3 ? '' : 'Γράψε το όνομά σου.') && ok;
+    ok = setErr('fEmail', 'eEmail', /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(g.email.value.trim()) ? '' : 'Το email δεν φαίνεται σωστό.') && ok;
+    ok = setErr('fSpec', 'eSpec', g.specialty.value ? '' : 'Διάλεξε την ειδικότητά σου.') && ok;
+    ok = setErr('fConsent', 'eConsent', g.consent.checked ? '' : 'Τσέκαρε το κουτάκι για να σου στείλουμε τον οδηγό.') && ok;
+    if (!ok) { const bad = g.querySelector('.bad input, .bad select'); if (bad) bad.focus(); return; }
+
+    const btn = document.getElementById('submit'); btn.disabled = true; btn.classList.add('busy');
+    const lead = {
+      source: 'guide', submitted_at: new Date().toISOString(),
+      name: g.fullname.value.trim(), email: g.email.value.trim(), specialty: g.specialty.value,
+      consent: 'yes', page: location.href.split('#')[0], utm: location.search.replace(/^\?/, '')
+    };
+    Object.assign(lead, window.astraCtx ? astraCtx() : {});
+    if (CONFIG.sheetUrl) {
+      const send = fetch(CONFIG.sheetUrl, { method: 'POST', mode: 'no-cors', keepalive: true, body: new URLSearchParams(lead) }).catch(() => {});
+      await Promise.race([send, new Promise(r => setTimeout(r, 1500))]);
+    }
+    track('complete_registration', { content_name: 'guide-personal-brand' });
+
+    const pdf = CONFIG.guidePdf;
+    card.innerHTML = '<div class="done"><div class="tick"><svg viewBox="0 0 16 16" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8.5l3 3 7-7"/></svg></div>'
+      + '<h2>Ο οδηγός είναι δικός σου</h2><p>Το κατέβασμα ξεκινάει αυτόματα. Αν δεν ξεκινήσει, πάτα το κουμπί.</p>'
+      + '<a class="button" href="' + pdf + '" download id="dl">ΚΑΤΕΒΑΣΕ ΤΟ PDF ↓</a>'
+      + '<div class="next"><strong>Θέλεις να το αναλάβουμε εμείς;</strong><p>Δεχόμαστε μέχρι 2 συνεργάτες ανά ειδικότητα. <a class="link" href="index.html#apply">Κλείσε στρατηγική κλήση →</a></p></div></div>';
+    const a = document.createElement('a'); a.href = pdf; a.download = ''; document.body.appendChild(a); a.click(); a.remove();
+    document.getElementById('dl').addEventListener('click', () => track('guide_download_click'));
+  });
+</script>
+</body>
+</html>

@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="el">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Διάλεξε ώρα για την κλήση · astra</title>
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#ffffff">
+<link rel="icon" type="image/png" sizes="32x32" href="assets/img/favicon-32.png">
+<link rel="apple-touch-icon" href="assets/img/apple-touch-icon.png">
+<link rel="preload" href="assets/fonts/manrope-greek.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="assets/fonts.css">
+<link rel="stylesheet" href="assets/site.css">
+<style>
+  .hero { padding: 40px 16px 60px; background: linear-gradient(180deg, #fff 0%, #fbf8f5 100%); text-align: center; }
+  .logo-top { display: flex; justify-content: center; margin-bottom: 26px; }
+  .logo-top img { width: 96px; height: auto; }
+  .steps { display: flex; justify-content: center; align-items: center; gap: 10px; margin: 0 auto 18px; font-size: 13px; font-weight: 700; color: var(--muted); flex-wrap: wrap; }
+  .steps .s { display: inline-flex; align-items: center; gap: 8px; }
+  .steps .dot { width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; font-size: 12px; font-weight: 800; background: #e9e1d9; color: var(--muted); }
+  .steps .done .dot { background: var(--accent); color: #fff; }
+  .steps .now { color: var(--ink); }
+  .steps .now .dot { background: #fff; color: var(--accent); box-shadow: inset 0 0 0 2px var(--accent); }
+  .steps .bar { width: 28px; height: 2px; background: #e0d6cc; }
+  h1 { font-size: clamp(28px, 3.6vw, 44px); line-height: 1.12; font-weight: 800; letter-spacing: -.01em; margin: 8px auto 10px; max-width: 820px; text-wrap: balance; }
+  .sub { color: var(--muted); font-size: clamp(16px, 1.5vw, 18px); max-width: 620px; margin: 0 auto; }
+
+  .cal { width: min(1000px, 100%); margin: 30px auto 0; background: #fff; border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--shadow); overflow: hidden; text-align: left; }
+  .calendly-inline-widget { min-width: 320px; height: 720px; }
+  .cal-empty { min-height: 380px; display: grid; place-items: center; text-align: center; padding: 30px; color: var(--muted); }
+  .cal-empty strong { display: block; color: var(--ink); font-size: 18px; margin-bottom: 6px; }
+
+</style>
+</head>
+<body>
+<main>
+  <section class="hero">
+    <div class="logo-top"><a href="https://astramarketing.gr/" aria-label="astra marketing"><img src="assets/img/astra-wordmark-ink.svg" alt="astra" width="96" height="29"></a></div>
+
+    <!-- Step 1: pick a time -->
+    <div class="picking">
+      <div class="steps" aria-label="Πρόοδος">
+        <span class="s done"><span class="dot">✓</span>Στοιχεία</span><span class="bar"></span>
+        <span class="s now"><span class="dot">2</span>Ώρα κλήσης</span><span class="bar"></span>
+        <span class="s"><span class="dot">3</span>Επιβεβαίωση</span>
+      </div>
+      <h1>Ευχαριστούμε. Ταιριάζεις σε αυτό που κάνουμε.</h1>
+      <p class="sub">Ένα τελευταίο βήμα: διάλεξε ημέρα και ώρα για τη στρατηγική κλήση μαζί μας. Οι θέσεις είναι μέχρι 2 ανά ειδικότητα.</p>
+      <div class="cal" id="cal"></div>
+    </div>
+
+  </section>
+</main>
+
+<footer class="foot">
+  <a class="foot-logo" href="https://astramarketing.gr/" aria-label="astra marketing"><img src="assets/img/astra-wordmark-ink.svg" alt="astra" width="120" height="36"></a>
+  <strong>©2026 ASTRA MARKETING</strong>
+</footer>
+
+<script src="assets/config.js"></script>
+<script src="assets/track.js"></script>
+<script>
+  let lead = {}; try { lead = JSON.parse(sessionStorage.getItem('astra_lead') || '{}'); } catch (e) {}
+  // Someone who was rejected should not land on the calendar
+  if (lead.qualified === 'no') location.replace('dorean-odigos.html');
+
+  // Qualified lead: logged in the Sheet only. The Meta "Lead" fires on thank-you.html, when the call is booked.
+  if (lead.qualified === 'yes' && !sessionStorage.getItem('astra_lead_tracked')) {
+    track('lead', { content_name: 'personal-brand-call', specialty: lead.specialty, meta: false });
+    try { sessionStorage.setItem('astra_lead_tracked', '1'); } catch (e) {}
+  }
+
+  const cal = document.getElementById('cal');
+  if (CONFIG.calendlyUrl) {
+    const u = new URL(CONFIG.calendlyUrl);
+    u.searchParams.set('hide_gdpr_banner', '1');
+    u.searchParams.set('primary_color', '5c3a21');
+    if (lead.name) u.searchParams.set('name', lead.name);
+    if (lead.email) u.searchParams.set('email', lead.email);
+    if (lead.phone) u.searchParams.set('a1', lead.phone);
+    const w = document.createElement('div'); w.className = 'calendly-inline-widget'; w.dataset.url = u.toString(); cal.appendChild(w);
+    const s = document.createElement('script'); s.src = 'https://assets.calendly.com/assets/external/widget.js'; s.async = true; document.body.appendChild(s);
+  } else {
+    cal.innerHTML = '<div class="cal-empty"><div><strong>Το ημερολόγιο μπαίνει εδώ</strong>Συμπλήρωσε το CONFIG.calendlyUrl στο assets/config.js.</div></div>';
+  }
+
+  // Booked → thank-you page (the Schedule pixel fires there)
+  window.addEventListener('message', e => {
+    if (e.origin !== 'https://calendly.com' || !e.data || e.data.event !== 'calendly.event_scheduled') return;
+    try { sessionStorage.setItem('astra_booked', '1'); sessionStorage.removeItem('astra_schedule_tracked'); } catch (err) {}
+    location.href = 'thank-you.html';
+  });
+</script>
+</body>
+</html>

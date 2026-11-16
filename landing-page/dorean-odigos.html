@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="el">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Ο δωρεάν οδηγός σας | astra</title>
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#ffffff">
+<link rel="icon" type="image/png" sizes="32x32" href="assets/img/favicon-32.png">
+<link rel="apple-touch-icon" href="assets/img/apple-touch-icon.png">
+<link rel="preload" href="assets/fonts/manrope-greek.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="assets/fonts.css">
+<link rel="stylesheet" href="assets/site.css">
+<style>
+  .hero { padding: 40px 16px 64px; background: linear-gradient(180deg, #fff 0%, #fbf8f5 100%); }
+  .logo-top { display: flex; justify-content: center; margin-bottom: 28px; }
+  .logo-top img { width: 96px; height: auto; }
+  .grid { display: grid; gap: 34px; align-items: center; width: min(1000px, 100%); margin-inline: auto; }
+  @media (min-width: 900px) { .grid { grid-template-columns: 1.1fr .9fr; gap: 56px; } }
+  .msg h1 { font-size: clamp(28px, 3.4vw, 42px); line-height: 1.12; font-weight: 800; letter-spacing: -.01em; margin: 16px 0 16px; text-wrap: balance; }
+  .msg p { color: var(--muted); font-size: clamp(16px, 1.5vw, 18px); max-width: 560px; margin-bottom: 12px; }
+  .msg .warm { color: var(--ink); font-weight: 700; }
+  .msg .button { margin-top: 18px; }
+  .cover { justify-self: center; width: min(320px, 72%); }
+  .cover img { width: 100%; height: auto; border-radius: 6px; transform: rotate(-3deg); box-shadow: 0 30px 70px rgba(62, 38, 21, .32), 0 6px 16px rgba(62, 38, 21, .18); }
+  @media (max-width: 899px) { .msg { text-align: center; } .msg p { margin-inline: auto; } .cover { order: -1; } }
+
+  .inside .h2 { text-align: center; margin-bottom: 26px; }
+  .items { list-style: none; display: grid; gap: 12px; width: min(900px, 100%); margin-inline: auto; }
+  @media (min-width: 760px) { .items { grid-template-columns: 1fr 1fr; } }
+  .items li { display: flex; gap: 12px; align-items: flex-start; background: #fff; border: 1px solid var(--line); border-radius: 8px; padding: 14px 16px; font-size: 15px; }
+  .items .ok { width: 24px; height: 24px; flex: none; border-radius: 50%; background: var(--accent); display: grid; place-items: center; margin-top: 1px; }
+  .items .ok svg { width: 13px; height: 13px; }
+  .items b { color: var(--ink); }
+  .again { text-align: center; margin-top: 34px; }
+  @media (prefers-reduced-motion: reduce) { .cover img { transform: none; } }
+</style>
+</head>
+<body>
+<main>
+  <section class="hero">
+    <div class="logo-top"><a href="https://astramarketing.gr/" aria-label="astra marketing"><img src="assets/img/astra-wordmark-ink.svg" alt="astra" width="96" height="29"></a></div>
+    <div class="grid">
+      <div class="msg">
+        <span class="pill">Ο ΔΩΡΕΑΝ ΟΔΗΓΟΣ ΣΑΣ</span>
+        <h1>Ευχαριστούμε για τον χρόνο σας</h1>
+        <p>Δυστυχώς, δεν είμαστε σε θέση να συνεργαστούμε αυτή τη στιγμή λόγω του budget σας. Μπορείτε να χρησιμοποιήσετε τον δωρεάν οδηγό που έχουμε δημιουργήσει, για να κάνετε χωρίς κόστος τα πρώτα σας βήματα στο προσωπικό σας brand.</p>
+        <p class="warm">Θα χαρούμε πολύ να συνεργαστούμε στο μέλλον.</p>
+        <a class="button" id="dl" href="assets/astra-odigos-personal-brand-giatroi.pdf" download>ΚΑΤΕΒΑΣΕ ΤΟΝ ΔΩΡΕΑΝ ΟΔΗΓΟ ↓</a>
+      </div>
+      <div class="cover"><img src="assets/img/guide-cover.jpg" alt="Ο δωρεάν οδηγός Personal Brand για Γιατρούς" width="560" height="792"></div>
+    </div>
+  </section>
+
+  <section class="section inside">
+    <div class="wrap">
+      <h2 class="h2">Τι θα βρείτε <span class="accent">μέσα</span></h2>
+      <ul class="items">
+        <li><span class="ok"><svg viewBox="0 0 16 16" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8.5l3 3 7-7"/></svg></span><span><b>Οι 5 πυλώνες</b> ενός brand που φέρνει ραντεβού, όχι απλά likes.</span></li>
+        <li><span class="ok"><svg viewBox="0 0 16 16" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8.5l3 3 7-7"/></svg></span><span><b>Τα 3 είδη βίντεο</b> που χρειάζεστε, με παραδείγματα τίτλων που δουλεύουν.</span></li>
+        <li><span class="ok"><svg viewBox="0 0 16 16" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8.5l3 3 7-7"/></svg></span><span><b>Ποια κανάλια αξίζουν</b> στην Ελλάδα και ποια να αφήσετε.</span></li>
+        <li><span class="ok"><svg viewBox="0 0 16 16" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8.5l3 3 7-7"/></svg></span><span><b>Το σύστημα της μίας βιντεοληψίας</b>: ένα πρωινό τον μήνα, βίντεο για όλο τον μήνα.</span></li>
+        <li><span class="ok"><svg viewBox="0 0 16 16" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8.5l3 3 7-7"/></svg></span><span><b>Δεοντολογία και ΓΚΠΔ</b> στην πράξη, για να μη ρισκάρετε τη φήμη σας.</span></li>
+        <li><span class="ok"><svg viewBox="0 0 16 16" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8.5l3 3 7-7"/></svg></span><span><b>Πλάνο 30 ημερών</b> σε checklist, για να ξεκινήσετε από αύριο.</span></li>
+      </ul>
+      <div class="again"><a class="button" id="dl2" href="assets/astra-odigos-personal-brand-giatroi.pdf" download>ΚΑΤΕΒΑΣΕ ΤΟΝ ΟΔΗΓΟ ↓</a></div>
+    </div>
+  </section>
+</main>
+
+<footer class="foot">
+  <a class="foot-logo" href="https://astramarketing.gr/" aria-label="astra marketing"><img src="assets/img/astra-wordmark-ink.svg" alt="astra" width="120" height="36"></a>
+  <strong>©2026 ASTRA MARKETING</strong>
+</footer>
+
+<script src="assets/config.js"></script>
+<script src="assets/track.js"></script>
+<script>
+  let lead = {}; try { lead = JSON.parse(sessionStorage.getItem('astra_lead') || '{}'); } catch (e) {}
+  ['dl', 'dl2'].forEach(id => { const a = document.getElementById(id); a.href = CONFIG.guidePdf; a.addEventListener('click', () => track('guide_download_click', { from: 'not_qualified' })); });
+  // Count the rejection once per form submission
+  if (lead.qualified === 'no' && !sessionStorage.getItem('astra_nq_tracked')) { track('not_qualified', { specialty: lead.specialty }); try { sessionStorage.setItem('astra_nq_tracked', '1'); } catch (e) {} }
+</script>
+</body>
+</html>

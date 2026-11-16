@@ -1,0 +1,80 @@
+/* astra · Personal Brand landing. Layout and look follow applyclinicbrain.com.
+   Font: Manrope (Poppins/Montserrat have no Greek glyphs). */
+:root {
+  --ink: #101828; --text: #15202b; --muted: #5f6f7f; --soft: #667085;
+  --panel: #ffffff; --panel-strong: #f7fbfd; --line: #dbe7ee; --line-2: #cddbe3;
+  --accent: #5C3A21; --accent-deep: #3E2615; --accent-text: #5C3A21;
+  --rose: #ef6f7d; --gold: #ffb31a; --err: #c0392b;
+  --shadow: 0 24px 70px rgba(13, 27, 38, .16);
+  --shadow-sm: 0 8px 24px rgba(16, 24, 40, .08);
+  --ease-out: cubic-bezier(.23, 1, .32, 1);
+  --font: 'Manrope', system-ui, -apple-system, 'Segoe UI', Arial, sans-serif;
+  color-scheme: light;
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
+body { background: #fff; color: var(--ink); font-family: var(--font); font-size: 16px; line-height: 1.6; -webkit-font-smoothing: antialiased; overflow-x: hidden; min-height: 100dvh; }
+img, svg, video { display: block; max-width: 100%; }
+a { color: inherit; }
+button, input, select { font: inherit; color: inherit; }
+::selection { background: rgba(92, 58, 33, .18); }
+:focus-visible { outline: 3px solid rgba(92, 58, 33, .5); outline-offset: 3px; }
+
+.section { width: 100%; padding: clamp(44px, 7vw, 80px) 16px; }
+.wrap { width: min(1120px, 100%); margin-inline: auto; }
+.narrow { width: min(820px, 100%); margin-inline: auto; }
+.center { text-align: center; }
+
+.accent { color: var(--accent); }
+.h2 { font-size: clamp(28px, 3.6vw, 44px); line-height: 1.12; font-weight: 800; letter-spacing: -.015em; color: var(--ink); text-wrap: balance; }
+.lead { color: var(--muted); font-size: clamp(15px, 1.4vw, 17px); max-width: 620px; margin: 14px auto 0; }
+
+/* Top pill */
+.pill {
+  display: inline-flex; align-items: center; min-height: 38px; padding: 8px 16px; border-radius: 6px;
+  background: #fff; box-shadow: var(--shadow-sm); color: var(--ink);
+  font-size: clamp(12px, 1.5vw, 17px); font-weight: 800; letter-spacing: .02em;
+}
+
+/* Main CTA */
+.button {
+  display: inline-flex; align-items: center; justify-content: center; gap: 10px;
+  width: min(100%, 520px); min-height: 66px; padding: 15px 24px; border: 0; border-radius: 8px; cursor: pointer;
+  color: #fff; background: linear-gradient(180deg, #74492A, var(--accent-deep));
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, .18) inset, 0 16px 45px rgba(62, 38, 21, .30);
+  font-size: clamp(16px, 1.9vw, 22px); font-weight: 800; letter-spacing: .01em; text-align: center; text-decoration: none; line-height: 1.2;
+  transition: transform 180ms var(--ease-out), box-shadow 180ms var(--ease-out), filter 180ms var(--ease-out);
+}
+@media (hover: hover) and (pointer: fine) {
+  .button:hover { transform: translateY(-2px); box-shadow: 0 0 0 1px rgba(255, 255, 255, .18) inset, 0 22px 55px rgba(62, 38, 21, .38); }
+}
+.button:active { transform: scale(.98); }
+.button[disabled] { opacity: .55; cursor: not-allowed; transform: none; }
+.microcopy { max-width: 520px; margin: 12px auto 0; color: var(--soft); font-size: 13px; }
+
+/* Small header used on the inner pages */
+.top { display: flex; justify-content: center; padding: 22px 16px 0; }
+.wordmark img { width: 92px; height: auto; }
+
+/* Inner-page type */
+.display { font-size: clamp(30px, 4vw, 46px); line-height: 1.1; font-weight: 800; letter-spacing: -.015em; color: var(--ink); text-wrap: balance; }
+.label { font-size: 13px; font-weight: 800; letter-spacing: .06em; color: var(--accent-text); }
+.body { color: var(--muted); max-width: 620px; }
+.star { display: none; }
+
+/* Footer */
+footer.foot { background: #f0f3f6; padding: 26px 16px calc(26px + env(safe-area-inset-bottom, 0px)); text-align: center; color: var(--soft); font-size: 12px; }
+footer.foot .foot-logo { display: inline-block; margin-bottom: 14px; }
+footer.foot .foot-logo img { width: 120px; height: auto; }
+footer.foot strong { display: block; color: var(--muted); font-size: 12px; letter-spacing: .04em; margin-bottom: 6px; }
+footer.foot p { max-width: 900px; margin: 0 auto; }
+
+/* Scroll reveal: visible by default, JS hides only below-the-fold items when motion is allowed */
+.reveal { transition: opacity 700ms var(--ease-out), transform 700ms var(--ease-out); }
+.reveal.pre { opacity: 0; transform: translateY(16px); }
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  .reveal, .reveal.pre { opacity: 1; transform: none; transition: none; }
+  .button { transition: none; }
+}

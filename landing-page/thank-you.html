@@ -1,0 +1,294 @@
+<!doctype html>
+<html lang="el">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Η κλήση σου κλείστηκε · astra</title>
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#ffffff">
+<link rel="icon" type="image/png" sizes="32x32" href="assets/img/favicon-32.png">
+<link rel="apple-touch-icon" href="assets/img/apple-touch-icon.png">
+<link rel="preload" href="assets/fonts/manrope-greek.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="assets/fonts.css">
+<link rel="stylesheet" href="assets/site.css">
+<style>
+  .hero { padding: 40px 16px 56px; background: linear-gradient(180deg, #fff 0%, #fbf8f5 100%); text-align: center; }
+  .logo-top { display: flex; justify-content: center; margin-bottom: 24px; }
+  .logo-top img { width: 96px; height: auto; }
+  .steps { display: flex; justify-content: center; align-items: center; gap: 10px; margin: 0 auto 18px; font-size: 13px; font-weight: 700; color: var(--ink); flex-wrap: wrap; }
+  .steps .s { display: inline-flex; align-items: center; gap: 8px; }
+  .steps .dot { width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; background: var(--accent); color: #fff; }
+  .steps .dot svg { width: 12px; height: 12px; }
+  .steps .bar { width: 28px; height: 2px; background: var(--accent); opacity: .35; }
+  h1 { font-size: clamp(28px, 3.6vw, 46px); line-height: 1.1; font-weight: 800; letter-spacing: -.01em; margin: 6px auto 10px; max-width: 860px; text-wrap: balance; }
+  .sub { color: var(--muted); font-size: clamp(16px, 1.5vw, 19px); max-width: 640px; margin: 0 auto; }
+
+  /* Pre-call video: muted autoplay, tap to watch with sound */
+  .media { position: relative; width: min(880px, 100%); margin: 26px auto 0; border-radius: 10px; overflow: hidden; background: #0d1620; box-shadow: var(--shadow); aspect-ratio: 16 / 9; }
+  .media video { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .sound { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 2; min-height: 58px; max-width: calc(100% - 32px); padding: 14px 24px; border: 0; border-radius: 8px; cursor: pointer; color: #fff; background: var(--rose); box-shadow: 0 18px 45px rgba(120, 20, 34, .28); font-size: clamp(14px, 2vw, 19px); font-weight: 800; transition: transform 180ms var(--ease-out), opacity 220ms var(--ease-out), background-color 180ms var(--ease-out); }
+  @media (hover: hover) and (pointer: fine) { .sound:hover { background: #e85d6d; transform: translate(-50%, -50%) scale(1.03); } }
+  .sound:active { transform: translate(-50%, -50%) scale(.98); }
+  .media.unmuted .sound { opacity: 0; pointer-events: none; }
+
+  /* Accept-the-invite callout */
+  .accept { width: min(880px, 100%); margin: 26px auto 0; text-align: left; background: #fff; border: 1px solid var(--line); border-radius: 12px; box-shadow: 0 14px 40px rgba(13, 27, 38, .08); overflow: hidden; }
+  .accept-head { display: flex; gap: 12px; align-items: center; padding: 16px 20px; background: #fbf3ec; border-bottom: 1px solid #efe3d8; }
+  .accept-head .ic { width: 34px; height: 34px; flex: none; border-radius: 50%; background: var(--accent); display: grid; place-items: center; }
+  .accept-head .ic svg { width: 18px; height: 18px; }
+  .accept-head h2 { font-size: clamp(17px, 1.8vw, 20px); font-weight: 800; line-height: 1.25; }
+  .accept ol { list-style: none; counter-reset: s; padding: 8px 20px 12px; }
+  .accept li { counter-increment: s; display: grid; grid-template-columns: 34px 1fr; gap: 8px; padding: 12px 0; border-bottom: 1px solid var(--line); }
+  .accept li:last-child { border-bottom: 0; }
+  .accept li::before { content: counter(s); width: 24px; height: 24px; border-radius: 50%; background: #f1e7dd; color: var(--accent); font-weight: 800; font-size: 13px; display: grid; place-items: center; margin-top: 1px; }
+  .accept strong { display: block; color: var(--ink); font-size: 16px; }
+  .accept span { color: var(--muted); font-size: 15px; }
+
+  /* Results */
+  .results { padding: clamp(56px, 8vw, 96px) 16px; }
+  .results .h2 { text-align: center; }
+  .results .lead { text-align: center; margin-bottom: 34px; }
+  .board { width: min(1120px, 100%); margin-inline: auto; display: grid; gap: 16px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  @media (min-width: 760px) { .board { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 20px; } }
+  .res { margin: 0; }
+  .shot { position: relative; aspect-ratio: 3 / 4; border-radius: 10px; overflow: hidden; background: #e9e1d9; box-shadow: 0 10px 28px rgba(13, 27, 38, .12); transition: transform 260ms var(--ease-out), box-shadow 260ms var(--ease-out); }
+  .shot img { width: 100%; height: 100%; object-fit: cover; display: block; transition: transform 400ms var(--ease-out); }
+  @media (hover: hover) and (pointer: fine) {
+    .res:hover .shot { transform: translateY(-4px); box-shadow: 0 18px 40px rgba(13, 27, 38, .2); }
+    .res:hover .shot img { transform: scale(1.03); }
+  }
+  .views { position: absolute; left: 8px; top: 8px; z-index: 1; display: inline-flex; align-items: center; gap: 5px; padding: 5px 10px 5px 8px; border-radius: 999px; color: #fff; white-space: nowrap; background: rgba(16, 12, 9, .72); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); box-shadow: 0 4px 14px rgba(0, 0, 0, .25); }
+  .views svg { width: 12px; height: 12px; flex: none; }
+  .views b { font-size: clamp(13px, 1.3vw, 16px); font-weight: 800; font-variant-numeric: tabular-nums; }
+  .res figcaption { padding: 10px 2px 0; line-height: 1.3; }
+  .res figcaption strong { display: block; font-size: 14px; color: var(--ink); }
+  .res figcaption span { font-size: 13px; color: var(--muted); }
+
+  /* Featured result */
+  .spot { width: min(1120px, 100%); margin: 0 auto 22px; display: grid; gap: 22px; align-items: center; background: linear-gradient(160deg, #6b4428 0%, #3E2615 60%, #24160c 100%); color: #fff; border-radius: 14px; padding: clamp(18px, 3vw, 30px); box-shadow: var(--shadow); }
+  @media (min-width: 760px) { .spot { grid-template-columns: 260px 1fr; gap: 36px; } }
+  .spot .res { width: min(260px, 70%); margin-inline: auto; }
+  .spot .res figcaption { display: none; }
+  .spot .big { font-size: clamp(44px, 6vw, 76px); font-weight: 800; line-height: 1; letter-spacing: -.02em; font-variant-numeric: tabular-nums; color: #f3c79c; }
+  .spot .big-l { font-size: clamp(17px, 1.8vw, 21px); font-weight: 700; margin: 8px 0 14px; }
+  .spot p { color: #ead9ca; max-width: 520px; }
+  .spot .who { margin-top: 16px; font-size: 14px; color: #f4e7db; }
+  .spot .who b { color: #fff; }
+  @media (max-width: 759px) { .spot { text-align: center; } .spot p { margin-inline: auto; } }
+
+  /* Pop-in: content is visible without JS; JS hides only cards below the fold, then reveals them once */
+  .js .pop.pre { opacity: 0; transform: translateY(18px) scale(.97); }
+  .pop { transition: opacity 520ms var(--ease-out), transform 520ms var(--ease-out); transition-delay: calc(var(--i, 0) % 4 * 60ms); }
+  @media (prefers-reduced-motion: reduce) { .pop, .js .pop.pre { opacity: 1; transform: none; transition: none; } .shot, .shot img, .sound { transition: none; } }
+  .closing { text-align: center; margin-top: 40px; color: var(--muted); }
+  .closing strong { color: var(--ink); }
+</style>
+<script>document.documentElement.classList.add('js')</script>
+</head>
+<body>
+<main>
+  <section class="hero">
+    <div class="logo-top"><a href="https://astramarketing.gr/" aria-label="astra marketing"><img src="assets/img/astra-wordmark-ink.svg" alt="astra" width="96" height="29"></a></div>
+    <div class="steps" aria-label="Όλα τα βήματα ολοκληρώθηκαν">
+      <span class="s"><span class="dot"><svg viewBox="0 0 16 16" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8.5l3 3 7-7"/></svg></span>Στοιχεία</span><span class="bar"></span>
+      <span class="s"><span class="dot"><svg viewBox="0 0 16 16" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8.5l3 3 7-7"/></svg></span>Ώρα κλήσης</span><span class="bar"></span>
+      <span class="s"><span class="dot"><svg viewBox="0 0 16 16" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8.5l3 3 7-7"/></svg></span>Επιβεβαίωση</span>
+    </div>
+    <h1>Η κλήση σου κλείστηκε. Δες αυτό το βίντεο πριν μιλήσουμε.</h1>
+    <p class="sub">Ένα λεπτό για το πώς θα κυλήσει η κλήση και τι να έχεις έτοιμο.</p>
+
+    <div class="media" id="media">
+      <video id="pre" playsinline muted loop autoplay preload="metadata" poster="assets/precall-poster.jpg" src="assets/precall.mp4"></video>
+      <button class="sound" id="sound" type="button">ΠΑΤΑ ΓΙΑ ΝΑ ΔΕΙΣ ΜΕ ΗΧΟ</button>
+    </div>
+
+    <div class="accept">
+      <div class="accept-head">
+        <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18M9 15l2 2 4-4"/></svg></span>
+        <h2>Σημαντικό: αποδέξου την πρόσκληση στο ημερολόγιο</h2>
+      </div>
+      <ol>
+        <li><div><strong>Άνοιξε το email με την πρόσκληση</strong><span>Θα το βρεις στα εισερχόμενα. Αν δεν φαίνεται, κοίτα στα Προωθήσεις ή στα Ανεπιθύμητα.</span></div></li>
+        <li><div><strong>Πάτα «Ναι» / «Accept»</strong><span>Έτσι η κλήση μπαίνει στο πρόγραμμά σου και σου έρχεται υπενθύμιση.</span></div></li>
+        <li><div><strong>Κράτα την ώρα ελεύθερη</strong><span>Την ώρα της κλήσης να είσαι σε ήσυχο χώρο. Αν χρειαστεί να αλλάξεις ώρα, μπορείς από το ίδιο email.</span></div></li>
+      </ol>
+    </div>
+  </section>
+
+  <section class="results" id="results">
+    <h2 class="h2">Αποτελέσματα σε <span class="accent">συνεργάτες</span></h2>
+    <p class="lead">Μερικά από τα βίντεο που φτιάξαμε για γιατρούς που δουλεύουμε μαζί.</p>
+
+    <div class="spot pop" style="--i:0">
+        <figure class="res feat pop" style="--i:0">
+          <div class="shot">
+            <img src="assets/results/r01.jpg" alt="Μπατονέτες απαγορεύονται;, Σπύρος Παπασπύρου" width="480" height="640" loading="lazy">
+            <span class="views"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M5 3.5v9l7-4.5z" fill="currentColor"/></svg><b data-count="1100000">1,1 εκ.</b></span>
+          </div>
+          <figcaption><strong>Σπύρος Παπασπύρου</strong><span>ΩΡΛ · Instagram</span></figcaption>
+        </figure>
+      <div>
+        <div class="big" data-count="1100000" data-format="long">1,1 εκατομμύριο</div>
+        <div class="big-l">προβολές σε ένα βίντεο, τον πρώτο μήνα</div>
+        <p>Ένα βίντεο για μια απλή ερώτηση που έχουν όλοι. Αυτό ακριβώς χτίζουμε: θέματα που αφορούν χιλιάδες, με τον τρόπο που μιλάει ο γιατρός.</p>
+        <p class="who"><b>Σπύρος Παπασπύρου</b> · Ωτορινολαρυγγολόγος · Instagram</p>
+      </div>
+    </div>
+
+    <div class="board">
+        <figure class="res pop" style="--i:0">
+          <div class="shot">
+            <img src="assets/results/r02.jpg" alt="Ροχαλητό στον ύπνο, Σπύρος Παπασπύρου" width="480" height="640" loading="lazy">
+            <span class="views"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M5 3.5v9l7-4.5z" fill="currentColor"/></svg><b data-count="132000">132 χιλ.</b></span>
+          </div>
+          <figcaption><strong>Σπύρος Παπασπύρου</strong><span>ΩΡΛ · Instagram</span></figcaption>
+        </figure>
+        <figure class="res pop" style="--i:1">
+          <div class="shot">
+            <img src="assets/results/r03.jpg" alt="Βούλωμα αυτιών στο αεροπλάνο, Σπύρος Παπασπύρου" width="480" height="640" loading="lazy">
+            <span class="views"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M5 3.5v9l7-4.5z" fill="currentColor"/></svg><b data-count="123000">123 χιλ.</b></span>
+          </div>
+          <figcaption><strong>Σπύρος Παπασπύρου</strong><span>ΩΡΛ · Instagram</span></figcaption>
+        </figure>
+        <figure class="res pop" style="--i:2">
+          <div class="shot">
+            <img src="assets/results/r04.jpg" alt="Πονάς στην περίοδο;, Κωνσταντίνος Μυρίλλας" width="480" height="640" loading="lazy">
+            <span class="views"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M5 3.5v9l7-4.5z" fill="currentColor"/></svg><b data-count="113700">113,7 χιλ.</b></span>
+          </div>
+          <figcaption><strong>Κωνσταντίνος Μυρίλλας</strong><span>Γυναικολόγος · TikTok</span></figcaption>
+        </figure>
+        <figure class="res pop" style="--i:3">
+          <div class="shot">
+            <img src="assets/results/r05.jpg" alt="Θετική στον HPV, Κωνσταντίνος Μυρίλλας" width="480" height="640" loading="lazy">
+            <span class="views"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M5 3.5v9l7-4.5z" fill="currentColor"/></svg><b data-count="101700">101,7 χιλ.</b></span>
+          </div>
+          <figcaption><strong>Κωνσταντίνος Μυρίλλας</strong><span>Γυναικολόγος · TikTok</span></figcaption>
+        </figure>
+        <figure class="res pop" style="--i:4">
+          <div class="shot">
+            <img src="assets/results/r06.jpg" alt="Κούραση με 8 ώρες ύπνο, Σπύρος Παπασπύρου" width="480" height="640" loading="lazy">
+            <span class="views"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M5 3.5v9l7-4.5z" fill="currentColor"/></svg><b data-count="91100">91,1 χιλ.</b></span>
+          </div>
+          <figcaption><strong>Σπύρος Παπασπύρου</strong><span>ΩΡΛ · Instagram</span></figcaption>
+        </figure>
+        <figure class="res pop" style="--i:5">
+          <div class="shot">
+            <img src="assets/results/r07.jpg" alt="Γιατί δεν τελειώνεις;, Ιάσονας Σγουραίας" width="480" height="640" loading="lazy">
+            <span class="views"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M5 3.5v9l7-4.5z" fill="currentColor"/></svg><b data-count="75400">75,4 χιλ.</b></span>
+          </div>
+          <figcaption><strong>Ιάσονας Σγουραίας</strong><span>Γυναικολόγος · Instagram</span></figcaption>
+        </figure>
+        <figure class="res pop" style="--i:6">
+          <div class="shot">
+            <img src="assets/results/r08.jpg" alt="Πόνος στη γάμπα, Γιώργος Ελευθερίου" width="480" height="640" loading="lazy">
+            <span class="views"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M5 3.5v9l7-4.5z" fill="currentColor"/></svg><b data-count="73700">73,7 χιλ.</b></span>
+          </div>
+          <figcaption><strong>Γιώργος Ελευθερίου</strong><span>Αγγειοχειρουργός · TikTok</span></figcaption>
+        </figure>
+        <figure class="res pop" style="--i:7">
+          <div class="shot">
+            <img src="assets/results/r09.jpg" alt="Επαφή στην περίοδο, Κωνσταντίνος Μυρίλλας" width="480" height="640" loading="lazy">
+            <span class="views"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M5 3.5v9l7-4.5z" fill="currentColor"/></svg><b data-count="72700">72,7 χιλ.</b></span>
+          </div>
+          <figcaption><strong>Κωνσταντίνος Μυρίλλας</strong><span>Γυναικολόγος · Instagram</span></figcaption>
+        </figure>
+        <figure class="res pop" style="--i:8">
+          <div class="shot">
+            <img src="assets/results/r10.jpg" alt="Διαρροή: είναι πρόβλημα;, Ιάσονας Σγουραίας" width="480" height="640" loading="lazy">
+            <span class="views"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M5 3.5v9l7-4.5z" fill="currentColor"/></svg><b data-count="40200">40,2 χιλ.</b></span>
+          </div>
+          <figcaption><strong>Ιάσονας Σγουραίας</strong><span>Γυναικολόγος · Instagram</span></figcaption>
+        </figure>
+        <figure class="res pop" style="--i:9">
+          <div class="shot">
+            <img src="assets/results/r11.jpg" alt="Έσπασε το προφυλακτικό, Κωνσταντίνος Αργυράκης" width="480" height="640" loading="lazy">
+            <span class="views"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M5 3.5v9l7-4.5z" fill="currentColor"/></svg><b data-count="34500">34,5 χιλ.</b></span>
+          </div>
+          <figcaption><strong>Κωνσταντίνος Αργυράκης</strong><span>Γυναικολόγος · Instagram</span></figcaption>
+        </figure>
+        <figure class="res pop" style="--i:10">
+          <div class="shot">
+            <img src="assets/results/r12.jpg" alt="Μην το αγνοείς, Γιώργος Ελευθερίου" width="480" height="640" loading="lazy">
+            <span class="views"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M5 3.5v9l7-4.5z" fill="currentColor"/></svg><b data-count="32000">32 χιλ.</b></span>
+          </div>
+          <figcaption><strong>Γιώργος Ελευθερίου</strong><span>Αγγειοχειρουργός · Instagram</span></figcaption>
+        </figure>
+        <figure class="res pop" style="--i:11">
+          <div class="shot">
+            <img src="assets/results/r13.jpg" alt="Αίμα χωρίς περίοδο, Κωνσταντίνος Αργυράκης" width="480" height="640" loading="lazy">
+            <span class="views"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M5 3.5v9l7-4.5z" fill="currentColor"/></svg><b data-count="30500">30,5 χιλ.</b></span>
+          </div>
+          <figcaption><strong>Κωνσταντίνος Αργυράκης</strong><span>Γυναικολόγος · TikTok</span></figcaption>
+        </figure>
+    </div>
+    <p class="closing"><strong>Τα λέμε στην κλήση.</strong> Θα δούμε τι μπορεί να γίνει και για τη δική σου ειδικότητα.</p>
+  </section>
+</main>
+
+<footer class="foot">
+  <a class="foot-logo" href="https://astramarketing.gr/" aria-label="astra marketing"><img src="assets/img/astra-wordmark-ink.svg" alt="astra" width="120" height="36"></a>
+  <strong>©2026 ASTRA MARKETING</strong>
+</footer>
+
+<script src="assets/config.js"></script>
+<script src="assets/track.js"></script>
+<script>
+  /* Visits from the pre-call email are not new bookings */
+  const fromEmail = new URLSearchParams(location.search).get('from') === 'email';
+  if (fromEmail) { try { sessionStorage.setItem('astra_schedule_tracked', '1'); } catch (e) {} track('email_click'); }
+
+  /* Meta Schedule: once per booking */
+  let booked = false; try { booked = sessionStorage.getItem('astra_booked') === '1'; } catch (e) {}
+  let done = false; try { done = sessionStorage.getItem('astra_schedule_tracked') === '1'; } catch (e) {}
+  // Mark the lead as booked in the Sheet (tab "Κλήσεις")
+  if (!done && CONFIG.sheetUrl) {
+    let lead = {}; try { lead = JSON.parse(sessionStorage.getItem('astra_lead') || '{}'); } catch (e) {}
+    if (lead.email) {
+      const body = new URLSearchParams({ source: 'booked', email: lead.email, ts: new Date().toISOString() });
+      try { if (!(navigator.sendBeacon && navigator.sendBeacon(CONFIG.sheetUrl, body))) fetch(CONFIG.sheetUrl, { method: 'POST', mode: 'no-cors', keepalive: true, body }); } catch (e) {}
+    }
+  }
+  // Meta: a booked call is the Lead (the campaign optimises on it); Schedule is kept for the Sheet funnel.
+  if (!done) {
+    if (window.fbq) fbq('track', 'Lead', { content_name: 'personal-brand-call' });
+    track('schedule', { content_name: 'personal-brand-call', via: booked ? 'page' : 'calendly-redirect', meta: false });
+    try { sessionStorage.setItem('astra_schedule_tracked', '1'); } catch (e) {}
+  }
+
+  /* Pre-call video */
+  const media = document.getElementById('media'), pre = document.getElementById('pre'), sound = document.getElementById('sound');
+  const p0 = pre.play(); if (p0 && p0.catch) p0.catch(() => {});
+  sound.addEventListener('click', () => {
+    pre.loop = false; pre.muted = false; pre.currentTime = 0; pre.controls = true;
+    const p = pre.play(); if (p && p.catch) p.catch(() => {});
+    media.classList.add('unmuted'); track('precall_play');
+  });
+  pre.addEventListener('ended', () => { if (!pre.muted) track('precall_complete'); });
+
+  /* Results: pop in once + quick count-up */
+  const calm = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const fmt = (v, long) => {
+    if (v >= 1e6) { const m = (v / 1e6).toFixed(1).replace('.', ','); return long ? m + ' εκατομμύριο' : m + ' εκ.'; }
+    const k = v / 1000; return (k >= 100 ? Math.round(k) : (Math.round(k * 10) / 10)).toString().replace('.', ',') + ' χιλ.';
+  };
+  function countUp(el) {
+    const to = +el.dataset.count, long = el.dataset.format === 'long', dur = 900, t0 = performance.now();
+    const step = t => { const x = Math.min(1, (t - t0) / dur), e = 1 - Math.pow(1 - x, 3); el.textContent = fmt(to * e, long); if (x < 1) requestAnimationFrame(step); else el.textContent = fmt(to, long); };
+    requestAnimationFrame(step);
+  }
+  // Final values stay in the markup for no-JS / reduced motion
+  document.querySelectorAll('[data-count]').forEach(el => { el.textContent = fmt(+el.dataset.count, el.dataset.format === 'long'); });
+  if (!calm && 'IntersectionObserver' in window) {
+    const pops = document.querySelectorAll('.pop');
+    pops.forEach(el => { if (el.getBoundingClientRect().top > innerHeight * .92) el.classList.add('pre'); });
+    const io = new IntersectionObserver(es => es.forEach(e => {
+      if (!e.isIntersecting) return;
+      e.target.classList.remove('pre'); io.unobserve(e.target);
+      e.target.querySelectorAll('[data-count]').forEach(countUp);
+      if (e.target.matches('[data-count]')) countUp(e.target);
+    }), { rootMargin: '0px 0px -10% 0px', threshold: .15 });
+    pops.forEach(el => io.observe(el));
+  }
+</script>
+</body>
+</html>
