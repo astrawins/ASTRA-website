@@ -11,6 +11,7 @@
 <meta property="og:description" content="Πάνω από 3 εκατομμύρια άνθρωποι θα δουν εσένα και το ιατρείο σου τις επόμενες 90 μέρες. Δες πώς.">
 <link rel="icon" type="image/png" sizes="32x32" href="assets/img/favicon-32.png">
 <link rel="apple-touch-icon" href="assets/img/apple-touch-icon.png">
+<link rel="preload" href="assets/vsl-poster.jpg" as="image" fetchpriority="high">
 <link rel="preload" href="assets/fonts/manrope-greek.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="assets/fonts.css">
 <link rel="stylesheet" href="assets/site.css">
@@ -192,11 +193,11 @@
       <h1>Πάνω από <span class="accent">3 εκατομμύρια</span> άνθρωποι θα δουν εσένα και το ιατρείο σου τις <span class="accent">επόμενες 90 μέρες</span></h1>
       <p class="subhead">Δες πώς <span class="down" aria-hidden="true">↓</span></p>
 
-      <div class="media" id="media">
+      <div class="media has-video" id="media">
         <!-- VSL: put the file in assets/ and set CONFIG.vsl in assets/config.js -->
-        <video id="vsl" playsinline muted loop preload="metadata" controlslist="nodownload"></video>
+        <video id="vsl" playsinline muted loop preload="none" poster="assets/vsl-poster.jpg" controlslist="nodownload"></video>
         <div class="ph" aria-hidden="true">Το βίντεο μπαίνει εδώ</div>
-        <img class="logo" src="assets/img/astra-wordmark-ink.svg" alt="" aria-hidden="true">
+        <img class="logo" src="assets/img/astra-wordmark-ink.svg" alt="" aria-hidden="true" fetchpriority="low">
         <button class="sound" id="sound" type="button">ΠΑΤΑ ΓΙΑ ΝΑ ΔΕΙΣ ΜΕ ΗΧΟ</button>
       </div>
 
@@ -360,12 +361,15 @@
   /* ---------- VSL: muted autoplay, click to restart with sound ---------- */
   const media = document.getElementById('media'), vsl = document.getElementById('vsl'), sound = document.getElementById('sound');
   if (CONFIG.vsl && CONFIG.vsl.src) {
-    vsl.src = CONFIG.vsl.src; if (CONFIG.vsl.poster) vsl.poster = CONFIG.vsl.poster;
+    if (CONFIG.vsl.poster && vsl.getAttribute('poster') !== CONFIG.vsl.poster) vsl.poster = CONFIG.vsl.poster;
     media.classList.add('has-video');
-    const p = vsl.play(); if (p && p.catch) p.catch(() => {});
-  }
+    // The video starts downloading only after the page has loaded, so the poster and text paint first.
+    const start = () => { if (vsl.getAttribute('src')) return; vsl.src = CONFIG.vsl.src; const p = vsl.play(); if (p && p.catch) p.catch(() => {}); };
+    if (document.readyState === 'complete') start(); else window.addEventListener('load', start, { once: true });
+  } else media.classList.remove('has-video');
   sound.addEventListener('click', () => {
     if (!media.classList.contains('has-video')) return;
+    if (!vsl.getAttribute('src')) vsl.src = CONFIG.vsl.src;
     vsl.loop = false; vsl.muted = false; vsl.currentTime = 0; vsl.controls = true;
     const p = vsl.play(); if (p && p.catch) p.catch(() => {});
     media.classList.add('unmuted'); track('vsl_start');
