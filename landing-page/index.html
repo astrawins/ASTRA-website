@@ -278,7 +278,7 @@
 
           <div class="step on" data-step="1">
             <h3 class="q">Πού να σε βρούμε;</h3>
-            <p class="qhelp">Για να επιβεβαιώσουμε την κλήση και να δούμε το προφίλ σου πριν μιλήσουμε.</p>
+            <p class="qhelp">Για να επιβεβαιώσουμε την κλήση.</p>
             <div class="field" id="fName">
               <label for="fullname">Ονοματεπώνυμο</label>
               <input class="input" id="fullname" name="fullname" autocomplete="name" placeholder="π.χ. Γιώργος Παπαδόπουλος" required>
@@ -295,11 +295,6 @@
                 <input class="input" id="email" name="email" type="email" inputmode="email" autocomplete="email" placeholder="onoma@email.gr" required>
                 <p class="err" id="eEmail"></p>
               </div>
-            </div>
-            <div class="field" id="fIg">
-              <label for="instagram">Instagram</label>
-              <input class="input" id="instagram" name="instagram" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="@toonomasou" required>
-              <p class="err" id="eIg"></p>
             </div>
             <div class="nav"><span></span><button class="button" type="button" data-next>Συνέχεια →</button></div>
             <p class="fine">Τα στοιχεία σου τα χρησιμοποιούμε μόνο για την κλήση.</p>
@@ -417,14 +412,12 @@
   }
   const digits = s => s.replace(/[^\d]/g, '');
   function phoneOk(v) { let d = digits(v); if (d.startsWith('0030')) d = d.slice(4); else if (d.startsWith('30') && d.length === 12) d = d.slice(2); return /^(69\d{8}|2\d{9})$/.test(d); }
-  function igClean(v) { return v.trim().replace(/^https?:\/\/(www\.)?instagram\.com\//i, '').replace(/[/?#].*$/, '').replace(/^@+/, ''); }
   function valid(i) {
     if (i === 0) {
       let ok = true;
       ok = setErr('fName', 'eName', f.fullname.value.trim().split(/\s+/).length >= 2 ? '' : 'Γράψε όνομα και επώνυμο.') && ok;
       ok = setErr('fPhone', 'ePhone', phoneOk(f.phone.value) ? '' : 'Γράψε ένα ελληνικό τηλέφωνο, 10 ψηφία.') && ok;
       ok = setErr('fEmail', 'eEmail', /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(f.email.value.trim()) ? '' : 'Το email δεν φαίνεται σωστό.') && ok;
-      ok = setErr('fIg', 'eIg', /^[A-Za-z0-9._]{2,30}$/.test(igClean(f.instagram.value)) ? '' : 'Γράψε το όνομα χρήστη του Instagram σου, π.χ. @toonomasou.') && ok;
       if (!ok) { const bad = f.querySelector('.bad input, .bad select'); if (bad) bad.focus(); }
       return ok;
     }
@@ -457,7 +450,7 @@
     const lead = {
       source: 'landing', submitted_at: new Date().toISOString(), specialty: f.specialty.value === 'other' ? 'Άλλη: ' + f.specOther.value.trim() : f.specialty.value, budget: f.budget.value,
       qualified: qualified ? 'yes' : 'no', name: f.fullname.value.trim(), phone: f.phone.value.trim(),
-      email: f.email.value.trim(), instagram: '@' + igClean(f.instagram.value),
+      email: f.email.value.trim(), instagram: '',
       page: location.href.split('#')[0], utm: location.search.replace(/^\?/, '')
     };
     Object.assign(lead, window.astraCtx ? astraCtx() : {});
