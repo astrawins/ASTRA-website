@@ -2334,7 +2334,12 @@ function filteredLeads() {
   if (q) ls = ls.filter((l) => (l.name + ' ' + l.phone + ' ' + l.email).toLowerCase().includes(q));
   if (fc && flSub && flSubClinic === fc) ls = ls.filter(subMatch);
   if (isApptFs(fs) || fs === 'rvtoday') ls.sort((a, b) => String(a.nextAction || '').localeCompare(String(b.nextAction || '')) || (hhmm(a.apptTime) || '99').localeCompare(hhmm(b.apptTime) || '99'));
-  else ls.sort((a, b) => String(b.createdTime || '').localeCompare(String(a.createdTime || '')));
+  else { // τα κλεισμένα ραντεβού ταξινομούνται με το ΠΟΤΕ κλείστηκαν (τελευταίο «Στάδιο → Ραντεβού» στο ιστορικό) → το πιο πρόσφατο κλείσιμο πάνω πάνω· τα υπόλοιπα με την ώρα που ήρθε το lead
+    const booked = {};
+    for (const x of S.act) if (x.type === 'status' && String(x.body || '').startsWith('Στάδιο → ' + STATUS.rv) && String(x.at) > (booked[x.leadId] || '')) booked[x.leadId] = String(x.at);
+    const key = (l) => { const t = new Date((l.status === 'rv' && booked[l.id]) || l.createdTime || 0).getTime(); return Number.isFinite(t) ? t : 0; };
+    ls.sort((a, b) => key(b) - key(a));
+  }
   return ls;
 }
 let leadView = 'list';
