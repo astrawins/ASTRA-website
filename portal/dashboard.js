@@ -26,7 +26,7 @@ let activeTab = 'overview';
 const $ = (id) => document.getElementById(id);
 const clinicById = (id) => S.clinics.find((c) => c.id === id);
 /* Κλινικές «μόνο leads» (π.χ. Pearl Spa): τα leads τα καλεί η γραμματεία τους — δεν εμφανίζονται στη διαχείριση της ομάδας
-   (Leads, Σήμερα, Μάργα, ειδοποιήσεις, στατιστικά κλήσεων). Μετρούν κανονικά στα στατιστικά/αναφορές της κλινικής. */
+   (Leads, Σήμερα, ειδοποιήσεις, στατιστικά κλήσεων). Μετρούν κανονικά στα στατιστικά/αναφορές της κλινικής. */
 const teamLead = (l) => { const c = clinicById(l.clinicId); return !(c && c.billingModel === 'leads'); };
 const teamClinic = (c) => c.billingModel !== 'leads';
 const workLeads = () => S.leads.filter(teamLead);
@@ -503,7 +503,7 @@ $('csvFile').addEventListener('change', async (e) => {
 });
 
 /* ============ TASKS ============ */
-const taskOwners = () => String(SET().taskOwners || 'Apo,Marga').split(',').map((s) => s.trim()).filter(Boolean);
+const taskOwners = () => String(SET().taskOwners || 'Apo').split(',').map((s) => s.trim()).filter(Boolean);
 const undoneTasksDue = () => S.tasks.filter((t) => !t.done && t.date <= todayISO());
 function taskRow(t) {
   const today = todayISO();
@@ -526,10 +526,7 @@ function renderTasks() {
       ['Επόμενα', undone.filter((t) => t.date > tomorrow)],
     ];
     const doneRecent = mine.filter((t) => t.done).sort((a, b) => String(b.doneAt || '').localeCompare(String(a.doneAt || ''))).slice(0, 8);
-    const auto = owner === margaOwner() ? workLeads().filter((l) => forPetros(l) && !margaTask(l)).sort((a, b) => unansweredCalls(b) - unansweredCalls(a)) : [];
-    const autoRows = auto.map((l) => { const c = clinicById(l.clinicId); return `<div class="taskrow" data-lead="${l.id}"><span style="margin-top:2px">☎</span><div class="tt"><a href="#" data-tact="openlead" title="Άνοιγμα καρτέλας">${esc(l.name)} ›</a><div class="tm">${esc(c ? c.name : '—')} · ${esc(l.phone || '')} · ${unansweredCalls(l)} κλήσεις χωρίς απάντηση → 2ο τηλέφωνο</div></div></div>`; }).join('');
     const body = groups.map(([lb, arr]) => arr.length ? `<div class="taskday">${lb}</div>` + arr.map(taskRow).join('') : '').join('')
-      + (auto.length ? `<div class="taskday">Για κλήση από 2ο τηλέφωνο (3+ χωρίς απάντηση) · ${auto.length}</div>` + autoRows : '')
       + (doneRecent.length ? `<div class="taskday">Ολοκληρωμένα</div>` + doneRecent.map(taskRow).join('') : '');
     return `<div class="taskcol" data-owner="${esc(owner)}">
       <h3>${esc(owner)} <span class="chip ${undone.length ? 'epik' : 'plain'}">${undone.length} εκκρεμή</span></h3>
@@ -619,7 +616,7 @@ function todayItems() {
   return { due, fresh, upcoming, stale, confirm, inProgress, remind };
 }
 /* ===== Follow-up ακολουθία (όρισε ο χρήστης 27/10/2026 — 0 απαντήσεις σε 4η/5η κλήση, άρα κόπηκαν):
-   μήνυμα γνωριμίας → 4 κλήσεις (3η και 4η από το 2ο τηλέφωνο, Μάργα) → 2ο μήνυμα → τελικό μήνυμα 5 μέρες μετά → χαμένο. ===== */
+   μήνυμα γνωριμίας → 4 κλήσεις (3η και 4η από το 2ο τηλέφωνο) → 2ο μήνυμα → τελικό μήνυμα 5 μέρες μετά → χαμένο. ===== */
 const FOLLOW = [
   { k: 0, short: 'Νέο', label: 'Νέο, τίποτα ακόμα' },
   { k: 1, short: '✉ 1', label: 'Στάλθηκε μήνυμα γνωριμίας' },
@@ -796,8 +793,8 @@ function followStrip(l) {
   const dots = FOLLOW.slice(1).map((f) => `<button class="fstep${cur >= f.k ? ' done' : ''}${cur + 1 === f.k ? ' next' : ''}" data-fstep="${f.k}" title="${f.label} — πάτα για να ορίσεις αυτό το στάδιο">${f.short}</button>`).join('');
   let action = '';
   if (cur === 0 || cur === 5 || cur === 6) action = msgBtns(l, cur === 0 ? 1 : cur === 5 ? 2 : 5);
-  if (cur <= 4) { // αποτέλεσμα κλήσης με ένα πάτημα → call_log (Στατιστικά κλήσεων)· 3η/4η από το 2ο τηλέφωνο (Μάργα)
-    action += `<span class="fcall"><span class="ftitle">☎ ${callNo(cur)}η κλήση${callNo(cur) >= 3 ? ' <b title="Από το 2ο τηλέφωνο (Μάργα) — άγνωστο νούμερο για τον πελάτη">· 2ο τηλ.</b>' : ''}</span>
+  if (cur <= 4) { // αποτέλεσμα κλήσης με ένα πάτημα → call_log (Στατιστικά κλήσεων)· 3η/4η από το 2ο τηλέφωνο
+    action += `<span class="fcall"><span class="ftitle">☎ ${callNo(cur)}η κλήση${callNo(cur) >= 3 ? ' <b title="Από το 2ο τηλέφωνο — άγνωστο νούμερο για τον πελάτη">· 2ο τηλ.</b>' : ''}</span>
       <button class="btn small primary" data-fcall="answered">✓ Απάντησε</button>
       <button class="btn small" data-fcall="no_answer">Δεν σήκωσε</button>
       <button class="btn small" data-fcall="closed">Κλειστό</button>
@@ -878,7 +875,7 @@ function todayRow(l, kind) {
   const when = kind === 'open' ? (l.nextAction ? dueTxt : 'χωρίς επόμενη ενέργεια') : dueTxt;
   return `<div class="todayrow q" data-id="${l.id}">
     <div class="who"><b data-act="open">${esc(l.name)}</b><div class="sub">${esc(c ? c.name : '—')}${l.campaign ? ' · ' + esc(l.campaign) : ''}</div>${areaChips(l) ? '<div style="margin-top:3px">' + areaChips(l) + '</div>' : ''}${noteTxt}${followStrip(l)}${l.status === 'rv' ? apptStrip(l, true) : ''}</div>
-    <div class="meta"><div><span class="chip ${uiStatus(l)}">${UI_STATUS[uiStatus(l)] || STATUS[l.status]}</span>${margaChip(l)}</div>
+    <div class="meta"><div><span class="chip ${uiStatus(l)}">${UI_STATUS[uiStatus(l)] || STATUS[l.status]}</span></div>
       <span class="due ${over ? 'over' : ''}">${when}</span>
       <span class="mono" style="font-size:12.5px">${telLink(l.phone)}${l.phone ? `<button class="copybtn" data-copy="${esc(l.phone)}" title="Αντιγραφή">${COPY_ICON}</button>` : ''}</span></div>
     <div class="acts">
@@ -887,7 +884,6 @@ function todayRow(l, kind) {
       <button class="btn small" data-act="p1" title="Μετάθεση της επόμενης ενέργειας για αύριο">Αύριο</button>
       <button class="btn small" data-act="p3" title="Μετάθεση της επόμενης ενέργειας σε 3 μέρες">+3 μέρες</button>
       <button class="btn small" data-act="p7" title="Μετάθεση της επόμενης ενέργειας σε μία εβδομάδα">+1 εβδ.</button>
-      ${margaBtn(l)}
       ${kind !== 'fresh' && kind !== 'confirm' ? '<button class="btn small" data-act="done">✓ Έγινε</button>' : ''}
       ${['confirm', 'up', 'remind'].includes(kind) && l.status === 'rv' ? (l.confirmedAt ? '<span class="chip show" title="Επιβεβαιώθηκε τηλεφωνικά">Επιβεβαιωμένο ✓</span>' : '<button class="btn small primary" data-act="confirm" title="Ο ασθενής επιβεβαίωσε τηλεφωνικά ότι θα έρθει">✓ Επιβεβαιώθηκε</button>') : ''}
     </div>
@@ -947,7 +943,7 @@ function renderToday() {
   const tnext = S.tasks.filter((t) => !t.done && t.date > todayISO()).sort((a, b) => String(a.date).localeCompare(String(b.date)));
   const taskBlock = `<h3 class="sectionhead">Tasks <span class="chip ${tdue.length ? 'epik' : 'plain'}">${tdue.length} για σήμερα</span>${tnext.length ? ` <span class="chip plain">${tnext.length} επόμενα</span>` : ''}</h3>
     <div class="taskcols">${(() => {
-      /* Στην αρχική φαίνονται μόνο τα άτομα που έχουν ενεργά tasks (σήμερα ή επόμενα) — π.χ. χωρίς στήλη «Marga» όταν δεν έχει τίποτα. */
+      /* Στην αρχική φαίνονται μόνο τα άτομα που έχουν ενεργά tasks (σήμερα ή επόμενα) — χωρίς άδειες στήλες. */
       const cols = taskOwners().map((o) => ({ o, mine: tdue.filter((t) => t.owner === o).sort((a, b) => String(a.date).localeCompare(String(b.date))), later: tnext.filter((t) => t.owner === o) })).filter((x) => x.mine.length || x.later.length);
       if (!cols.length) return '<div class="taskcol"><div class="card"><div class="empty" style="padding:14px">Κανένα ενεργό task ✓</div></div></div>';
       return cols.map(({ o, mine, later }) => `<div class="taskcol"><h3>${esc(o)}</h3><div class="card">`
@@ -1139,7 +1135,6 @@ $('todayBody').addEventListener('click', async (e) => {
     toast('Θα το σκεφτεί — στείλ\' του το μήνυμα, επανάκληση σε 2 μέρες.');
   }
   if (act === 'confirm') { await updateLead(id, { confirmedAt: new Date().toISOString() }, 'status', 'Το ραντεβού επιβεβαιώθηκε τηλεφωνικά ✓'); toast('Επιβεβαιώθηκε ✓'); }
-  if (act === 'marga') { await toggleMarga(id); return; }
   if (act === 'p1') { await updateLead(id, { nextAction: addDays(1), confirmedAt: null }, 'next', 'Μετάθεση για αύριο'); }
   if (act === 'p3') { await updateLead(id, { nextAction: addDays(3), confirmedAt: null }, 'next', 'Μετάθεση +3 μέρες'); }
   if (act === 'p7') { await updateLead(id, { nextAction: addDays(7), confirmedAt: null }, 'next', 'Μετάθεση +7 μέρες'); }
@@ -1178,8 +1173,6 @@ function openLeadModal(id) {
   const fos = feeOpts(c); $('lm_feeWrap').hidden = !fos.length;
   if (fos.length) { const cur = leadFeeOpt(l, c); $('lm_feeopt').innerHTML = fos.map((o) => `<option value="${esc(o.key)}"${cur && cur.key === o.key ? ' selected' : ''}>${esc(o.label)} · αμοιβή ${eur(o.fee)}</option>`).join(''); }
   $('lm_notes').value = l.notes || '';
-  $('lm_marga').textContent = forMarga(l) ? 'Μάργα ✓ — αφαίρεση' : '→ Στείλ\' το στη Μάργα';
-  $('lm_marga').classList.toggle('primary', forMarga(l));
   setLostReason(l);
   setConfirmBtn(l);
   renderApptStrip(l);
@@ -1286,7 +1279,6 @@ $('lm_addComment').onclick = async () => {
   const l = leadById(modalLeadId); if (l) renderTimeline(l);
 };
 $('lm_comment').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('lm_addComment').click(); });
-$('lm_marga').onclick = () => { if (modalLeadId) toggleMarga(modalLeadId); };
 $('lm_gdpr').onclick = async () => {
   if (!modalLeadId) return;
   const b = $('lm_gdpr');
@@ -2257,47 +2249,21 @@ function fillClinicSelect(sel, withEmpty) {
   if (cur && [...sel.options].some((o) => o.value === cur)) sel.value = cur;
 }
 ['flClinic', 'flStatus', 'flSearch'].forEach((i) => $(i).addEventListener('input', renderLeads));
-/* «Μάργα»: leads που κλήθηκαν 3+ φορές χωρίς απάντηση (call_log: δεν σήκωσε / κλειστό, ή follow-up ☎ 3+) και είναι ακόμη
-   Νέο / Δεν απάντησε — αυτούς τους παίρνει μετά η Μάργα από το 2ο τηλέφωνο. */
+/* Leads που κλήθηκαν 3+ φορές χωρίς απάντηση (call_log: δεν σήκωσε / κλειστό, ή follow-up ☎ 3+) και είναι ακόμη
+   Νέο / Δεν απάντησε — chip με τον αριθμό κλήσεων. Μένουν στο στάδιό τους (η καρτέλα «Μάργα» καταργήθηκε 17/11/2026). */
 function unansweredCalls(l) { return S.calls.filter((x) => x.leadId === l.id && x.kind === 'call' && (x.outcome === 'no_answer' || x.outcome === 'closed')).length; }
 function forPetros(l) { return (l.status === 'neo' || l.status === 'noans') && (unansweredCalls(l) >= 3 || (+l.followStep || 0) >= 4); }
 function petrosChip(l) {
   if (!forPetros(l)) return '';
   const n = Math.max(unansweredCalls(l), (+l.followStep || 0) - 1);
   const p2 = S.calls.some((x) => x.leadId === l.id && x.kind === 'call' && x.channel === 'phone2');
-  return `<span class="chip noans" title="Κλήθηκε ${n} φορές χωρίς απάντηση — σειρά της Μάργας από το 2ο τηλέφωνο">☎ ${n} → Μάργα${p2 ? ' ✓' : ''}</span>`;
+  return `<span class="chip noans" title="Κλήθηκε ${n} φορές χωρίς απάντηση${p2 ? ' — και από το 2ο τηλέφωνο' : ''}">☎ ${n} χωρίς απάντηση${p2 ? ' · 2ο τηλ. ✓' : ''}</span>`;
 }
-/* ===== «→ Μάργα»: ανάθεση lead στη Μάργα = ανοιχτό task στη στήλη της (Tasks) με leadId → ανοίγει την καρτέλα.
-   Ξανά κλικ (ή ✓ στο task) = αφαίρεση. Το chip «Μάργα» στο funnel φιλτράρει τα δικά της. ===== */
-const margaOwner = () => taskOwners().find((o) => /marga|μάργα/i.test(o)) || 'Marga';
-const margaTask = (l) => S.tasks.find((t) => t.leadId === l.id && !t.done && t.owner === margaOwner());
-const forMarga = (l) => !!margaTask(l) || forPetros(l); // «της Μάργας» = ό,τι της έστειλες με το κουμπί + ό,τι πέρασε 3+ κλήσεις χωρίς απάντηση
-const margaBtn = (l) => `<button type="button" class="btn small${margaTask(l) ? ' primary' : ''}" data-act="marga" title="${margaTask(l) ? 'Είναι στη λίστα της Μάργας — κλικ για αφαίρεση' : 'Στείλ\' το στη Μάργα: μπαίνει στη στήλη της στα Tasks με link στην καρτέλα'}">${margaTask(l) ? 'Μάργα ✓' : '→ Μάργα'}</button>`;
-const margaChip = (l) => margaTask(l) && !forPetros(l) ? '<span class="chip epik" title="Στη λίστα της Μάργας (Tasks)">Μάργα</span>' : '';
-async function toggleMarga(id) {
-  const l = leadById(id); if (!l) return;
-  const t = margaTask(l);
-  try {
-    if (t) { await trashRemove('tasks', t.id); await logAct(id, 'status', 'Αφαιρέθηκε από τη λίστα της Μάργας'); toast('Αφαιρέθηκε από τη Μάργα.'); }
-    else {
-      const c = clinicById(l.clinicId);
-      await data.create('tasks', {
-        owner: margaOwner(), title: `Κάλεσε ${l.name}${c ? ' · ' + c.name : ''}${l.phone ? ' · ' + l.phone : ''}`, date: todayISO(),
-        done: false, doneAt: null, leadId: id, createdAt: new Date().toISOString(), createdBy: userEmail(),
-      }, 't' + uid());
-      await logAct(id, 'status', 'Ανατέθηκε στη Μάργα → Tasks');
-      toast('Πήγε στη Μάργα ✓');
-    }
-    await refresh();
-    if (!$('leadModal').hidden && modalLeadId === id) openLeadModal(id);
-  } catch (e) { toast('Αποτυχία: ' + e.message); }
-}
-/* Funnel: κάθε chip είναι φίλτρο — κλικ δείχνει μόνο αυτό το στάδιο (ή τους «Μάργα»), ξανά κλικ το καθαρίζει. Από την Επισκόπηση πάει στα Leads. */
+/* Funnel: κάθε chip είναι φίλτρο — κλικ δείχνει μόνο αυτό το στάδιο, ξανά κλικ το καθαρίζει. Από την Επισκόπηση πάει στα Leads. */
 function funnelHTML(leads, active = '') {
   const order = Object.keys(UI_STATUS);
   const chip = (k, cls, label, n, title) => `<button type="button" class="chip ${cls}${active === k ? ' on' : ''}" data-fs="${k}" title="${title || (active === k ? 'Κλικ για όλα τα στάδια' : 'Κλικ: μόνο αυτά')}">${label} · ${n}</button>`;
   return order.map((k) => chip(k, k, UI_STATUS[k], leads.filter((l) => uiStatus(l) === k).length)).join('')
-    + chip('marga', 'noans', 'Μάργα', leads.filter(forMarga).length, 'Της Μάργας: 3+ κλήσεις χωρίς απάντηση (2ο τηλέφωνο) + ό,τι της έστειλες με «→ Μάργα»')
     + chip('rvtoday', 'rv', '📅 Ραντεβού σήμερα', `${leads.filter((l) => isTodayAppt(l) && l.status === 'rv').length}/${leads.filter(isTodayAppt).length}`, 'Τα ραντεβού της ημέρας ανά ώρα — εκκρεμή / σύνολο. Όταν τελειώσει το ραντεβού άλλαξε το στάδιο (Πελάτης / Χαμένο)')
     + chip('confirm', 'rv', '📞 Επιβεβαίωση αύριο', `${leads.filter(isTomorrowAppt).filter((l) => !l.confirmedAt).length}/${leads.filter(isTomorrowAppt).length}`, 'Όλα τα ραντεβού της επόμενης μέρας — ανεπιβεβαίωτα / σύνολο. Κάλεσε και πάτα «✓ Επιβεβαιώθηκε»')
     + [['rv2', '📅 Μεθαύριο', 'Τα ραντεβού μεθαύριο'], ['rv3', '📅 Σε 3 μέρες', 'Τα ραντεβού σε 3 μέρες'], ['rvweek', '📅 Εβδομάδα', 'Όλα τα ραντεβού από σήμερα έως +7 μέρες, ανά μέρα και ώρα']].map(([k, label, t]) => { const x = leads.filter(apptMatch(k)); return chip(k, 'rv', label, `${x.filter((l) => !l.confirmedAt).length}/${x.length}`, t + ' — ανεπιβεβαίωτα / σύνολο'); }).join('')
@@ -2320,7 +2286,7 @@ const RV_AHEAD = { confirm: 1, rv2: 2, rv3: 3 };
 const isWeekAppt = (l) => l.status === 'rv' && l.nextAction >= todayISO() && l.nextAction <= addDays(7);
 const isApptFs = (fs) => fs === 'rvweek' || fs in RV_AHEAD;
 const apptMatch = (fs) => fs === 'rvweek' ? isWeekAppt : (l) => l.status === 'rv' && l.nextAction === addDays(RV_AHEAD[fs]);
-const fsMatch = (fs) => fs === 'petros' || fs === 'marga' ? forMarga : fs === 'rvtoday' ? isTodayAppt : isApptFs(fs) ? apptMatch(fs) : (l) => uiStatus(l) === fs;
+const fsMatch = (fs) => fs === 'rvtoday' ? isTodayAppt : isApptFs(fs) ? apptMatch(fs) : (l) => uiStatus(l) === fs;
 /* «Ραντεβού σήμερα»: τα ραντεβού της ημέρας ανά ώρα (+ όσοι ήρθαν σήμερα, για να μένουν ορατοί). Το στάδιο αλλάζει με το ίδιο select της λίστας → statusPatch (attendedAt/χρέωση). */
 const isTodayAppt = (l) => (['rv', 'noshow', 'cancel'].includes(l.status) && l.nextAction === todayISO()) || l.attendedAt === todayISO();
 function todayApptTableHTML(ls) {
@@ -2352,7 +2318,7 @@ function confirmTableHTML(ls, fs = 'confirm') {
     const c = clinicById(l.clinicId), note = lastNote(l);
     return `<tr data-id="${l.id}"${l.confirmedAt ? ' style="opacity:.7"' : ''}>${week ? `<td style="white-space:nowrap">${esc(fmt(l.nextAction, { weekday: 'short', day: 'numeric', month: 'numeric' }))}</td>` : ''}
       <td class="mono"><b>${hhmm(l.apptTime) || '—'}</b></td>
-      <td><b data-act="open" style="cursor:pointer">${esc(l.name)}</b> ${margaBtn(l)}${areaChips(l) ? '<div style="margin-top:3px">' + areaChips(l) + '</div>' : ''}</td>
+      <td><b data-act="open" style="cursor:pointer">${esc(l.name)}</b>${areaChips(l) ? '<div style="margin-top:3px">' + areaChips(l) + '</div>' : ''}</td>
       <td class="mono" style="font-size:12.5px">${l.phone ? telLink(l.phone) + `<button class="copybtn" data-copy="${esc(l.phone)}" title="Αντιγραφή">${COPY_ICON}</button>` : '—'}</td>
       <td>${esc(c ? c.name : '—')}</td>
       <td style="font-size:12px;color:var(--soft);max-width:260px">${note ? esc(note.text.slice(0, 120)) : ''}</td>
@@ -2425,7 +2391,7 @@ function kanbanCard(l) {
   return `<div class="kcard" draggable="true" data-id="${l.id}">
     <b>${esc(l.name)}</b>
     <span class="ksub">${esc(c ? c.name : '—')}${d && !isNaN(d) ? ' · ' + d.toLocaleDateString('el-GR', { day: 'numeric', month: 'short' }) : ''}</span>
-    ${petrosChip(l)}${margaChip(l)}${apptBadge(l)}
+    ${petrosChip(l)}${apptBadge(l)}
     ${+l.amount ? `<span class="kamt">${eur(+l.amount)}</span>` : ''}
   </div>`;
 }
@@ -2553,7 +2519,7 @@ function leadRowHTML(l) {
   const over = l.nextAction && l.nextAction < todayISO() && !['won', 'lost'].includes(l.status);
   return `<tr data-id="${l.id}">
     <td class="mono" title="${esc(l.createdTime)}">${dstr}</td>
-    <td><b data-act="open" style="cursor:pointer">${esc(l.name)}</b>${petrosChip(l) ? ' ' + petrosChip(l) : ''} ${margaBtn(l)}${areaChips(l) ? '<div style="margin-top:3px">' + areaChips(l) + '</div>' : ''}${apptBadge(l) ? '<div>' + apptBadge(l) + '</div>' : ''}${l.notes ? `<div style="font-size:11.5px;color:var(--soft)">${esc(l.notes)}</div>` : ''}${l.sheetNotes && !l.notes ? `<div style="font-size:11.5px;color:var(--soft)" title="Σημείωση από το sheet"><span class="srctag">sheet</span> ${esc(l.sheetNotes)}</div>` : ''}</td>
+    <td><b data-act="open" style="cursor:pointer">${esc(l.name)}</b>${petrosChip(l) ? ' ' + petrosChip(l) : ''}${areaChips(l) ? '<div style="margin-top:3px">' + areaChips(l) + '</div>' : ''}${apptBadge(l) ? '<div>' + apptBadge(l) + '</div>' : ''}${l.notes ? `<div style="font-size:11.5px;color:var(--soft)">${esc(l.notes)}</div>` : ''}${l.sheetNotes && !l.notes ? `<div style="font-size:11.5px;color:var(--soft)" title="Σημείωση από το sheet"><span class="srctag">sheet</span> ${esc(l.sheetNotes)}</div>` : ''}</td>
     <td class="mono" style="font-size:12.5px">${l.phone ? telLink(l.phone) + `<button class="copybtn" data-copy="${esc(l.phone)}" title="Αντιγραφή">${COPY_ICON}</button>` : ''}${l.phone && l.email ? '<br>' : ''}${esc(l.email || '')}</td>
     <td>${esc(c ? c.name : '—')}</td>
     <td style="font-size:12.5px">${esc(l.campaign || '—')}${plat ? ` <span class="chip plain">${plat}</span>` : ''}</td>
@@ -2581,8 +2547,6 @@ async function onLeadRowChange(e) {
 }
 $('leadTable').addEventListener('change', onLeadRowChange);
 $('leadTable').addEventListener('click', (e) => {
-  const m = e.target.closest('[data-act=marga]');
-  if (m) { toggleMarga(m.closest('tr').dataset.id); return; }
   const cf = e.target.closest('[data-act=confirm],[data-act=unconfirm]');
   if (cf) {
     const id = cf.closest('tr').dataset.id, on = cf.dataset.act === 'confirm';
@@ -3954,7 +3918,7 @@ function renderSettings() {
     : 'Ανενεργές.';
   $('st_autoSync').checked = s.autoSync !== false;
   $('st_callers').value = s.callerEmails || '';
-  $('st_taskOwners').value = s.taskOwners || 'Apo,Marga';
+  $('st_taskOwners').value = s.taskOwners || 'Apo';
   $('st_gcalKey').value = s.gcalApiKey || '';
   $('st_gcalClient').value = s.gcalClientId || '';
   $('st_gcalId').value = s.gcalCalendarId || '';
@@ -3979,7 +3943,7 @@ $('btnSaveSettings').onclick = async () => {
   const d = {
     autoSync: $('st_autoSync').checked,
     callerEmails: $('st_callers').value.trim(),
-    taskOwners: $('st_taskOwners').value.trim() || 'Apo,Marga',
+    taskOwners: $('st_taskOwners').value.trim() || 'Apo',
     gcalApiKey: $('st_gcalKey').value.trim(),
     gcalClientId: $('st_gcalClient').value.trim(),
     gcalCalendarId: $('st_gcalId').value.trim(),

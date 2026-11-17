@@ -228,7 +228,7 @@
       </div>
       <div class="filters">
         <select id="flClinic"><option value="">Όλες οι κλινικές</option></select>
-        <select id="flStatus"><option value="">Ενεργά (χωρίς χαμένα)</option><option value="neo">Νέο</option><option value="noans">Δεν απάντησε</option><option value="epik">Επικοινωνία</option><option value="rv">Ραντεβού</option><option value="noshow">No show · ξανακαλούμε</option><option value="noshowx">No show · τέλος</option><option value="cancel">Ακύρωση · ξανακαλούμε</option><option value="cancelx">Ακύρωση · τέλος</option><option value="won">Πελάτης</option><option value="lost">Χαμένο</option><option value="marga">Μάργα — 2ο τηλέφωνο / → Μάργα</option><option value="rvtoday">📅 Ραντεβού σήμερα</option><option value="confirm">📞 Επιβεβαίωση αύριο</option><option value="rv2">📅 Μεθαύριο</option><option value="rv3">📅 Σε 3 μέρες</option><option value="rvweek">📅 Εβδομάδα</option></select>
+        <select id="flStatus"><option value="">Ενεργά (χωρίς χαμένα)</option><option value="neo">Νέο</option><option value="noans">Δεν απάντησε</option><option value="epik">Επικοινωνία</option><option value="rv">Ραντεβού</option><option value="noshow">No show · ξανακαλούμε</option><option value="noshowx">No show · τέλος</option><option value="cancel">Ακύρωση · ξανακαλούμε</option><option value="cancelx">Ακύρωση · τέλος</option><option value="won">Πελάτης</option><option value="lost">Χαμένο</option><option value="rvtoday">📅 Ραντεβού σήμερα</option><option value="confirm">📞 Επιβεβαίωση αύριο</option><option value="rv2">📅 Μεθαύριο</option><option value="rv3">📅 Σε 3 μέρες</option><option value="rvweek">📅 Εβδομάδα</option></select>
         <input id="flSearch" placeholder="Αναζήτηση ονόματος / τηλεφώνου…" style="min-width:220px">
         <div class="viewtoggle" role="group" aria-label="Προβολή">
           <button data-view="list" class="on">Λίστα</button><button data-view="kanban">Kanban</button>
@@ -489,7 +489,7 @@
           <h3>Ρόλοι ομάδας</h3>
           <div class="desc">Emails (χωρισμένα με κόμμα) που βλέπουν μόνο «Σήμερα» και «Leads» — π.χ. συνεργάτες που κάνουν κλήσεις. Ισχύει σε cloud mode.</div>
           <div class="f"><label for="st_callers">Emails καλούντων</label><input id="st_callers" placeholder="caller@astramarketing.gr, ..."></div>
-          <div class="f"><label for="st_taskOwners">Στήλες tasks (με κόμμα)</label><input id="st_taskOwners" placeholder="Apo, Marga"></div>
+          <div class="f"><label for="st_taskOwners">Στήλες tasks (με κόμμα)</label><input id="st_taskOwners" placeholder="Apo"></div>
         </div>
         <div class="card setcard">
           <h3>Google Calendar</h3>
@@ -624,7 +624,6 @@
       <div class="addnote"><input id="lm_comment" placeholder="Γράψε σχόλιο (π.χ. «κάλεσα, δεν το σήκωσε»)…"><button class="btn small primary" id="lm_addComment">Προσθήκη</button></div>
     </div>
     <div class="factions" style="margin-top:16px;border-top:1px solid var(--hair2);padding-top:12px">
-      <button type="button" class="btn small" id="lm_marga" title="Μπαίνει στη στήλη της Μάργας στα Tasks, με link σε αυτή την καρτέλα">→ Στείλ' το στη Μάργα</button>
       <button class="btn small danger" id="lm_gdpr">Διαγραφή lead</button>
       <span class="fhint">Πάει στον κάδο για 30 μέρες μαζί με ιστορικό και κλήσεις (Ρυθμίσεις → Κάδος → Επαναφορά)· μετά σβήνεται οριστικά (GDPR).</span>
     </div>
