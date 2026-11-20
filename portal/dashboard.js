@@ -21,7 +21,7 @@ else if (sessionRole().role === 'client') location.replace('/client-portal/');
 else document.documentElement.classList.add('authed');
 
 /* ============ state ============ */
-const S = { clinics: [], leads: [], camps: [], fin: [], rec: [], act: [], tasks: [], cr: [], stats: [], trash: [], acct: [], clog: [], billing: [], subs: [], calls: [], settings: null };
+const S = { clinics: [], leads: [], camps: [], fin: [], rec: [], act: [], tasks: [], cr: [], stats: [], trash: [], acct: [], clog: [], billing: [], subs: [], calls: [], cgLeads: [], cgFin: [], settings: null };
 let activeTab = 'overview';
 const $ = (id) => document.getElementById(id);
 const clinicById = (id) => S.clinics.find((c) => c.id === id);
@@ -63,7 +63,7 @@ async function refresh() {
     const all = await data.loadAll();
     S.clinics = all.clinics; S.leads = all.leads; S.camps = all.campaigns; S.fin = all.finance;
     S.rec = all.recurring || []; S.act = all.activity || []; S.tasks = all.tasks || []; S.cr = all.creatives || [];
-    S.stats = all.monthly_stats || []; S.trash = all.trash || []; S.acct = all.accountant || []; S.clog = all.client_log || []; S.billing = all.billing || []; S.subs = all.subscriptions || []; S.calls = all.call_log || []; S.blocked = all.blocked_leads || []; S.archive = all.archive_leads || [];
+    S.stats = all.monthly_stats || []; S.trash = all.trash || []; S.acct = all.accountant || []; S.clog = all.client_log || []; S.billing = all.billing || []; S.subs = all.subscriptions || []; S.calls = all.call_log || []; S.blocked = all.blocked_leads || []; S.archive = all.archive_leads || []; S.cgLeads = all.cg_leads || []; S.cgFin = all.cg_finance || [];
     notifyRemoteLeads();
     S.settings = (all.settings && all.settings[0]) || null;
     $('dbBanner').hidden = true;
@@ -218,8 +218,8 @@ function applyRoles() {
 }
 
 /* ============ tabs ============ */
-const TABS = ['today', 'tasks', 'calendar', 'overview', 'clinics', 'leads', 'calls', 'campaigns', 'finance', 'reports', 'settings'];
-const TAB_LABELS = { today: 'Σήμερα', tasks: 'Tasks', calendar: 'Ημερολόγιο', overview: 'Επισκόπηση', clinics: 'Κλινικές', leads: 'Leads', calls: 'Στατιστικά κλήσεων', campaigns: 'Campaigns', finance: 'Οικονομικά', reports: 'Αναφορές', settings: 'Ρυθμίσεις' };
+const TABS = ['today', 'tasks', 'calendar', 'overview', 'clinics', 'leads', 'calls', 'campaigns', 'finance', 'clinicgrowth', 'reports', 'settings'];
+const TAB_LABELS = { today: 'Σήμερα', tasks: 'Tasks', calendar: 'Ημερολόγιο', overview: 'Επισκόπηση', clinics: 'Κλινικές', leads: 'Leads', calls: 'Στατιστικά κλήσεων', campaigns: 'Campaigns', finance: 'Οικονομικά', clinicgrowth: 'clinicgrowth', reports: 'Αναφορές', settings: 'Ρυθμίσεις' };
 function showTab(t) {
   activeTab = t;
   document.querySelectorAll('#tabs button').forEach((b) => b.classList.toggle('on', b.dataset.tab === t));
@@ -246,7 +246,7 @@ function initTab() {
 let renderPending = false;
 function safeRender() {
   const ae = document.activeElement;
-  if (ae && (ae.tagName === 'INPUT' || ae.tagName === 'TEXTAREA') && ae.closest('#leadTable,#finTable,#campTable,#recTable,#leadModal,#tab-settings,#clinicView')) {
+  if (ae && (ae.tagName === 'INPUT' || ae.tagName === 'TEXTAREA') && ae.closest('#leadTable,#finTable,#campTable,#recTable,#leadModal,#tab-settings,#clinicView,#tab-clinicgrowth')) {
     renderPending = true;
     ae.addEventListener('blur', () => { if (renderPending) { renderPending = false; renderAll(); } }, { once: true });
     return;
@@ -4396,8 +4396,139 @@ function renderCallStats() {
 $('csClinic').addEventListener('change', renderCallStats);
 $('csPeriod').addEventListener('change', renderCallStats);
 
+/* ============ clinicgrowth ============ */
+/* Ξεχωριστή δραστηριότητα (ιστοσελίδες για γιατρούς): δικά της leads (cg_leads, από τη φόρμα της landing clinicgrowth.gr/system/
+   μέσω του function cg-lead ή με το χέρι) και δικά της οικονομικά (cg_finance). Τίποτα από εδώ δεν μπαίνει στα KPI,
+   τις εκκαθαρίσεις ή τα Οικονομικά των κλινικών.
+   Έσοδα = καθαρή αξία των leads που έγιναν «Πελάτης» (τον μήνα που έκλεισαν) + χειροκίνητες εγγραφές εσόδων. */
+const CG_ST = [['neo', 'Νέο', 'neo'], ['noans', 'Δεν σήκωσε', 'noans'], ['talk', 'Μιλήσαμε', 'epik'], ['call', 'Κλήση παρουσίασης', 'rv'], ['offer', 'Προσφορά', 'think'], ['won', 'Πελάτης', 'won'], ['lost', 'Χαμένο', 'lost']];
+const CG_CATS = { expense: ['Διαφήμιση Meta', 'Εργαλεία / hosting', 'Εξωτερικοί συνεργάτες', 'Άλλο'], income: ['Συντήρηση / hosting', 'Πώληση εκτός lead', 'Άλλο'] };
+const cgMonthOfLead = (l) => monthKey(l.createdAt);
+const cgWonMonth = (l) => monthKey(l.closedAt || l.updatedAt || l.createdAt);
+const cgReached = (l, sts) => sts.includes(l.status);
+function updateCGBadge() {
+  const el = $('cgCount'); if (!el) return;
+  const n = S.cgLeads.filter((l) => l.status === 'neo').length;
+  el.textContent = n; el.style.display = n ? '' : 'none';
+}
+function cgStats(inMonth) {
+  const leads = S.cgLeads.filter((l) => inMonth(cgMonthOfLead(l)));
+  const won = S.cgLeads.filter((l) => l.status === 'won' && inMonth(cgWonMonth(l)));
+  const fin = S.cgFin.filter((f) => inMonth(monthKey(f.date)));
+  const sales = won.reduce((s, l) => s + (+l.amount || 0), 0);
+  const otherInc = fin.filter((f) => f.kind === 'income').reduce((s, f) => s + (+f.amount || 0), 0);
+  const exp = fin.filter((f) => f.kind === 'expense').reduce((s, f) => s + (+f.amount || 0), 0);
+  const ads = fin.filter((f) => f.kind === 'expense' && f.category === 'Διαφήμιση Meta').reduce((s, f) => s + (+f.amount || 0), 0);
+  const r2 = (n) => +n.toFixed(2);
+  return { leads, won, fin, sales: r2(sales), income: r2(sales + otherInc), exp: r2(exp), ads: r2(ads), profit: r2(sales + otherInc - exp) };
+}
+function renderCG() {
+  updateCGBadge();
+  /* περίοδος */
+  const sel = $('cgPeriod'); const cur = sel.value || 'all';
+  const months = [...new Set([nowMonth(), ...S.cgLeads.map(cgMonthOfLead), ...S.cgFin.map((f) => monthKey(f.date))].filter(Boolean))].sort().reverse();
+  sel.innerHTML = '<option value="all">Από την αρχή</option>' + months.map((m) => `<option value="${m}"${m === cur ? ' selected' : ''}>${mLabel(m)}</option>`).join('');
+  const period = sel.value; const inMonth = (m) => period === 'all' || m === period;
+  const st = cgStats(inMonth); const n = st.leads.length;
+  /* tiles */
+  const talked = st.leads.filter((l) => cgReached(l, ['talk', 'call', 'offer', 'won'])).length;
+  const wonOfThese = st.leads.filter((l) => l.status === 'won').length;
+  const tile = (lb, v, d, neg = false) => `<div class="tile"><div class="lb">${lb}</div><div class="v"${neg ? ' style="color:var(--crit)"' : ''}>${v}</div><div class="d">${d}</div></div>`;
+  $('cgTiles').innerHTML = [
+    tile('Leads', n, `${st.leads.filter((l) => l.status === 'neo').length} περιμένουν κλήση`),
+    tile('Μιλήσαμε', talked, n ? `${csPct(talked, n)} των leads` : '—'),
+    tile('Πελάτες', st.won.length, n ? `${csPct(wonOfThese, n)} των leads έκλεισαν` : '—'),
+    tile('Έσοδα', eur(st.income), st.won.length ? `${eur(+(st.sales / st.won.length).toFixed(2))} ανά πώληση` : 'καθαρά, χωρίς ΦΠΑ'),
+    tile('Έξοδα', eur(st.exp), st.ads ? `${eur(st.ads)} διαφήμιση` : 'διαφήμιση, εργαλεία κ.ά.'),
+    tile('Κέρδος', eur(st.profit), st.exp ? `${(st.income / st.exp).toFixed(1).replace('.', ',')}× τα έξοδα` : 'έσοδα − έξοδα', st.profit < 0),
+    tile('Κόστος ανά lead', n && st.ads ? eur(+(st.ads / n).toFixed(2)) : '—', 'διαφήμιση ÷ leads'),
+    tile('Κόστος ανά πελάτη', st.won.length && st.ads ? eur(+(st.ads / st.won.length).toFixed(2)) : '—', 'διαφήμιση ÷ πελάτες'),
+  ].join('');
+  /* funnel */
+  $('cgFunnel').innerHTML = n ? CG_ST.map(([k, label, cls]) => { const c = st.leads.filter((l) => l.status === k).length; return `<span class="chip ${cls}" style="${c ? '' : 'opacity:.45'}">${label} · ${c}</span>`; }).join('') : '';
+  /* leads */
+  $('cgLeadsN').textContent = n;
+  const when = (d) => new Date(d).toLocaleString('el-GR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+  $('cgLeadTable').innerHTML = n ? `<table><thead><tr><th>Ήρθε</th><th>Όνομα</th><th>Επικοινωνία</th><th>Στάδιο</th><th class="num">Αξία πώλησης €</th><th>Σημειώσεις</th><th></th></tr></thead><tbody>${st.leads.map((l) => `<tr data-cg="${esc(l.id)}">
+      <td style="white-space:nowrap">${when(l.createdAt)}</td>
+      <td><b>${esc(l.name || '—')}</b>${l.source ? `<div class="tmeta">${esc(l.source)}</div>` : ''}</td>
+      <td>${telLink(l.phone)}${l.email ? `<div class="tmeta"><a href="mailto:${esc(l.email)}">${esc(l.email)}</a></div>` : ''}</td>
+      <td><select data-cgst aria-label="Στάδιο">${CG_ST.map(([k, label]) => `<option value="${k}"${k === l.status ? ' selected' : ''}>${label}</option>`).join('')}</select></td>
+      <td class="num"><input class="amt" data-cgamt inputmode="decimal" aria-label="Αξία πώλησης" value="${+l.amount ? String(+l.amount).replace('.', ',') : ''}" placeholder="—"></td>
+      <td><input class="note" data-cgnote aria-label="Σημειώσεις" value="${esc(l.notes || '')}"></td>
+      <td><button class="btn small" data-cgdel title="Διαγραφή lead">✕</button></td></tr>`).join('')}</tbody></table>`
+    : `<div class="empty" style="padding:18px">Δεν έχει έρθει ακόμη lead${period === 'all' ? '' : ' αυτόν τον μήνα'}. Όποιος συμπληρώσει τη φόρμα στο clinicgrowth.gr/system/ εμφανίζεται εδώ και έρχεται ειδοποίηση.</div>`;
+  /* οικονομικά */
+  $('cgFinTable').innerHTML = st.fin.length || st.won.length ? `<table><thead><tr><th>Ημερομηνία</th><th>Τύπος</th><th>Κατηγορία</th><th>Περιγραφή</th><th class="num">Καθαρό €</th><th></th></tr></thead><tbody>${[
+    ...st.won.map((l) => ({ date: String(l.closedAt || l.updatedAt || l.createdAt).slice(0, 10), kind: 'income', category: 'Πώληση ιστοσελίδας', description: l.name, amount: +l.amount || 0, auto: true })),
+    ...st.fin,
+  ].sort((a, b) => String(b.date).localeCompare(String(a.date))).map((f) => `<tr${f.auto ? '' : ` data-cgf="${esc(f.id)}"`}>
+      <td style="white-space:nowrap">${new Date(f.date).toLocaleDateString('el-GR', { day: 'numeric', month: 'short', year: '2-digit' })}</td>
+      <td><span class="chip ${f.kind === 'income' ? 'won' : 'lost'}">${f.kind === 'income' ? 'Έσοδο' : 'Έξοδο'}</span></td>
+      <td>${esc(f.category || '')}</td><td>${esc(f.description || '')}${f.auto && !f.amount ? ' <span class="tmeta">— βάλε «Αξία πώλησης» στο lead</span>' : ''}</td>
+      <td class="num">${eur(+f.amount || 0)}</td>
+      <td>${f.auto ? '<span class="tmeta">από lead</span>' : '<button class="btn small" data-cgfdel title="Διαγραφή εγγραφής">✕</button>'}</td></tr>`).join('')}</tbody></table>`
+    : '<div class="empty" style="padding:18px">Καμία εγγραφή. Πρόσθεσε εδώ τη διαφημιστική δαπάνη και τα υπόλοιπα έξοδα της clinicgrowth· οι πωλήσεις μπαίνουν μόνες τους όταν ένα lead γίνει «Πελάτης».</div>';
+  /* ανά μήνα */
+  const rows = [...months].map((m) => { const x = cgStats((k) => k === m); return [mLabel(m), x.leads.length, x.won.length, eur(x.income), eur(x.exp), `<b>${eur(x.profit)}</b>`]; });
+  $('cgMonths').innerHTML = csTable(['Μήνας', 'Leads', 'Πελάτες', 'Έσοδα', 'Έξοδα', 'Κέρδος'], S.cgLeads.length || S.cgFin.length ? rows : []);
+}
+async function cgPatchLead(id, patch) {
+  const l = S.cgLeads.find((x) => x.id === id); if (!l) return;
+  const full = { ...patch, updatedAt: new Date().toISOString() };
+  Object.assign(l, full);
+  try { await data.update('cg_leads', id, full); } catch (e) { toast('Δεν αποθηκεύτηκε: ' + e.message); }
+  renderAll();
+}
+function cgFillCats() { $('cgf_cat').innerHTML = CG_CATS[$('cgf_kind').value].map((c) => `<option>${c}</option>`).join(''); }
+$('cgPeriod').addEventListener('change', renderCG);
+$('cgf_kind').addEventListener('change', cgFillCats);
+$('tab-clinicgrowth').addEventListener('change', (e) => {
+  const tr = e.target.closest('tr[data-cg]'); if (!tr) return; const id = tr.dataset.cg; const l = S.cgLeads.find((x) => x.id === id); if (!l) return;
+  if (e.target.matches('[data-cgst]')) {
+    const status = e.target.value;
+    cgPatchLead(id, { status, closedAt: status === 'won' ? (l.closedAt || new Date().toISOString()) : null });
+    if (status === 'won' && !+l.amount) toast('Βάλε και την «Αξία πώλησης» για να μετρήσει στα έσοδα.');
+  } else if (e.target.matches('[data-cgamt]')) cgPatchLead(id, { amount: parseNum(e.target.value) });
+  else if (e.target.matches('[data-cgnote]')) cgPatchLead(id, { notes: e.target.value.trim() });
+});
+$('tab-clinicgrowth').addEventListener('click', async (e) => {
+  const t = e.target;
+  if (t.id === 'cgBtnLead') { $('cgLeadForm').hidden = !$('cgLeadForm').hidden; if (!$('cgLeadForm').hidden) $('cgl_name').focus(); return; }
+  if (t.id === 'cgCancelLead') { $('cgLeadForm').hidden = true; return; }
+  if (t.id === 'cgBtnFin') { $('cgFinForm').hidden = !$('cgFinForm').hidden; if (!$('cgFinForm').hidden) { cgFillCats(); if (!$('cgf_date').value) $('cgf_date').value = todayISO(); } return; }
+  if (t.id === 'cgCancelFin') { $('cgFinForm').hidden = true; return; }
+  if (t.id === 'cgSaveLead') {
+    const name = $('cgl_name').value.trim(); if (!name) { toast('Γράψε όνομα.'); return; }
+    const now = new Date().toISOString();
+    try {
+      const row = await data.create('cg_leads', { name, phone: $('cgl_phone').value.trim(), email: $('cgl_email').value.trim(), source: $('cgl_source').value.trim() || 'χειροκίνητα', status: 'neo', amount: 0, notes: '', createdAt: now, updatedAt: now }, 'cg-m' + uid());
+      S.cgLeads.unshift(row); ['cgl_name', 'cgl_phone', 'cgl_email', 'cgl_source'].forEach((i) => { $(i).value = ''; }); $('cgLeadForm').hidden = true; renderAll();
+    } catch (err) { toast('Δεν αποθηκεύτηκε: ' + err.message); }
+    return;
+  }
+  if (t.id === 'cgSaveFin') {
+    const amount = parseNum($('cgf_amount').value); if (!(amount > 0)) { toast('Γράψε ποσό.'); return; }
+    try {
+      const row = await data.create('cg_finance', { date: $('cgf_date').value || todayISO(), kind: $('cgf_kind').value, category: $('cgf_cat').value, description: $('cgf_desc').value.trim(), amount }, 'cgf-' + uid());
+      S.cgFin.unshift(row); $('cgf_amount').value = ''; $('cgf_desc').value = ''; $('cgFinForm').hidden = true; renderAll();
+    } catch (err) { toast('Δεν αποθηκεύτηκε: ' + err.message); }
+    return;
+  }
+  const del = t.closest('[data-cgdel]'); const fdel = t.closest('[data-cgfdel]');
+  if (del) {
+    const id = del.closest('tr').dataset.cg; const l = S.cgLeads.find((x) => x.id === id);
+    if (!l || !confirm(`Να σβηστεί το lead «${l.name}»;`)) return;
+    try { await data.remove('cg_leads', id); S.cgLeads = S.cgLeads.filter((x) => x.id !== id); renderAll(); } catch (err) { toast('Δεν σβήστηκε: ' + err.message); }
+  } else if (fdel) {
+    const id = fdel.closest('tr').dataset.cgf;
+    if (!confirm('Να σβηστεί η εγγραφή;')) return;
+    try { await data.remove('cg_finance', id); S.cgFin = S.cgFin.filter((x) => x.id !== id); renderAll(); } catch (err) { toast('Δεν σβήστηκε: ' + err.message); }
+  }
+});
+
 function renderAll() {
-  updateTodayBadge();
+  updateTodayBadge(); updateCGBadge();
   if (activeTab === 'clinic') { renderClinicView(); return; }
   if (activeTab === 'today') renderToday();
   if (activeTab === 'tasks') renderTasks();
@@ -4408,6 +4539,7 @@ function renderAll() {
   if (activeTab === 'calendar') renderCalendar();
   if (activeTab === 'campaigns') { renderCamps(); renderCreatives(); }
   if (activeTab === 'finance') renderFin();
+  if (activeTab === 'clinicgrowth') renderCG();
   if (activeTab === 'reports') { renderReport(); renderStatsArchive(); }
   if (activeTab === 'settings') renderSettings();
 }
