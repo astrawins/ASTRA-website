@@ -1866,7 +1866,7 @@ $('btnSyncAll').onclick = async () => {
 /* ============ CLINIC DETAIL (χώρος πελάτη) ============ */
 let currentClinicId = null;
 let clSub = 'overview';
-const CL_SUBS = [['overview', 'Επισκόπηση'], ['crm', 'Ιστορικό & Επαφές'], ['leads', 'Leads'], ['archive', 'Αρχείο leads'], ['calendar', 'Ημερολόγιο'], ['stats', 'Στατιστικά'], ['docs', 'Έγγραφα']];
+const CL_SUBS = [['overview', 'Επισκόπηση'], ['crm', 'Ιστορικό & Επαφές'], ['leads', 'Leads'], ['archive', 'Αρχείο leads'], ['calendar', 'Ημερολόγιο'], ['stats', 'Στατιστικά'], ['money', 'Έσοδα & Έξοδα'], ['docs', 'Έγγραφα']];
 function showClinic(id, sub) {
   currentClinicId = id;
   if (sub) clSub = sub;
@@ -1935,6 +1935,7 @@ function renderClinicView() {
       : '<div class="card empty"><div class="big">Κανένα lead ακόμα</div>Σύνδεσε το Google Sheet της κλινικής ή πρόσθεσε χειροκίνητα με «+ Lead».</div>';
   }
   if (clSub === 'archive') body = archiveHTML(c);
+  if (clSub === 'money') body = clinicMoneyHTML(c);
   if (clSub === 'calendar') {
     const today = todayISO();
     const upcoming = ls.filter((l) => l.nextAction && l.nextAction >= today && !['won', 'lost'].includes(l.status))
@@ -2846,24 +2847,27 @@ $('finRcFile').addEventListener('change', async (e) => {
   catch (err) { toast(err.message); }
 });
 ['fqMonth', 'ffKindFilter'].forEach((i) => $(i).addEventListener('input', renderFin));
+$('btnFinAll').onclick = () => { finAll = !finAll; renderFin(); };
 let finDel = null;
 function monthRows(mk) { return S.fin.filter((f) => monthKey(f.date) === mk); }
+let finAll = false; // «Όλοι οι μήνες»: σύνολα και λίστα από την αρχή, αντί για έναν μήνα
 function renderFin() {
   const fq = $('fqMonth'); const opts = finMonths(); const cur = fq.value;
   fq.innerHTML = opts.map((m) => `<option value="${m}">${mLabel(m)}</option>`).join('');
   fq.value = cur && opts.includes(cur) ? cur : nowMonth();
   const mk = fq.value;
-  const inQ = monthRows(mk);
+  fq.disabled = finAll; $('btnFinAll').classList.toggle('primary', finAll); $('btnFinAll').textContent = finAll ? '✓ Όλοι οι μήνες' : 'Όλοι οι μήνες';
+  const inQ = finAll ? S.fin : monthRows(mk);
   const inc = inQ.filter((f) => f.kind === 'income'), exp = inQ.filter((f) => f.kind === 'expense');
   const sum = (a, k) => a.reduce((s, f) => s + (+f[k] || 0), 0);
   const vatOut = sum(inc, 'vat'), vatIn = exp.reduce((t, f) => t + deductibleVat(f), 0), vatDue = vatOut - vatIn; // εστίαση/διαμονή: ΦΠΑ μη εκπιπτόμενος
   const cloud = CONFIG.backend === 'supabase';
   const noRc = exp.filter((f) => !driveLink(f.receiptLink)).length;
   $('finTiles').innerHTML = `
-    <div class="tile"><div class="lb">Έσοδα (καθαρά)</div><div class="v">${eur(sum(inc, 'net'))}</div><div class="d">${inc.length} εγγραφές</div></div>
-    <div class="tile"><div class="lb">Έξοδα (καθαρά)</div><div class="v">${eur(sum(exp, 'net'))}</div><div class="d">${exp.length} εγγραφές${cloud && noRc ? ` · <span class="neg">${noRc} χωρίς παραστατικό</span>` : ''}</div></div>
+    <div class="tile"><div class="lb">Έσοδα (καθαρά)${finAll ? ' · όλοι οι μήνες' : ''}</div><div class="v">${eur(sum(inc, 'net'))}</div><div class="d">${inc.length} εγγραφές</div></div>
+    <div class="tile"><div class="lb">Έξοδα (καθαρά)${finAll ? ' · όλοι οι μήνες' : ''}</div><div class="v">${eur(sum(exp, 'net'))}</div><div class="d">${exp.length} εγγραφές${cloud && noRc ? ` · <span class="neg">${noRc} χωρίς παραστατικό</span>` : ''}</div></div>
     <div class="tile"><div class="lb">Αποτέλεσμα</div><div class="v ${sum(inc, 'net') - sum(exp, 'net') >= 0 ? 'pos' : 'neg'}">${eur(sum(inc, 'net') - sum(exp, 'net'))}</div><div class="d">προ φόρων</div></div>
-    <div class="tile"><div class="lb">ΦΠΑ εκροών − εισροών</div><div class="v ${vatDue > 0 ? 'neg' : 'pos'}">${eur(vatDue)}</div><div class="d">${vatDue > 0 ? 'για απόδοση' : 'πιστωτικό'} τον μήνα</div></div>`;
+    <div class="tile"><div class="lb">ΦΠΑ εκροών − εισροών</div><div class="v ${vatDue > 0 ? 'neg' : 'pos'}">${eur(vatDue)}</div><div class="d">${vatDue > 0 ? 'για απόδοση' : 'πιστωτικό'} ${finAll ? 'συνολικά' : 'τον μήνα'}</div></div>`;
   const ae = apptEarnings(mk);
   $('finApptTiles').innerHTML = `
     <div class="tile"><div class="lb">Κέρδη από ραντεβού που έγιναν · σύνολο</div><div class="v pos">${eur(ae.total)}</div><div class="d">${ae.n} ραντεβού από την αρχή · χωρίς ΦΠΑ${ae.ad ? ` · αφαιρέθηκαν ${eur(ae.ad)} διαφήμιση που πληρώνουμε εμείς` : ''}</div></div>
@@ -2881,9 +2885,12 @@ function renderFin() {
   if (!S.fin.length) {
     el.innerHTML = '<div class="empty"><div class="big">Καμία εγγραφή ακόμα</div>Καταχώρησε έσοδα (αμοιβές κλινικών) και έξοδα με τον ΦΠΑ τους — ο μήνας κλείνει μόνος του: σύνολα, αποτέλεσμα και ΦΠΑ για απόδοση. Οι σταθερές χρεώσεις μπαίνουν μία φορά στις «Πάγιες εγγραφές».</div>';
   } else if (!rows.length) {
-    el.innerHTML = '<div class="empty">Καμία εγγραφή σε αυτόν τον μήνα.</div>';
+    el.innerHTML = '<div class="empty">Καμία εγγραφή ' + (finAll ? 'ακόμη.' : 'σε αυτόν τον μήνα.') + '</div>';
   } else {
-    el.innerHTML = '<table><thead><tr><th>Ημ/νία</th><th>Τύπος</th><th>Κατηγορία</th><th>Περιγραφή</th><th>Κλινική</th><th class="num">Καθαρό</th><th class="num">ΦΠΑ</th><th class="num">Μικτό</th>' + (cloud ? '<th>Παραστατικό</th>' : '') + '<th></th></tr></thead><tbody>'
+    const byMonth = !finAll ? '' : '<table style="margin-bottom:18px"><thead><tr><th>Μήνας</th><th class="num">Έσοδα</th><th class="num">Έξοδα</th><th class="num">Αποτέλεσμα</th><th class="num">ΦΠΑ εκροών − εισροών</th></tr></thead><tbody>'
+      + finMonths().map((m) => { const r = monthRows(m); const i = r.filter((f) => f.kind === 'income'), x = r.filter((f) => f.kind === 'expense'); const a = sum(i, 'net'), b = sum(x, 'net'), v = sum(i, 'vat') - x.reduce((t, f) => t + deductibleVat(f), 0); return r.length ? `<tr><td>${mLabel(m)}</td><td class="num">${eur(a)}</td><td class="num">${eur(b)}</td><td class="num"><b class="${a - b >= 0 ? '' : 'neg'}">${eur(a - b)}</b></td><td class="num">${eur(v)}</td></tr>` : ''; }).join('')
+      + `<tr><td><b>Σύνολο</b></td><td class="num"><b>${eur(sum(inc, 'net'))}</b></td><td class="num"><b>${eur(sum(exp, 'net'))}</b></td><td class="num"><b>${eur(sum(inc, 'net') - sum(exp, 'net'))}</b></td><td class="num"><b>${eur(vatDue)}</b></td></tr></tbody></table>`;
+    el.innerHTML = byMonth + '<table><thead><tr><th>Ημ/νία</th><th>Τύπος</th><th>Κατηγορία</th><th>Περιγραφή</th><th>Κλινική</th><th class="num">Καθαρό</th><th class="num">ΦΠΑ</th><th class="num">Μικτό</th>' + (cloud ? '<th>Παραστατικό</th>' : '') + '<th></th></tr></thead><tbody>'
       + rows.map((f) => {
         const c = clinicById(f.clinicId);
         const rc = !cloud ? '' : '<td>' + (driveLink(f.receiptLink)
@@ -3144,6 +3151,39 @@ const billDate = (l) => String(l.attendedAt || l.saleDate || l.createdTime || ''
 /* Κέρδη Astra από ραντεβού που ΕΓΙΝΑΝ (στάδιο «Πελάτης»), ανά κλινική με το μοντέλο της:
    αμοιβή ανά ραντεβού (50 % καθαρής αξίας αν υπάρχει ποσό, αλλιώς πακέτο/σταθερή αμοιβή) ή ποσοστό επί πωλήσεων.
    «Εισπράχθηκαν» = εβδομαδιαίες χρεώσεις με κατάσταση «Πληρώθηκε». Το σύνολο είναι από την αρχή της συνεργασίας. */
+/* Κλινική → «Έσοδα & Έξοδα»: όλοι οι μήνες μαζί. Έσοδα Astra = αμοιβές από ραντεβού που έγιναν (ή μερίδιο πωλήσεων),
+   Έξοδα Astra = η διαφήμιση που πληρώνουμε εμείς (clinics.spend_share < 100)· ίδιος υπολογισμός με τα «Κέρδη από ραντεβού» των Οικονομικών. */
+function clinicMoneyHTML(c) {
+  const share = isShare(c);
+  const booked = S.leads.filter((l) => l.clinicId === c.id && isBooked(l) && (!share || (+l.amount || 0) > 0));
+  const when = (l) => monthKey(share ? (l.saleDate || l.createdTime) : billDate(l));
+  const net = (ls) => (share ? shareNet(c, ls) : sumFees(c, ls));
+  const camps = S.camps.filter((x) => x.clinicId === c.id);
+  const fin = S.fin.filter((f) => f.clinicId === c.id);
+  const months = [...new Set([...booked.map(when), ...camps.map((x) => x.month), ...fin.map((f) => monthKey(f.date))].filter(Boolean))].sort().reverse();
+  const sumNet = (rows, kind) => +rows.filter((f) => f.kind === kind).reduce((t, f) => t + (+f.net || 0), 0).toFixed(2);
+  const row = (ok) => {
+    const ls = booked.filter((l) => ok(when(l))); const fees = +net(ls).toFixed(2); const our = ourAdSpend(c, ok);
+    const adAll = +(camps.filter((x) => ok(x.month)).reduce((t, x) => t + (+x.spend || 0), 0) / shareOf(c)).toFixed(2);
+    const fm = fin.filter((f) => ok(monthKey(f.date))); const exp = sumNet(fm, 'expense');
+    return { n: ls.length, fees, our, adAll, exp, inv: sumNet(fm, 'income'), profit: +(fees - our - exp).toFixed(2) };
+  };
+  const T = row(() => true);
+  const paid = +S.billing.filter((b) => b.clinicId === c.id && b.payStatus === 'paid').reduce((t, b) => t + (+b.total || 0), 0).toFixed(2);
+  const neg = (v) => (v ? `<span class="neg">−${eur(v)}</span>` : '—');
+  const tr = (label, r, bold) => { const w = (x) => (bold ? `<b>${x}</b>` : x); return `<tr><td>${w(label)}</td><td class="num">${w(r.n)}</td><td class="num">${w(eur(r.fees))}</td><td class="num">${neg(r.our + r.exp)}</td><td class="num"><b class="${r.profit >= 0 ? '' : 'neg'}">${eur(r.profit)}</b></td><td class="num">${r.inv ? eur(r.inv) : '—'}</td><td class="num">${r.adAll ? eur(r.adAll) : '—'}</td></tr>`; };
+  const list = [...fin].sort((a, b) => String(b.date).localeCompare(String(a.date)));
+  return `<div class="tiles section">
+      <div class="tile"><div class="lb">Έσοδα Astra · σύνολο</div><div class="v pos">${eur(T.fees)}</div><div class="d">${T.n} ραντεβού που έγιναν · χωρίς ΦΠΑ</div></div>
+      <div class="tile"><div class="lb">Έξοδα Astra · σύνολο</div><div class="v ${T.our + T.exp ? 'neg' : ''}">${eur(T.our + T.exp)}</div><div class="d">${shareOf(c) < 1 ? Math.round(shareOf(c) * 100) + '% της διαφήμισης το πληρώνουμε εμείς' : 'τη διαφήμιση την πληρώνει η κλινική'}</div></div>
+      <div class="tile"><div class="lb">Κέρδος Astra · σύνολο</div><div class="v ${T.profit >= 0 ? 'pos' : 'neg'}">${eur(T.profit)}</div><div class="d">έσοδα − έξοδα, όλοι οι μήνες</div></div>
+      <div class="tile"><div class="lb">Έχουν εισπραχθεί</div><div class="v">${eur(paid)}</div><div class="d">από τις εκκαθαρίσεις, με ΦΠΑ</div></div>
+    </div>
+    <h3 class="sectionhead">Ανά μήνα <span class="chip plain">${months.length} ${months.length === 1 ? 'μήνας' : 'μήνες'}</span></h3>
+    <div class="card tablewrap section">${months.length ? `<table><thead><tr><th>Μήνας</th><th class="num">Ραντεβού που έγιναν</th><th class="num">Έσοδα Astra</th><th class="num">Έξοδα Astra</th><th class="num">Κέρδος Astra</th><th class="num">Χρεώσεις στα Οικονομικά</th><th class="num">Διαφήμιση Meta (όλη)</th></tr></thead><tbody>${months.map((m) => tr(mLabel(m), row((k) => k === m))).join('')}${tr('Σύνολο', T, true)}</tbody></table>` : '<div class="empty">Δεν υπάρχουν ακόμη έσοδα ή έξοδα για αυτή την κλινική.</div>'}</div>
+    <h3 class="sectionhead">Εγγραφές στα Οικονομικά για την κλινική <span class="chip plain">${list.length}</span></h3>
+    <div class="card tablewrap">${list.length ? `<table><thead><tr><th>Ημ/νία</th><th>Τύπος</th><th>Κατηγορία</th><th>Περιγραφή</th><th class="num">Καθαρό</th><th class="num">Μικτό</th></tr></thead><tbody>${list.map((f) => `<tr><td class="mono">${new Date(f.date).toLocaleDateString('el-GR', { day: '2-digit', month: '2-digit', year: '2-digit' })}</td><td><span class="chip ${f.kind === 'income' ? 'won' : 'lost'}">${f.kind === 'income' ? 'Έσοδο' : 'Έξοδο'}</span></td><td>${esc(f.category || '')}</td><td>${esc(f.description || '')}</td><td class="num">${eur(f.net)}</td><td class="num"><b>${eur(f.gross)}</b></td></tr>`).join('')}</tbody></table>` : '<div class="empty">Καμία εγγραφή στα Οικονομικά δεν είναι δεμένη με αυτή την κλινική.</div>'}</div>`;
+}
 function apptEarnings(mk) {
   const rows = S.clinics.map((c) => {
     const share = isShare(c);
