@@ -4409,12 +4409,12 @@ const cgReached = (l, sts) => sts.includes(l.status);
 /* Διαφημιστική δαπάνη: έρχεται μόνη της από την καμπάνια Meta της clinicgrowth («WEBSITE 5.0», act_1425318201834932) —
    μία εγγραφή εξόδου ανά ημέρα (id cgmeta-ΗΜΕΡΑ), που ενημερώνεται όσο αλλάζει το ποσό. Ένα ερώτημα το πολύ κάθε 30′. */
 const CG_CAMPAIGN = { id: '120247525340380705', name: 'WEBSITE 5.0' };
-let cgMetaBusy = false, cgMetaErr = '';
+let cgMetaBusy = false, cgMetaErr = '', cgMetaTried = 0;
 const cgMetaLast = () => { try { return +localStorage.getItem('cg-meta-sync') || 0; } catch { return 0; } };
 async function cgMetaSync(force) {
   const tok = SET().metaToken; if (!tok || cgMetaBusy || CONFIG.backend !== 'supabase') return;
-  if (!force && Date.now() - cgMetaLast() < 30 * 60000) return;
-  cgMetaBusy = true; cgMetaErr = '';
+  if (!force && Date.now() - Math.max(cgMetaLast(), cgMetaTried) < 30 * 60000) return;
+  cgMetaBusy = true; cgMetaErr = ''; cgMetaTried = Date.now();   // και σε σφάλμα: όχι νέα προσπάθεια σε κάθε render
   try {
     const r = await fetch(`https://graph.facebook.com/v21.0/${CG_CAMPAIGN.id}/insights?fields=spend&time_increment=1&date_preset=maximum&limit=500&access_token=${encodeURIComponent(tok)}`);
     const j = await r.json(); if (j.error) throw new Error(j.error.message || 'σφάλμα Meta');
