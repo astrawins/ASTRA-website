@@ -4406,6 +4406,28 @@ const CG_CATS = { expense: ['Διαφήμιση Meta', 'Εργαλεία / hosti
 const cgMonthOfLead = (l) => monthKey(l.createdAt);
 const cgWonMonth = (l) => monthKey(l.closedAt || l.updatedAt || l.createdAt);
 const cgReached = (l, sts) => sts.includes(l.status);
+/* Διαφημιστική δαπάνη: έρχεται μόνη της από την καμπάνια Meta της clinicgrowth («WEBSITE 5.0», act_1425318201834932) —
+   μία εγγραφή εξόδου ανά ημέρα (id cgmeta-ΗΜΕΡΑ), που ενημερώνεται όσο αλλάζει το ποσό. Ένα ερώτημα το πολύ κάθε 30′. */
+const CG_CAMPAIGN = { id: '120247525340380705', name: 'WEBSITE 5.0' };
+let cgMetaBusy = false, cgMetaErr = '';
+const cgMetaLast = () => { try { return +localStorage.getItem('cg-meta-sync') || 0; } catch { return 0; } };
+async function cgMetaSync(force) {
+  const tok = SET().metaToken; if (!tok || cgMetaBusy || CONFIG.backend !== 'supabase') return;
+  if (!force && Date.now() - cgMetaLast() < 30 * 60000) return;
+  cgMetaBusy = true; cgMetaErr = '';
+  try {
+    const r = await fetch(`https://graph.facebook.com/v21.0/${CG_CAMPAIGN.id}/insights?fields=spend&time_increment=1&date_preset=maximum&limit=500&access_token=${encodeURIComponent(tok)}`);
+    const j = await r.json(); if (j.error) throw new Error(j.error.message || 'σφάλμα Meta');
+    for (const d of j.data || []) {
+      const amount = +(+d.spend || 0).toFixed(2); const id = 'cgmeta-' + d.date_start; const ex = S.cgFin.find((x) => x.id === id);
+      if (ex) { if (+ex.amount !== amount) { ex.amount = amount; await data.update('cg_finance', id, { amount }); } }
+      else if (amount > 0) S.cgFin.unshift(await data.create('cg_finance', { date: d.date_start, kind: 'expense', category: 'Διαφήμιση Meta', description: CG_CAMPAIGN.name + ' · αυτόματα από Meta', amount }, id));
+    }
+    try { localStorage.setItem('cg-meta-sync', String(Date.now())); } catch { /* storage blocked */ }
+  } catch (e) { cgMetaErr = e.message; }
+  cgMetaBusy = false;
+  if (activeTab === 'clinicgrowth') safeRender();
+}
 function updateCGBadge() {
   const el = $('cgCount'); if (!el) return;
   const n = S.cgLeads.filter((l) => l.status === 'neo').length;
@@ -4467,8 +4489,12 @@ function renderCG() {
       <td><span class="chip ${f.kind === 'income' ? 'won' : 'lost'}">${f.kind === 'income' ? 'Έσοδο' : 'Έξοδο'}</span></td>
       <td>${esc(f.category || '')}</td><td>${esc(f.description || '')}${f.auto && !f.amount ? ' <span class="tmeta">— βάλε «Αξία πώλησης» στο lead</span>' : ''}</td>
       <td class="num">${eur(+f.amount || 0)}</td>
-      <td>${f.auto ? '<span class="tmeta">από lead</span>' : '<button class="btn small" data-cgfdel title="Διαγραφή εγγραφής">✕</button>'}</td></tr>`).join('')}</tbody></table>`
+      <td>${f.auto ? '<span class="tmeta">από lead</span>' : String(f.id).startsWith('cgmeta-') ? '<span class="tmeta">από Meta</span>' : '<button class="btn small" data-cgfdel title="Διαγραφή εγγραφής">✕</button>'}</td></tr>`).join('')}</tbody></table>`
     : '<div class="empty" style="padding:18px">Καμία εγγραφή. Πρόσθεσε εδώ τη διαφημιστική δαπάνη και τα υπόλοιπα έξοδα της clinicgrowth· οι πωλήσεις μπαίνουν μόνες τους όταν ένα lead γίνει «Πελάτης».</div>';
+  const last = cgMetaLast(); const note = $('cgMetaNote');
+  note.textContent = cgMetaErr ? 'Meta: ' + cgMetaErr : SET().metaToken ? `Διαφήμιση: καμπάνια «${CG_CAMPAIGN.name}»${last ? ' · ενημέρωση ' + new Date(last).toLocaleTimeString('el-GR', { hour: '2-digit', minute: '2-digit' }) : ''}` : '';
+  note.style.display = note.textContent ? '' : 'none';
+  cgMetaSync(false);
   /* ανά μήνα */
   const rows = [...months].map((m) => { const x = cgStats((k) => k === m); return [mLabel(m), x.leads.length, x.won.length, eur(x.income), eur(x.exp), `<b>${eur(x.profit)}</b>`]; });
   $('cgMonths').innerHTML = csTable(['Μήνας', 'Leads', 'Πελάτες', 'Έσοδα', 'Έξοδα', 'Κέρδος'], S.cgLeads.length || S.cgFin.length ? rows : []);
@@ -4498,6 +4524,7 @@ $('tab-clinicgrowth').addEventListener('click', async (e) => {
   if (t.id === 'cgCancelLead') { $('cgLeadForm').hidden = true; return; }
   if (t.id === 'cgBtnFin') { $('cgFinForm').hidden = !$('cgFinForm').hidden; if (!$('cgFinForm').hidden) { cgFillCats(); if (!$('cgf_date').value) $('cgf_date').value = todayISO(); } return; }
   if (t.id === 'cgCancelFin') { $('cgFinForm').hidden = true; return; }
+  if (t.id === 'cgBtnMeta') { toast('Ενημέρωση δαπάνης από Meta…'); await cgMetaSync(true); toast(cgMetaErr ? 'Meta: ' + cgMetaErr : 'Η δαπάνη Meta ενημερώθηκε ✓'); return; }
   if (t.id === 'cgSaveLead') {
     const name = $('cgl_name').value.trim(); if (!name) { toast('Γράψε όνομα.'); return; }
     const now = new Date().toISOString();
