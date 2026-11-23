@@ -1447,12 +1447,14 @@ $('ev_start').addEventListener('change', () => {
   }
 });
 let editEventId = null;
-function openEventModal(ev, presetDate) {
+let cgMeetLead = null; // lead της clinicgrowth για το οποίο κλείνεται meeting από το ανοιχτό modal
+function openEventModal(ev, presetDate, preset) {
+  cgMeetLead = preset && preset.cgLead ? preset.cgLead : null;
   if (!gcalKey()) { toast('Σύνδεσε πρώτα το Google Calendar στις Ρυθμίσεις (API key).'); return; }
   if (!gcalClient()) { toast('Για δημιουργία/αλλαγή συμβάντων χρειάζεται OAuth Client ID στις Ρυθμίσεις.'); return; }
   editEventId = ev ? ev.id : null;
-  $('evTitle').textContent = ev ? 'Επεξεργασία συμβάντος' : 'Νέο συμβάν';
-  $('ev_title').value = ev ? ev.title : '';
+  $('evTitle').textContent = ev ? 'Επεξεργασία συμβάντος' : preset ? 'Νέο meeting' : 'Νέο συμβάν';
+  $('ev_title').value = ev ? ev.title : preset ? preset.title : '';
   $('ev_date').value = ev ? ev.date : (presetDate || todayISO());
   fillTimeSelect($('ev_start'), ev ? ev.start : '', '— (ολοήμερο)');
   fillTimeSelect($('ev_end'), ev ? ev.end : '', '—');
@@ -1461,10 +1463,14 @@ function openEventModal(ev, presetDate) {
   let phone = '';
   const pm = notes.match(/^Τηλ:\s*(.+)$/m);
   if (pm) { phone = pm[1].trim(); notes = notes.replace(/^Τηλ:.*$/m, '').trim(); }
+  if (!ev && preset) {
+    notes = preset.desc || ''; phone = preset.phone || '';
+    fillTimeSelect($('ev_start'), preset.start || '', '— (ολοήμερο)'); fillTimeSelect($('ev_end'), preset.end || '', '—');
+  }
   $('ev_desc').value = notes;
   $('ev_phone').value = phone;
-  $('ev_email').value = ev && ev.attendees ? ev.attendees.join(', ') : '';
-  $('ev_meet').checked = !!(ev && ev.meet);
+  $('ev_email').value = ev && ev.attendees ? ev.attendees.join(', ') : preset ? (preset.email || '') : '';
+  $('ev_meet').checked = ev ? !!ev.meet : !!(preset && preset.meet);
   const ml = $('evMeetLink');
   ml.hidden = !(ev && ev.meet);
   if (ev && ev.meet) ml.innerHTML = `Meet: <a href="${esc(ev.meet)}" target="_blank" rel="noopener">${esc(ev.meet)}</a> <button class="copybtn" data-copy="${esc(ev.meet)}" title="Αντιγραφή">${COPY_ICON}</button>`;
@@ -1488,10 +1494,10 @@ $('evSave').onclick = async () => {
   };
   $('evSave').disabled = true;
   try {
-    if (editEventId) await gcal.patchEvent(gcalClient(), gcalId(), editEventId, ev);
-    else await gcal.createEvent(gcalClient(), gcalId(), ev);
+    const saved = editEventId ? await gcal.patchEvent(gcalClient(), gcalId(), editEventId, ev) : await gcal.createEvent(gcalClient(), gcalId(), ev);
     invalidateGcal(monthKey(ev.date)); invalidateGcal(calMonthKey());
     $('evModal').hidden = true;
+    await cgMeetingSaved(ev, saved);
     toast(editEventId ? 'Το συμβάν ενημερώθηκε στο Google Calendar.' : 'Το συμβάν δημιουργήθηκε στο Google Calendar.');
     renderCalendar();
     if (activeTab === 'today') renderToday();
@@ -1505,6 +1511,7 @@ $('evDelete').onclick = async () => {
   b.disabled = true;
   try {
     await gcal.deleteEvent(gcalClient(), gcalId(), editEventId);
+    await cgMeetingDeleted(editEventId);
     invalidateGcal(calMonthKey()); invalidateGcal(nowMonth()); invalidateGcal(monthKey(addDays(1)));
     $('evModal').hidden = true;
     toast('Το συμβάν διαγράφηκε από το Google Calendar.');
@@ -4511,10 +4518,11 @@ function renderCG() {
   /* leads */
   $('cgLeadsN').textContent = n;
   const when = (d) => new Date(d).toLocaleString('el-GR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
-  $('cgLeadTable').innerHTML = n ? `<table><thead><tr><th>Ήρθε</th><th>Όνομα</th><th>Επικοινωνία</th><th>Στάδιο</th><th class="num">Αξία πώλησης €</th><th>Σημειώσεις</th><th></th></tr></thead><tbody>${st.leads.map((l) => `<tr data-cg="${esc(l.id)}">
+  $('cgLeadTable').innerHTML = n ? `<table><thead><tr><th>Ήρθε</th><th>Όνομα</th><th>Επικοινωνία</th><th>Meeting</th><th>Στάδιο</th><th class="num">Αξία πώλησης €</th><th>Σημειώσεις</th><th></th></tr></thead><tbody>${st.leads.map((l) => `<tr data-cg="${esc(l.id)}">
       <td style="white-space:nowrap">${when(l.createdAt)}</td>
       <td><b>${esc(l.name || '—')}</b>${l.source ? `<div class="tmeta">${esc(l.source)}</div>` : ''}</td>
-      <td>${telLink(l.phone)}${l.email ? `<div class="tmeta"><a href="mailto:${esc(l.email)}">${esc(l.email)}</a></div>` : ''}</td>
+      <td style="white-space:nowrap">${l.phone ? `${telLink(l.phone)} <button class="copybtn" data-copy="${esc(l.phone)}" title="Αντιγραφή τηλεφώνου" aria-label="Αντιγραφή τηλεφώνου">${COPY_ICON}</button>` : ''}${l.email ? `<div class="tmeta"><a href="mailto:${esc(l.email)}">${esc(l.email)}</a> <button class="copybtn" data-copy="${esc(l.email)}" title="Αντιγραφή email" aria-label="Αντιγραφή email">${COPY_ICON}</button></div>` : ''}</td>
+      <td style="white-space:nowrap">${l.meetingAt ? `<button class="btn small" data-cgmeet title="Αλλαγή ή ακύρωση meeting">📅 ${cgMeetLabel(l.meetingAt)}</button>${l.meetingLink ? `<div class="tmeta"><a href="${esc(l.meetingLink)}" target="_blank" rel="noopener">Meet ↗</a> <button class="copybtn" data-copy="${esc(l.meetingLink)}" title="Αντιγραφή συνδέσμου Meet" aria-label="Αντιγραφή συνδέσμου Meet">${COPY_ICON}</button></div>` : ''}` : '<button class="btn small" data-cgmeet title="Κλείσε meeting στο ημερολόγιο">📅 Κλείσε meeting</button>'}</td>
       <td><select data-cgst aria-label="Στάδιο">${CG_ST.map(([k, label]) => `<option value="${k}"${k === l.status ? ' selected' : ''}>${label}</option>`).join('')}</select></td>
       <td class="num"><input class="amt" data-cgamt inputmode="decimal" aria-label="Αξία πώλησης" value="${+l.amount ? String(+l.amount).replace('.', ',') : ''}" placeholder="—"></td>
       <td><input class="note" data-cgnote aria-label="Σημειώσεις" value="${esc(l.notes || '')}"></td>
@@ -4538,6 +4546,38 @@ function renderCG() {
   /* ανά μήνα */
   const rows = [...months].map((m) => { const x = cgStats((k) => k === m); return [mLabel(m), x.leads.length, x.won.length, eur(x.income), eur(x.exp), `<b>${eur(x.profit)}</b>`]; });
   $('cgMonths').innerHTML = csTable(['Μήνας', 'Leads', 'Πελάτες', 'Έσοδα', 'Έξοδα', 'Κέρδος'], S.cgLeads.length || S.cgFin.length ? rows : []);
+}
+/* Meeting παρουσίασης: ανοίγει το ίδιο modal με το Ημερολόγιο (πραγματικό Google Calendar, πρόσκληση στο email του lead, Meet).
+   Στο lead κρατάμε πότε είναι, το id του συμβάντος (για αλλαγή/ακύρωση) και τον σύνδεσμο Meet. */
+function cgMeetLabel(iso) {
+  const d = new Date(iso); const allDay = d.getHours() === 0 && d.getMinutes() === 0;
+  return d.toLocaleString('el-GR', allDay ? { weekday: 'short', day: 'numeric', month: 'short' } : { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', hour12: false });
+}
+async function cgOpenMeeting(l) {
+  if (l.meetingEventId) {
+    const mk = monthKey(l.meetingAt);
+    let ev = Object.values(gcalCache).filter(Array.isArray).flat().find((x) => x.id === l.meetingEventId);
+    if (!ev) { try { ev = (await gcal.listEvents({ apiKey: gcalKey(), clientId: gcalClient() }, gcalId(), mk)).find((x) => x.id === l.meetingEventId); } catch { /* ανοίγει νέο από κάτω */ } }
+    if (ev) { openEventModal(ev, null, { cgLead: l.id }); return; }
+  }
+  const d = l.meetingAt ? new Date(l.meetingAt) : null; const p2 = (x) => String(x).padStart(2, '0');
+  openEventModal(null, d ? `${d.getFullYear()}-${p2(d.getMonth() + 1)}-${p2(d.getDate())}` : addDays(1), {
+    cgLead: l.id, title: 'clinicgrowth · ' + (l.name || 'lead') + ' — παρουσίαση', phone: l.phone || '', email: l.email || '', meet: true,
+    start: d && (d.getHours() || d.getMinutes()) ? `${p2(d.getHours())}:${p2(d.getMinutes())}` : '', desc: l.notes || '',
+  });
+}
+async function cgMeetingSaved(ev, saved) {
+  const id = cgMeetLead; cgMeetLead = null;
+  const l = id ? S.cgLeads.find((x) => x.id === id) : S.cgLeads.find((x) => x.meetingEventId && saved && x.meetingEventId === saved.id);
+  if (!l) return;
+  const patch = { meetingAt: new Date(`${ev.date}T${ev.start || '00:00'}:00`).toISOString(), meetingEventId: (saved && saved.id) || l.meetingEventId || null, meetingLink: ev.meet ? ((saved && saved.hangoutLink) || l.meetingLink || null) : null };
+  if (['neo', 'noans', 'talk'].includes(l.status)) patch.status = 'call';
+  await cgPatchLead(l.id, patch);
+}
+async function cgMeetingDeleted(eventId) {
+  cgMeetLead = null;
+  const l = S.cgLeads.find((x) => x.meetingEventId === eventId); if (!l) return;
+  await cgPatchLead(l.id, { meetingAt: null, meetingEventId: null, meetingLink: null });
 }
 async function cgPatchLead(id, patch) {
   const l = S.cgLeads.find((x) => x.id === id); if (!l) return;
@@ -4582,6 +4622,8 @@ $('tab-clinicgrowth').addEventListener('click', async (e) => {
     } catch (err) { toast('Δεν αποθηκεύτηκε: ' + err.message); }
     return;
   }
+  const meet = t.closest('[data-cgmeet]');
+  if (meet) { const l = S.cgLeads.find((x) => x.id === meet.closest('tr').dataset.cg); if (l) cgOpenMeeting(l); return; }
   const del = t.closest('[data-cgdel]'); const fdel = t.closest('[data-cgfdel]');
   if (del) {
     const id = del.closest('tr').dataset.cg; const l = S.cgLeads.find((x) => x.id === id);
